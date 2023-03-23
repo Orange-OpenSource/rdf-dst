@@ -1,8 +1,9 @@
 from datasets import load_from_disk, dataset_dict
 import pytorch_lightning as pl
+import torch
 from pytorch_lightning import LightningDataModule
 from transformers import AutoTokenizer
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 
 from utils.predata_collate import PreDataCollator
 import logging
@@ -68,7 +69,11 @@ class DialogueRDFData(LightningDataModule):
         else:
             raise Exception("No data splits provided")
 
-    def setup(self):
+    def setup(self, subsetting=True):
+        """
+
+        Added subsetting option to use fewer data points for debugging purposes
+        """
 
         size_data = len(self.data_for_model)
         if size_data == 1:
@@ -86,9 +91,23 @@ class DialogueRDFData(LightningDataModule):
             test_dataset = self.data_for_model['test']
             dev_dataset = self.data_for_model['dev']
 
+        logging.info(train_dataset)
+        logging.info(test_dataset)
+        logging.info(dev_dataset)
+        if subsetting:
+            og_set = train_dataset[0]['labels'][:70]
+            train_dataset = Subset(train_dataset, range(200))
+            test_dataset = Subset(test_dataset, range(10))
+            dev_dataset = Subset(dev_dataset, range(70))
+
+            new_set = train_dataset[0]['labels'][:70]
+            compare_tensors = torch.all(torch.eq(og_set, new_set))
+            assert compare_tensors, "Subset does not correspond to original dataset"
         self.train_dataset = train_dataset
         self.test_dataset = test_dataset
         self.dev_dataset = dev_dataset
+
+
 
         #INFO collate_fn was passed to datasets and not loaders in prepare_data
 

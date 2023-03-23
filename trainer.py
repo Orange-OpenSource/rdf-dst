@@ -1,6 +1,6 @@
 import pytorch_lightning as pl
 from pytorch_lightning import LightningModule
-from torch.optim import Adam
+from torch.optim import AdamW
 
 import logging
 
@@ -45,5 +45,5 @@ class RDFDialogueStateModel(LightningModule):
 
     def configure_optimizers(self):
         lr = self.lr
-        optimizer = Adam(self.parameters(), lr=lr)
+        optimizer = AdamW(self.parameters(), lr=lr)
         return optimizer
