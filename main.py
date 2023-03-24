@@ -14,14 +14,14 @@ lr = 1e-3
 
 #model = AutoModel.from_pretrained("google/flan-t5-small")  # decoder_inputs and shift right instead of conditional generation. See documentation. Conditional generation does work with labels tho
 model = T5ForConditionalGeneration.from_pretrained("google/flan-t5-small")
-tok = AutoTokenizer.from_pretrained("google/flan-t5-small", extra_ids=0) 
-san_francisco = DialogueRDFData(tokenizer=tok)
+tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-small", extra_ids=0) 
+san_francisco = DialogueRDFData(tokenizer=tokenizer)
 san_francisco.prepare_data()
-san_francisco.setup()
+san_francisco.setup(subsetting=True)
 train_dataloader = san_francisco.train_dataloader()
 test_dataloader = san_francisco.test_dataloader()
 val_dataloader = san_francisco.val_dataloader()
-pl_model = RDFDialogueStateModel(model, lr)
+pl_model = RDFDialogueStateModel(model, tokenizer, lr)
 trainer = pl.Trainer(max_epochs=2, devices='auto', accelerator='cpu')
 #trainer.tune  # tune before training to find lr??? Hyperparameter tuning!
 #trainer.fit(pl_model, train_dataloaders=train_dataloader, val_dataloaders=val_dataloader,

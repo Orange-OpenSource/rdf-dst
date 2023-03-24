@@ -7,3 +7,5 @@ datasets==2.10.1
 p2j==1.3.2
 torchvision==0.14.1
 sentencepiece==0.1.97
+evaluate==0.4.0
+scikit-learn==1.2.2

@@ -95,12 +95,12 @@ class DialogueRDFData(LightningDataModule):
         logging.info(test_dataset)
         logging.info(dev_dataset)
         if subsetting:
-            og_set = train_dataset[0]['labels'][:70]
+            og_set = train_dataset[0]['labels'][:50]
             train_dataset = Subset(train_dataset, range(200))
             test_dataset = Subset(test_dataset, range(10))
             dev_dataset = Subset(dev_dataset, range(70))
 
-            new_set = train_dataset[0]['labels'][:70]
+            new_set = train_dataset[0]['labels'][:50]
             compare_tensors = torch.all(torch.eq(og_set, new_set))
             assert compare_tensors, "Subset does not correspond to original dataset"
         self.train_dataset = train_dataset
