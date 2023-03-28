@@ -18,9 +18,11 @@ class DialogueRDFData(LightningDataModule):
     user utterance to yield new state?
     """
 
-    def __init__(self, tokenizer, data_dir: str='../san-fran-tito/', batch_size: int=6, data_type='SF'):
+    def __init__(self, tokenizer, 
+                 max_len: int, data_dir: str,
+                 batch_size: int=6, data_type: str='SF'):
         super().__init__()
-        self.max_len = 512
+        self.max_len = max_len
         self.data_dir = data_dir
         self.data_type = data_type
         self.tokenizer = tokenizer
@@ -91,14 +93,11 @@ class DialogueRDFData(LightningDataModule):
             test_dataset = self.data_for_model['test']
             dev_dataset = self.data_for_model['dev']
 
-        logging.info(train_dataset)
-        logging.info(test_dataset)
-        logging.info(dev_dataset)
         if subsetting:
             og_set = train_dataset[0]['labels'][:50]
-            train_dataset = Subset(train_dataset, range(200))
-            test_dataset = Subset(test_dataset, range(10))
-            dev_dataset = Subset(dev_dataset, range(70))
+            train_dataset = Subset(train_dataset, range(100))
+            test_dataset = Subset(test_dataset, range(5))
+            dev_dataset = Subset(dev_dataset, range(35))
 
             new_set = train_dataset[0]['labels'][:50]
             compare_tensors = torch.all(torch.eq(og_set, new_set))
@@ -111,14 +110,15 @@ class DialogueRDFData(LightningDataModule):
 
         #INFO collate_fn was passed to datasets and not loaders in prepare_data
 
+    #TODO: change workers to 12 when testing with gpu
     def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=16, num_workers=12)
+        return DataLoader(self.train_dataset, batch_size=16, num_workers=2)
 
     def val_dataloader(self):
-        return DataLoader(self.dev_dataset, batch_size=16, num_workers=12)
+        return DataLoader(self.dev_dataset, batch_size=16, num_workers=2)
 
     def test_dataloader(self):
-        return DataLoader(self.test_dataset, batch_size=16, num_workers=12)
+        return DataLoader(self.test_dataset, batch_size=16, num_workers=2)
 
     def flatten_data(self, dataset, headers):
         """

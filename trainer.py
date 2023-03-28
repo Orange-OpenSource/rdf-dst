@@ -23,7 +23,7 @@ class RDFDialogueStateModel(LightningModule):
         self.metric_f1 = evaluate.load("f1")
         self.my_metrics = dict()
 
-        self.validation_step_outputs = []
+        self.test_step_outputs = []
 
     def forward(self, input_ids, attention_mask, labels):
         outputs = self.model(input_ids=input_ids,
@@ -45,26 +45,17 @@ class RDFDialogueStateModel(LightningModule):
 
     def validation_step(self, batch, batch_idx):
         loss, logits = self.common_step(batch, batch_idx)
-        self.validation_step_outputs.append(logits)
         return loss
 
     def test_step(self, batch, batch_idx):
         loss, logits = self.common_step(batch, batch_idx)
+        self.test_step_outputs.append(logits)
         return logits
 
     #def on_validation_batch_end(self, out, batch, batch_idx):
-    def on_validation_epoch_end(self):
+    def on_test_epoch_end(self):
         # This can be in a callback but should it? Adding functionality to gauge rdf generation
         logging.info("epoch end")
-        logits = self.validation_step_outputs[0]
-        logging.info(logits.shape)
-        preds = torch.argmax(logits, dim=-1)
-        print(preds.shape)
-        print(preds)
-        x = self.tokenizer.decode(preds.tolist()[0])  # decode per prediction in batch
-        print(x)
-        all_logits = torch.stack(self.validation_step_outputs)
-        print(all_logits.shape)
 
         preds = torch.argmax(logits, dim=-1)
         print(preds.shape)
@@ -73,10 +64,16 @@ class RDFDialogueStateModel(LightningModule):
         print(x)
         #encoding = {'input_ids': batch['input_ids'], 'attention_mask': batch['attention_mask']}
         #self.generate_state(encoding)
-        self.validation_step_outputs.clear()  # free memory
+        self.test_step_outputs.clear()  # free memory
         print("TITO")
         raise SystemExit
 
+#[obj for obj in lit_obj if 'val' in obj]
+#['eval', 'on_predict_model_eval', 'on_test_model_eval', 'on_validation_batch_end', 'on_validation_batch_start', 'on_validation_end', 'on_validation_epoch_end', 'on_validation_epoch_start', 'on_validation_model_eval', 'on_validation_model_train', 'on_validation_start', 'val_dataloader', 'validation_epoch_end', 'validation_step', 'validation_step_end']
+#[obj for obj in lit_obj if 'test' in obj]
+#['on_test_batch_end', 'on_test_batch_start', 'on_test_end', 'on_test_epoch_end', 'on_test_epoch_start', 'on_test_model_eval', 'on_test_model_train', 'on_test_start', 'test_dataloader', 'test_epoch_end', 'test_step', 'test_step_end']
+#[obj for obj in lit_obj if 'predict' in obj]
+#['on_predict_batch_end', 'on_predict_batch_start', 'on_predict_end', 'on_predict_epoch_end', 'on_predict_epoch_start', 'on_predict_model_eval', 'on_predict_start', 'predict_dataloader', 'predict_step']
 
     #TODO: Move decoding and generation to another class where I can tokenize?
     def generate_state(self, encoding, states_len, beam_search, repetition_penalty):
