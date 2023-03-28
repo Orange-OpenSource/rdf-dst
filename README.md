@@ -2,6 +2,10 @@
 
 Includes this [repo with installation](https://gitlab.tech.orange/morgan.veyret/deeper/-/tree/master/)
 
+```bash
+pip install git+ssh://git@gitlab.tech.orange/morgan.veyret/deeper.git
+```
+
 
 TEST
 ## Getting started

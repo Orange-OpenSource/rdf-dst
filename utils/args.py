@@ -10,8 +10,8 @@ def create_arg_parser():
     )  # 32?
 
     parser.add_argument(
-        "-d", "--data_dir", default='../sfx_rdf_data/', type=str,
-        choices=['../sfx_rdf_data/', '../multiwoz_rdf_data/', '../dstc2_rdf_data/'],
+        "-d", "--data_dir", default='./sfx_rdf_data/', type=str,
+        choices=['./sfx_rdf_data/', './multiwoz_rdf_data/', './dstc2_rdf_data/'],
         help="Select rdf data from options. Note that DATCHA is missing"
     )  # 32?
 

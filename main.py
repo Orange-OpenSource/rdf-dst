@@ -11,13 +11,10 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 SEED = 42  # for replication purposes
-lr = 1e-3
 
 
 #model = AutoModel.from_pretrained("google/flan-t5-small")  # decoder_inputs and shift right instead of conditional generation. See documentation. Conditional generation does work with labels tho
 def preprocessing(data_dir, tokenizer, max_len, batch_size, data_type):
-    #data_dir = '../sfx_rdf_data/'
-    #max_len = 512
     data = DialogueRDFData(tokenizer=tokenizer, data_dir=data_dir, max_len=max_len,
                                     batch_size=batch_size, data_type=data_type)
     data.prepare_data()
@@ -34,12 +31,15 @@ def train(model, epochs, tokenizer, lr, dataloaders):
     train_dataloader = dataloaders['train']
     test_dataloader = dataloaders['test']
     val_dataloader = dataloaders['dev']
+
     pl_model = RDFDialogueStateModel(model, tokenizer, lr)
     trainer = pl.Trainer(max_epochs=epochs, devices='auto', accelerator='cpu')
     #trainer.tune  # tune before training to find lr??? Hyperparameter tuning!
-    #trainer.fit(pl_model, train_dataloaders=train_dataloader, val_dataloaders=val_dataloader,
-    #            ckpt_path='./RDF_checkpoints/')
-    trainer.fit(pl_model, train_dataloaders=train_dataloader, val_dataloaders=val_dataloader)
+
+    trainer.fit(pl_model, train_dataloaders=train_dataloader,
+                val_dataloaders=val_dataloader)
+
+    #print("TEST " * 5)
     # consult doc https://lightning.ai/docs/pytorch/stable/common/trainer.html
     #trainer.validate  # ?
     #trainer.test  # ?
@@ -63,7 +63,7 @@ def main():
     data_type = all_data_types[data_key]
 
     dataloaders = preprocessing(data_dir, tokenizer, max_len, batch_size, data_type)
-    #train(model, epochs, tokenizer, lr, dataloaders)
+    train(model, epochs, tokenizer, lr, dataloaders)
 
 if __name__ == '__main__':
     main()
