@@ -6,24 +6,30 @@ import evaluate
 from pytorch_lightning import LightningModule
 from torch.optim import AdamW
 
-import logging
-
-logging.basicConfig(level=logging.INFO)
 SEED = 42  # for replication purposes
+
+
+class MetricsCallback(pl.Callback):
+
+    def __init__(self, tokenizer):
+        super().__init__()
+        self.metrics = []
+        self.tokenizer = tokenizer
 
 
 class RDFDialogueStateModel(LightningModule):
 
-    def __init__(self, model, tokenizer, lr):
+    def __init__(self, model, lr):
         super().__init__()
         self.lr = lr
         self.model = model
-        self.tokenizer = tokenizer
         self.metric_acc = evaluate.load("accuracy")
         self.metric_f1 = evaluate.load("f1")
         self.my_metrics = dict()
 
-        self.test_step_outputs = []
+        self.save_hyperparameters("lr")
+        self.test_step_outputs = {'preds': [], 'labels': []}
+        self.val_step_outputs = {'preds': [], 'labels': []}
 
     def forward(self, input_ids, attention_mask, labels):
         outputs = self.model(input_ids=input_ids,
@@ -39,34 +45,54 @@ class RDFDialogueStateModel(LightningModule):
         attention_mask = batch["attention_mask"]
         return self.forward(input_ids, attention_mask, labels)
 
+    def shared_eval_step(self, logits):
+        "returns preds"
+        logits = logits.cpu()
+        #TODO: softmax instead?
+        # https://www.youtube.com/watch?v=KpKog-L9veg
+        return torch.argmax(logits, axis=-1)
+
     def training_step(self, batch, batch_idx):
-        loss, logits = self.common_step(batch, batch_idx)
+        loss, _ = self.common_step(batch, batch_idx)
         return loss
 
     def validation_step(self, batch, batch_idx):
         loss, logits = self.common_step(batch, batch_idx)
+        # explicit logging, otherwise only logs epoch and steps by default
+        self.log("val_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        preds = self.shared_eval_step(logits)
+        self.val_step_outputs['preds'].append(preds)
+        labels = batch['labels'].cpu()
+        self.val_step_outputs['labels'].append(labels)
+        #labels = torch.flatten(labels, 0)
         return loss
 
     def test_step(self, batch, batch_idx):
         loss, logits = self.common_step(batch, batch_idx)
-        self.test_step_outputs.append(logits)
+        preds = self.shared_eval_step(logits)
+        self.test_step_outputs['preds'].append(preds)
+        labels = batch['labels'].cpu()
+        self.test_step_outputs['labels'].append(labels)
         return logits
 
-    #def on_validation_batch_end(self, out, batch, batch_idx):
-    def on_test_epoch_end(self):
-        # This can be in a callback but should it? Adding functionality to gauge rdf generation
-        logging.info("epoch end")
+    def shared_eval_epoch(self, preds, labels):
+        mask_labels = labels != -100
+        mask_preds = preds != -100
+        clean_labels = torch.masked_select(labels, mask_labels)
+        clean_preds = torch.masked_select(preds, mask_preds)
+        # compute metrics
 
-        preds = torch.argmax(logits, dim=-1)
-        print(preds.shape)
-        print(preds)
-        x = self.tokenizer.decode(preds.tolist()[0])  # decode per prediction in batch
-        print(x)
-        #encoding = {'input_ids': batch['input_ids'], 'attention_mask': batch['attention_mask']}
-        #self.generate_state(encoding)
-        self.test_step_outputs.clear()  # free memory
-        print("TITO")
+    def on_validation_epoch_end(self):
+        all_pred_ids = torch.stack(self.val_step_outputs['preds'], 0)
+        all_labels = torch.stack(self.val_step_outputs['labels'], 0)
+        shared_eval_epoch(all_pred_ids, all_labels)
+        self.val_step_outputs.clear()
         raise SystemExit
+
+    def on_test_epoch_end(self):
+        all_pred_ids = torch.stack(self.test_step_outputs['preds'], 0)
+        all_labels = torch.stack(self.test_step_outputs['labels'], 0)
+        self.test_step_outputs.clear()
 
 #[obj for obj in lit_obj if 'val' in obj]
 #['eval', 'on_predict_model_eval', 'on_test_model_eval', 'on_validation_batch_end', 'on_validation_batch_start', 'on_validation_end', 'on_validation_epoch_end', 'on_validation_epoch_start', 'on_validation_model_eval', 'on_validation_model_train', 'on_validation_start', 'val_dataloader', 'validation_epoch_end', 'validation_step', 'validation_step_end']
@@ -78,7 +104,7 @@ class RDFDialogueStateModel(LightningModule):
     #TODO: Move decoding and generation to another class where I can tokenize?
     def generate_state(self, encoding, states_len, beam_search, repetition_penalty):
 
-        input_ids, attention_mask = encoding['input_ids']
+        input_ids = encoding['input_ids']
         attention_mask = encoding['attention_mask']
         self.model.eval()
         with torch.no_grad():

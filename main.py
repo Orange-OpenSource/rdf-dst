@@ -1,11 +1,11 @@
 from datasets import load_from_disk, dataset_dict
 import pytorch_lightning as pl
+from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 import re
-from pytorch_lightning import LightningDataModule
 from transformers import AutoTokenizer, AutoModel, T5ForConditionalGeneration
 from utils.data_loader import DialogueRDFData
 from utils.args import create_arg_parser
-from trainer import RDFDialogueStateModel
+from trainer import RDFDialogueStateModel, MetricsCallback
 
 import logging
 
@@ -14,9 +14,10 @@ SEED = 42  # for replication purposes
 
 
 #model = AutoModel.from_pretrained("google/flan-t5-small")  # decoder_inputs and shift right instead of conditional generation. See documentation. Conditional generation does work with labels tho
-def preprocessing(data_dir, tokenizer, max_len, batch_size, data_type):
-    data = DialogueRDFData(tokenizer=tokenizer, data_dir=data_dir, max_len=max_len,
-                                    batch_size=batch_size, data_type=data_type)
+def preprocessing(data_dir, tokenizer, num_workers, max_len, batch_size, data_type):
+    data = DialogueRDFData(tokenizer=tokenizer, num_workers=num_workers,
+                           data_dir=data_dir, max_len=max_len,
+                           batch_size=batch_size, data_type=data_type)
     data.prepare_data()
     data.setup(subsetting=True)
 
@@ -26,23 +27,33 @@ def preprocessing(data_dir, tokenizer, max_len, batch_size, data_type):
 
     return {'train': train_dataloader, 'test': test_dataloader, 'dev': val_dataloader}
 
-def train(model, epochs, tokenizer, lr, dataloaders):
+def training_and_inference(model, epochs, tokenizer, lr, dataloaders):
 
     train_dataloader = dataloaders['train']
     test_dataloader = dataloaders['test']
     val_dataloader = dataloaders['dev']
 
-    pl_model = RDFDialogueStateModel(model, tokenizer, lr)
-    trainer = pl.Trainer(max_epochs=epochs, devices='auto', accelerator='cpu')
+    checkpoint_name = 'dst-epoch{epoch+1:02d}-{val_loss:.2f}'
+    pl_model = RDFDialogueStateModel(model, lr)
+    checkpoint_callback = ModelCheckpoint(monitor='val_loss',
+                                          filename=checkpoint_name)  # d is pad
+
+    early_stopping = EarlyStopping('val_loss')
+    metrics = MetricsCallback(tokenizer)
+    callbacks = [checkpoint_callback, early_stopping, metrics]
+    
+    trainer = pl.Trainer(max_epochs=epochs, callbacks=callbacks,
+                         devices='auto', accelerator='cpu')
     #trainer.tune  # tune before training to find lr??? Hyperparameter tuning!
 
+    logging.info("Training stage")
     trainer.fit(pl_model, train_dataloaders=train_dataloader,
-                val_dataloaders=val_dataloader)
+                val_dataloaders=val_dataloader)  # ckpt_path to continue from ckpt
 
-    #print("TEST " * 5)
-    # consult doc https://lightning.ai/docs/pytorch/stable/common/trainer.html
-    #trainer.validate  # ?
-    #trainer.test  # ?
+    #trainer.validate  # if I want to do more with validation
+    logging.info("Inference stage")
+    ckpt_path = './lightning_logs/version_0/checkpoints/' + checkpoint_name
+    trainer.test(pl_model, ckpt_path=ckpt_path, verbose=True)# ?
 
 def main():
 
@@ -55,6 +66,7 @@ def main():
     epochs = args.epochs
     max_len = args.seq_length
     lr = args.learning_rate
+    num_workers = args.num_workers
 
 
     dataRegex = re.compile(r"(\w+_)")
@@ -62,8 +74,8 @@ def main():
     data_key = res.group()[:-5]  #TODO: Fix the regex above to make this less brute force
     data_type = all_data_types[data_key]
 
-    dataloaders = preprocessing(data_dir, tokenizer, max_len, batch_size, data_type)
-    train(model, epochs, tokenizer, lr, dataloaders)
+    dataloaders = preprocessing(data_dir, tokenizer, num_workers, max_len, batch_size, data_type)
+    training_and_inference(model, epochs, tokenizer, lr, dataloaders)
 
 if __name__ == '__main__':
     main()

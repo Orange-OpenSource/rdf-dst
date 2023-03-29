@@ -18,6 +18,10 @@ def create_arg_parser():
     parser.add_argument(
         "-epochs", "--epochs", default=1, type=int, help="Provide the number of epochs"
     )
+
+    parser.add_argument(
+        "-workers", "--num_workers", default=0, type=int, help="Provide the number of workers"
+    )
     parser.add_argument(
         "-lr",
         "--learning_rate",
