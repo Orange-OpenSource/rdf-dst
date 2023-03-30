@@ -115,13 +115,13 @@ class DialogueRDFData(LightningDataModule):
 
     #TODO: change workers to 12 when testing with gpu
     def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=16, num_workers=self.num_workers)
+        return DataLoader(self.train_dataset, batch_size=8, num_workers=self.num_workers)
 
     def val_dataloader(self):
-        return DataLoader(self.dev_dataset, batch_size=16, num_workers=self.num_workers)
+        return DataLoader(self.dev_dataset, batch_size=8, num_workers=self.num_workers)
 
     def test_dataloader(self):
-        return DataLoader(self.test_dataset, batch_size=16, num_workers=self.num_workers)
+        return DataLoader(self.test_dataset, batch_size=8, num_workers=self.num_workers)
 
     def flatten_data(self, dataset, headers):
         """

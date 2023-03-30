@@ -1,5 +1,6 @@
 # ref:
 # https://colab.research.google.com/drive/1-wp_pRVxl6c0Y0esn8ShIdeil3Bh854d?usp=sharing#scrollTo=WtI92WcVHrCb
+# https://lightning.ai/docs/pytorch/latest/notebooks/lightning_examples/text-transformers.html
 import pytorch_lightning as pl
 import torch
 import evaluate
@@ -23,13 +24,11 @@ class RDFDialogueStateModel(LightningModule):
         super().__init__()
         self.lr = lr
         self.model = model
-        self.metric_acc = evaluate.load("accuracy")
-        self.metric_f1 = evaluate.load("f1")
+        self.acc = evaluate.load("accuracy")
+        self.f1 = evaluate.load("f1")
         self.my_metrics = dict()
 
         self.save_hyperparameters("lr")
-        self.test_step_outputs = {'preds': [], 'labels': []}
-        self.val_step_outputs = {'preds': [], 'labels': []}
 
     def forward(self, input_ids, attention_mask, labels):
         outputs = self.model(input_ids=input_ids,
@@ -45,12 +44,14 @@ class RDFDialogueStateModel(LightningModule):
         attention_mask = batch["attention_mask"]
         return self.forward(input_ids, attention_mask, labels)
 
-    def shared_eval_step(self, logits):
+    def shared_eval_step(self, logits, labels):
         "returns preds"
-        logits = logits.cpu()
+        placeholder_preds = torch.full(labels.size(), -100)
         #TODO: softmax instead?
         # https://www.youtube.com/watch?v=KpKog-L9veg
-        return torch.argmax(logits, axis=-1)
+        preds = torch.argmax(logits.cpu(), axis=-1)
+        mask = torch.ne(labels, placeholder_preds)
+        return torch.where(mask, preds, placeholder_preds)
 
     def training_step(self, batch, batch_idx):
         loss, _ = self.common_step(batch, batch_idx)
@@ -59,35 +60,54 @@ class RDFDialogueStateModel(LightningModule):
     def validation_step(self, batch, batch_idx):
         loss, logits = self.common_step(batch, batch_idx)
         # explicit logging, otherwise only logs epoch and steps by default
-        self.log("val_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        preds = self.shared_eval_step(logits)
-        self.val_step_outputs['preds'].append(preds)
         labels = batch['labels'].cpu()
-        self.val_step_outputs['labels'].append(labels)
-        #labels = torch.flatten(labels, 0)
-        return loss
+        preds = self.shared_eval_step(logits, labels)
+        #TODO: monitor loss per step or epoch?
+        return {"loss": loss, "preds": preds, "labels": labels}
 
     def test_step(self, batch, batch_idx):
-        loss, logits = self.common_step(batch, batch_idx)
-        preds = self.shared_eval_step(logits)
-        self.test_step_outputs['preds'].append(preds)
+        _, logits = self.common_step(batch, batch_idx)
+        preds = self.shared_eval_step(logits, labels)
         labels = batch['labels'].cpu()
-        self.test_step_outputs['labels'].append(labels)
-        return logits
+        return {"preds": preds, "labels": labels}
 
     def shared_eval_epoch(self, preds, labels):
-        mask_labels = labels != -100
-        mask_preds = preds != -100
-        clean_labels = torch.masked_select(labels, mask_labels)
-        clean_preds = torch.masked_select(preds, mask_preds)
-        # compute metrics
-
-    def on_validation_epoch_end(self):
-        all_pred_ids = torch.stack(self.val_step_outputs['preds'], 0)
-        all_labels = torch.stack(self.val_step_outputs['labels'], 0)
-        shared_eval_epoch(all_pred_ids, all_labels)
-        self.val_step_outputs.clear()
+        mask = labels != -100
+        clean_labels = torch.masked_select(labels, mask)
+        mask = preds != -100
+        clean_preds = torch.masked_select(preds, mask)
+        # compute metrics, masked_select already flattens the sequences.
+        acc = self.acc.compute(predictions=clean_preds, references=clean_labels)
+        # we have to choose an average setting because this is not binary classification
+        f1 = self.f1.compute(predictions=clean_preds, references=clean_labels, average='macro')
+        self.my_metrics = {'accuracy': acc['accuracy'], 'f1':f1['f1']}
+        print(acc)
+        print(f1)
+        #TODO: Email Johanes and train it to see it isn't overfitting or underfitting
         raise SystemExit
+
+
+    def validation_epoch_end(self, outputs):
+
+        #for i, output in enumerate(outputs):
+        #    print(f"batch {i}, labels {output['labels'].shape}")
+        #    print(f"batch {i}, preds {output['preds'].shape}")
+        #    print(f"batch {i}, loss {output['loss']}")
+
+        preds = torch.cat([out['preds'] for out in outputs]) 
+        labels = torch.cat([out['labels'] for out in outputs]) 
+        loss = torch.stack([out['loss'] for out in outputs]).mean()
+        self.shared_eval_epoch(preds, labels)
+
+        self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+
+    #def on_validation_epoch_end(self):
+    #TODO: try torch.cat instead
+    #    all_pred_ids = torch.stack(self.val_step_outputs['preds'], 0)
+    #    all_labels = torch.stack(self.val_step_outputs['labels'], 0)
+    #    self.val_step_outputs.clear()
+    #    self.log("accuracy", my_metrics['accuracy'], on_step=False, on_epoch=True)
+    #    self.log("f1", my_metrics['f1'], on_step=False, on_epoch=True)
 
     def on_test_epoch_end(self):
         all_pred_ids = torch.stack(self.test_step_outputs['preds'], 0)
@@ -127,22 +147,6 @@ class RDFDialogueStateModel(LightningModule):
         self.generate_state(encoding, states_len, beam_search, repetition_penalty)
 
 
-
-    def pl_compute_metrics(self, logits, labels):
-        #TODO: move it to a callback
-        logits = logits.cpu()
-        labels = labels.cpu()
-        #pred_ids = torch.flatten(torch.argmax(logits, axis=-1), 0)  # stack instead of flatten?
-        pred_ids = torch.stack(torch.argmax(logits, axis=-1), 0)  # is it working?
-        labels = torch.flatten(labels, 0)
-        mask = labels != -100
-        clean_labels = torch.masked_select(labels, mask)
-        clean_preds = torch.masked_select(pred_ids, mask)
-        acc = self.metric_acc.compute(predictions=clean_preds, references=clean_labels)
-        f1 = self.metric_f1.compute(predictions=clean_preds, references=clean_labels, average='macro')
-        #print({'accuracy': acc['accuracy'], 'f1':f1['f1']})
-        self.my_metrics = {'accuracy': acc['accuracy'], 'f1':f1['f1']}
-        
 
     def configure_optimizers(self):
         lr = self.lr

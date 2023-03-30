@@ -51,9 +51,10 @@ def training_and_inference(model, epochs, tokenizer, lr, dataloaders):
                 val_dataloaders=val_dataloader)  # ckpt_path to continue from ckpt
 
     #trainer.validate  # if I want to do more with validation
-    logging.info("Inference stage")
-    ckpt_path = './lightning_logs/version_0/checkpoints/' + checkpoint_name
-    trainer.test(pl_model, ckpt_path=ckpt_path, verbose=True)# ?
+
+    #logging.info("Inference stage")
+    #ckpt_path = './lightning_logs/version_0/checkpoints/' + checkpoint_name
+    #trainer.test(pl_model, ckpt_path=ckpt_path, verbose=True)# ?
 
 def main():
 
