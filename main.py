@@ -33,10 +33,17 @@ def training_and_inference(model, epochs, tokenizer, lr, dataloaders):
     test_dataloader = dataloaders['test']
     val_dataloader = dataloaders['dev']
 
-    checkpoint_name = 'dst-epoch{epoch+1:02d}-{val_loss:.2f}'
+    # changing name for a more reusable version to resume training and test
+    #checkpoint_name = '{epoch:02d}-{val_loss:.2f}-{encoded_accuracy:.2f}'
+    # https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.callbacks.ModelCheckpoint.html
+    checkpoint_name = 'best_dst_ckpt'
     pl_model = RDFDialogueStateModel(model, lr)
+    # saving every time val_loss improves
     checkpoint_callback = ModelCheckpoint(monitor='val_loss',
-                                          filename=checkpoint_name)  # d is pad
+                                          filename=checkpoint_name,
+                                          mode="min",
+                                          save_top_k=-1)
+
 
     early_stopping = EarlyStopping('val_loss')
     metrics = MetricsCallback(tokenizer)
@@ -46,15 +53,15 @@ def training_and_inference(model, epochs, tokenizer, lr, dataloaders):
                          devices='auto', accelerator='cpu')
     #trainer.tune  # tune before training to find lr??? Hyperparameter tuning!
 
-    logging.info("Training stage")
-    trainer.fit(pl_model, train_dataloaders=train_dataloader,
-                val_dataloaders=val_dataloader)  # ckpt_path to continue from ckpt
+    #logging.info("Training stage")
+    #trainer.fit(pl_model, train_dataloaders=train_dataloader,
+    #            val_dataloaders=val_dataloader)  # ckpt_path to continue from ckpt
 
     #trainer.validate  # if I want to do more with validation
 
-    #logging.info("Inference stage")
-    #ckpt_path = './lightning_logs/version_0/checkpoints/' + checkpoint_name
-    #trainer.test(pl_model, ckpt_path=ckpt_path, verbose=True)# ?
+    logging.info("Inference stage")
+    ckpt_path = './lightning_logs/version_1/checkpoints/' + checkpoint_callback.filename + '.ckpt'
+    trainer.test(pl_model, dataloaders=test_dataloader, ckpt_path=ckpt_path, verbose=True)# ?
 
 def main():
 

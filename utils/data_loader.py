@@ -99,7 +99,7 @@ class DialogueRDFData(LightningDataModule):
         if subsetting:
             og_set = train_dataset[0]['labels'][:50]
             train_dataset = Subset(train_dataset, range(75))
-            test_dataset = Subset(test_dataset, range(5))
+            test_dataset = Subset(test_dataset, range(15))
             dev_dataset = Subset(dev_dataset, range(17))
 
             new_set = train_dataset[0]['labels'][:50]

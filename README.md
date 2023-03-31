@@ -1,14 +1,29 @@
-# DST
+# Instructions
 
-Includes this [repo with installation](https://gitlab.tech.orange/morgan.veyret/deeper/-/tree/master/)
+
+## Getting started
+
+Run setup to install packages, download data, and convert it to RDF
+```bash
+./setup.sh
+```
+
+The installation should include this [repo](https://gitlab.tech.orange/morgan.veyret/deeper/-/tree/master/), which in the setup file is installed by the following command
 
 ```bash
 pip install git+ssh://git@gitlab.tech.orange/morgan.veyret/deeper.git
 ```
 
+This is not mandatory, but it allows us to run this project as a job using docker.
 
-TEST
-## Getting started
+## Data Preprocessing, Training and Inference
+
+```bash
+./run.sh
+```
+
+Preprocessing of the converted RDF data, training, and inference is performed by the run script.
+
 
 To make it easy for you to get started with GitLab, here's a list of recommended next steps.
 
