@@ -79,6 +79,7 @@ def main():
 
     dataRegex = re.compile(r"(\w+_)")
     res = dataRegex.search(data_dir)
+    # this breaks the output dir from the slot value to rdf data to create the keys for our all_data_types dict
     data_key = res.group()[:-5]  #TODO: Fix the regex above to make this less brute force
     data_type = all_data_types[data_key]
 

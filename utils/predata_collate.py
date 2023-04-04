@@ -83,5 +83,6 @@ class PreDataCollator:
                        max_length=self.max_len)
 
 
-        encoding['labels'] = [-100 if label == 0 else label for label in encoding.labels]
+        # no need to align or ignore tokens with -100!
+        #encoding['labels'] = [-100 if label == 0 else label for label in encoding.labels]
         return encoding
