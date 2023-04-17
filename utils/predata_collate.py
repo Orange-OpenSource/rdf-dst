@@ -52,7 +52,7 @@ class PreDataCollator:
         first_rdf = turn_zero['rdf-state']
         # we can flatten all of the rdf-states and treat them as strings. But maybe the only last one matters?
         first_state = ', '.join(first_rdf[-1])
-        txt_2_gen = self.state_tkn + first_state + ' ' + self.state_tkn + '\n'
+        txt_2_gen = self.state_tkn + ' ' + first_state + ' ' + self.state_tkn + '\n'
         conv_txt = sys_greet + user_greet + init_state
         for i in range(1, len(conversation)):
             turn = conversation[i]

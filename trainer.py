@@ -3,6 +3,7 @@
 # https://lightning.ai/docs/pytorch/latest/notebooks/lightning_examples/text-transformers.html
 # W&B integration https://docs.wandb.ai/guides/integrations/lightning
 import pytorch_lightning as pl
+import pandas as pd
 import torch
 import evaluate
 from pytorch_lightning import LightningModule
@@ -19,22 +20,51 @@ class MetricsCallback(pl.Callback):
         #DSTMetrics(self.tokenizer)
         self.tokenizer = tokenizer
 
+    def on_shared_epoch_end(self, pl_module):
+
+        all_preds = pl_module.eval_epoch_outputs['preds']
+        all_labels = pl_module.eval_epoch_outputs['labels']
+        dialogue_states = dict()
+        i = 0
+        for (labels, preds) in zip(all_labels, all_preds):
+            mask = labels.eq(-100)
+            labels = labels.masked_fill(mask, 0)
+            for l, p in zip(labels, preds):
+                label_rdf = self.tokenizer.decode(l, skip_special_tokens=True).replace(',', '')
+                pred_rdf = self.tokenizer.decode(p, skip_special_tokens=True).replace(',', '')
+                label_rdf = label_rdf.split()
+                pred_rdf = pred_rdf.split()
+                # TODO: Could add penalty for hallucinations!
+                pred_rdf = pred_rdf[:len(label_rdf)]
+                #TODO: Joint accuracy, et al.
+                # Compute joint accuracy 
+                i += 1
+                dialogue_states.setdefault(f"dst_{i}", {"prediction": pred_rdf, "reference": label_rdf})
+
+        return dialogue_states
+
     def on_test_epoch_end(self, trainer, pl_module):
 
-        preds = pl_module.eval_epoch_outputs[0]['preds']
-        labels = pl_module.eval_epoch_outputs[0]['labels']
-        self.shared_evaluation(trainer, pl_module, preds, labels)
+
+        dialogue_states = self.on_shared_epoch_end(pl_module)
+        pl_module.eval_epoch_outputs.clear()
+        df = pd.DataFrame(dialogue_states).T
+        #TODO: turn into a triplet
+        # compute additional metrics for triplet
+        print(df)
+
+    def on_validation_epoch_end(self, trainer, pl_module):
+
+        dialogue_states = self.on_shared_epoch_end(pl_module)
+        pl_module.eval_epoch_outputs.clear()
+        df = pd.DataFrame(dialogue_states).T
+        print(df)
 
     @staticmethod
-    def shared_evaluation(trainer, pl_module, preds, labels):
+    def shared_evaluation(pl_module, preds, labels):
         rel_acc = 0.5
         pl_module.my_metrics.setdefault("relative_accuracy", rel_acc)
         pl_module.log_dict(pl_module.my_metrics, on_epoch=True)
-        x = pl_module.eval_epoch_outputs['preds']
-        print(x)
-        print(len(x))
-        
-        pl_module.eval_epoch_outputs.clear()
 
 
 class RDFDialogueStateModel(LightningModule):
