@@ -3,6 +3,14 @@
 
 ## Getting started
 
+The scripts to download the datasets are in this repo
+
+```bash
+git@gitlab.tech.orange:kissingcat/hf-datasets.git
+```
+
+The datasets variable ```HF_DATASETS_DIR``` points to this path and this is needed to run from VMs at Orange.
+
 Run setup to install packages, download data, and convert it to RDF
 ```bash
 ./setup.sh

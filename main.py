@@ -54,12 +54,13 @@ def training_and_inference(model, epochs, tokenizer, lr, dataloaders):
     #trainer.tune  # tune before training to find lr??? Hyperparameter tuning!
 
     #logging.info("Training stage")
-    #trainer.fit(pl_model, train_dataloaders=train_dataloader,
-    #            val_dataloaders=val_dataloader)  # ckpt_path to continue from ckpt
+    trainer.fit(pl_model, train_dataloaders=train_dataloader,
+                val_dataloaders=val_dataloader)  # ckpt_path to continue from ckpt
 
     #trainer.validate  # if I want to do more with validation
 
     logging.info("Inference stage")
+    raise SystemExit
     ckpt_path = './lightning_logs/version_1/checkpoints/' + checkpoint_callback.filename + '.ckpt'
     trainer.test(pl_model, dataloaders=test_dataloader, ckpt_path=ckpt_path, verbose=True)# ?
 

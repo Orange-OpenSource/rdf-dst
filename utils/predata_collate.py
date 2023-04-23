@@ -8,17 +8,16 @@ logging.basicConfig(level=logging.INFO)
 @dataclass
 class PreDataCollator:
     
-    def __init__(self, tokenizer, max_len, history):
+    def __init__(self, tokenizer, max_len):
 
         self.max_len = max_len
-        self.history = history
         self.user_tkn = '<user_tkn>'
         self.sys_tkn = '<sys_tkn>'
         self.state_tkn = '<state_tkn>'
         sentinel_tkns = {"additional_special_tokens": [self.user_tkn, self.sys_tkn, self.state_tkn]}
         tokenizer.add_special_tokens(sentinel_tkns)
         self.tokenizer = tokenizer
-        logging.info(tokenizer.get_sentinel_tokens)
+        #logging.info(tokenizer.get_sentinel_tokens)
 
         
     
@@ -28,61 +27,76 @@ class PreDataCollator:
         attention_mask = []
         labels = []
         
-        for conversation in batch[self.history]:  # dict, history is a str that is the key
-            conv_txt, txt_2_gen = self.create_inputs(conversation)
-            tokenized = self.tokenize(conv_txt, txt_2_gen)
-            input_ids.append(tokenized['input_ids'])
-            attention_mask.append(tokenized['attention_mask'])
-            labels.append(tokenized['labels'])
+        for dialogue, states in zip(batch['turns'], batch['states']):  # dict, history is a str that is the key
+            txt_input, rdfs = self.create_inputs(dialogue, states)
+            for txt, rdf in zip(txt_input, rdfs):
+                tokenized = self.tokenize(txt, rdf)
+                input_ids.append(tokenized['input_ids'])
+                attention_mask.append(tokenized['attention_mask'])
+                labels.append(tokenized['labels'])
 
-        return {'input_ids':input_ids, 'attention_mask':attention_mask, 'labels':labels}
+
+        return {'input_ids':input_ids, 'attention_mask':attention_mask,'labels':labels}
 
 
-    def create_inputs(self, conversation):
+    def create_inputs(self, dialogue, states):
         """
         This is where we choose the inputs and the rdf we will predict.
         Since we are using the whole state history and the first state cannot be predicted
         with a previous state, we initialize with an empty state and try to predict current state
         """
 
-        turn_zero = conversation[0]
-        sys_greet = self.sys_tkn + ' ' + turn_zero['S'] + ' ' + self.sys_tkn + ' '
-        user_greet = self.user_tkn + ' ' + turn_zero['U'] + ' ' + self.user_tkn + ' '
-        init_state = self.state_tkn + ' ' + self.state_tkn + '\n'
-        first_rdf = turn_zero['rdf-state']
         # we can flatten all of the rdf-states and treat them as strings. But maybe the only last one matters?
-        first_state = ', '.join(first_rdf[-1])
-        txt_2_gen = self.state_tkn + ' ' + first_state + ' ' + self.state_tkn + '\n'
-        conv_txt = sys_greet + user_greet + init_state
-        for i in range(1, len(conversation)):
-            turn = conversation[i]
-            previous_state = conversation[i-1]['rdf-state']
-            current_state = conversation[i]['rdf-state']
-            system = turn['S']
-            user = turn['U']
-            prev_rdf = ', '.join(previous_state[-1])
-            curr_rdf = ', '.join(current_state[-1])
-            conv_txt += self.sys_tkn + ' ' +  system + ' ' + self.sys_tkn + ' '
-            conv_txt += self.user_tkn + ' ' + user + ' ' + self.user_tkn + ' '
-            conv_txt += self.state_tkn + ' ' + prev_rdf + ' ' + self.state_tkn + '\n'
-            txt_2_gen += self.state_tkn + ' ' + curr_rdf + ' ' + self.state_tkn + '\n'
+        toks = {"user": self.user_tkn, "system": self.sys_tkn}
 
-        return conv_txt, txt_2_gen
+        txt = ''
+        flattened_rdfs = []
+        txt_input = []
 
-    def tokenize(self, conv, curr_states):
+        curr_rdf = states[0]
+        flat_curr = ','.join([val.strip() for triplet in curr_rdf['triples'] for val in triplet])
+        flattened_rdfs.append(flat_curr)
+
+        for i in range(0, len(dialogue), 2):
+            speaker = dialogue[i]['speaker']
+            txt += toks[speaker] + dialogue[i]['text'] + toks[speaker]
+            speaker = dialogue[i+1]['speaker']
+            txt += toks[speaker] + dialogue[i+1]['text'] + toks[speaker]
+
+            if i > 0:
+                # only 7 states so half of turns, divide by 2 to get idx. This already skips first txt with empty previous rdf!
+                idx = i // 2
+                prev_rdf = states[idx-1]
+                flat_prev = ','.join([val.strip() for triplet in prev_rdf['triples'] for val in triplet])
+                txt += self.state_tkn + flat_prev + self.state_tkn 
+
+                curr_rdf = states[idx]
+                flat_curr = ','.join([val.strip() for triplet in curr_rdf['triples'] for val in triplet])
+                flattened_rdfs.append(flat_curr)
+
+            txt_input.append(txt)
+            txt = ''
+
+
+        return txt_input, flattened_rdfs
+
+    def tokenize(self, dialogue : str, rdf : str):
         
-        input_txt = conv.strip().split()  
-        output_txt = curr_states.split() 
-
         # using tokenizer to encode sentence (includes padding/truncation up to max length)
-        encoding = self.tokenizer(input_txt,
-                       text_target=output_txt,
-                       is_split_into_words=True,
+        encoding = self.tokenizer(dialogue,
+                       text_target=rdf,
+                       #is_split_into_words=True,
                        padding='max_length',
                        truncation=True,
                        max_length=self.max_len)
 
 
-        # no need to align or ignore tokens with -100!
-        #encoding['labels'] = [-100 if label == 0 else label for label in encoding.labels]
+        #encoding['labels'] = [0 if label == -100 else label for label in encoding.labels]
+
+        # more computationally costly?
+        #items = {key: torch.as_tensor(val) for key, val in encoding.items()}
+
+        #mask = items['labels'].eq(-100) 
+        #items['labels'] = items['labels'].masked_fill(mask, 0)
+        #return items
         return encoding

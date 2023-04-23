@@ -2,7 +2,6 @@ from datasets import load_from_disk, dataset_dict
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning import LightningDataModule
-from transformers import AutoTokenizer
 from torch.utils.data import DataLoader, Subset
 
 from utils.predata_collate import PreDataCollator
@@ -30,12 +29,6 @@ class DialogueRDFData(LightningDataModule):
         # https://github.com/pytorch/pytorch/issues/8976
         self.num_workers = num_workers  # no multiprocessing for now
 
-        # initializing vars to track new data. This is ugly, I know
-        data_keys = {"SF": {'history': 'dial', 'system': ['S', 'base'], 'user': ['U', 'hyp']},
-                "DTSC": {'history': 'turns', 'system': ['output', 'transcript'], 'user': ['label', 'transcription']}}
-        self.history = data_keys[self.data_type]['history']
-        self.sys, self.s_trans= data_keys[self.data_type]['system']
-        self.user, self.u_trans= data_keys[self.data_type]['user']
 
     def prepare_data(self):
         """
@@ -44,35 +37,59 @@ class DialogueRDFData(LightningDataModule):
         rdf_dir = self.data_dir + 'rdf'
         # important to pass format so dataloader loads them as tensors and not lists
         txt2rdf = load_from_disk(rdf_dir).with_format("torch")
-        collator = PreDataCollator(self.tokenizer, self.max_len, self.history)
-        headers = txt2rdf['train'].features.keys()
-        txt2rdf = self.flatten_data(txt2rdf, headers)
+
+        # https://huggingface.co/docs/datasets/v1.12.0/cache.html cleaning cache to see changes in data collator during debugging
+        txt2rdf.cleanup_cache_files()  # load_from_cache=False in map???
+
+        collator = PreDataCollator(self.tokenizer, self.max_len)
 
         if len(txt2rdf) == 1:
             train_dataset = txt2rdf['train']
-            train_dataset = train_dataset.map(collator, remove_columns=self.history, num_proc=8, batched=True)  # num_proc == batches
+            #train_dataset = train_dataset.map(collator, remove_columns=self.history, num_proc=8, batched=True)
+            train_dataset = train_dataset.map(collator, num_proc=8, remove_columns=train_dataset.column_names, batched=True)
             self.data_for_model = dataset_dict.DatasetDict({'train': train_dataset})
+
 
         elif len(txt2rdf) == 2:
             train_dataset = txt2rdf['train']
             test_dataset = txt2rdf['test']
-            train_dataset = train_dataset.map(collator, remove_columns=self.history, num_proc=8, batched=True)  
-            test_dataset = test_dataset.map(collator, remove_columns=self.history, num_proc=8, batched=True) 
+            train_dataset = train_dataset.map(collator, num_proc=8, remove_columns=train_dataset.column_names, batched=True)  
+            test_dataset = test_dataset.map(collator, num_proc=8, remove_columns=test_dataset.column_names, batched=True) 
             self.data_for_model = dataset_dict.DatasetDict({'train': train_dataset, 'test': test_dataset})
 
         elif len(txt2rdf) == 3:
             train_dataset = txt2rdf['train']
             test_dataset = txt2rdf['test']
-            val_dataset = txt2rdf['dev']
+            dev_dataset = txt2rdf['dev']
 
-            train_dataset = train_dataset.map(collator, remove_columns=self.history, num_proc=8, batched=True)  
-            test_dataset = test_dataset.map(collator, remove_columns=self.history, num_proc=8, batched=True) 
-            dev_dataset = dev_dataset.map(collator, remove_columns=self.history, num_proc=8, batched=True) 
+            train_dataset = train_dataset.map(collator, num_proc=8, remove_columns=train_dataset.column_names, batched=True)  
+            test_dataset = test_dataset.map(collator, num_proc=8, remove_columns=test_dataset.column_names, batched=True) 
+            dev_dataset = dev_dataset.map(collator, num_proc=8, remove_columns=dev_dataset.column_names, batched=True) 
 
             self.data_for_model = dataset_dict.DatasetDict({'train': train_dataset, 'test': test_dataset, 'dev': dev_dataset})
 
         else:
             raise Exception("No data splits provided")
+        
+
+        count = 0
+        for i in train_dataset:
+            print(i['input_ids'].shape)
+            #print(i['input_ids'])
+            count += 1
+            if count == 5:
+                print(self.tokenizer.decode(i['input_ids'], skip_special_tokens=True))
+                break
+        #sample = train_dataset[7]
+        #print(sample.keys())
+        #print(type(sample['input_ids']))
+        #print(sample['input_ids'].shape)
+        #print(self.tokenizer.decode(torch.flatten(sample['input_ids']), skip_special_tokens=True))
+        #print("LABELS")
+        #print(self.tokenizer.decode(torch.flatten(sample['labels']), skip_special_tokens=True))
+        #raise SystemExit
+
+
 
     def setup(self, subsetting=True):
         """
@@ -111,6 +128,7 @@ class DialogueRDFData(LightningDataModule):
 
 
 
+
         #INFO collate_fn was passed to datasets and not loaders in prepare_data
 
     #TODO: change workers to 12 when testing with gpu
@@ -123,30 +141,3 @@ class DialogueRDFData(LightningDataModule):
     def test_dataloader(self):
         return DataLoader(self.test_dataset, batch_size=8, num_workers=self.num_workers)
 
-    def flatten_data(self, dataset, headers):
-        """
-
-        txt2rdf: must be a dataset object
-        headers: to remove added col
-        """
-        bad_cols = list(filter(lambda x: x != self.history, headers))
-        dataset = dataset.map(self.data_cleaner, remove_columns=bad_cols)  # why isnt this removing the columns?
-        dataset = dataset.remove_columns(bad_cols)
-        return dataset
-
-    def data_cleaner(self, dataset):
-        clean_history = []
-        for t in dataset[self.history]:
-            new_turn = {'S': t[self.sys][self.s_trans],
-                        'U': t[self.user][self.u_trans]}
-            if self.data_type == 'SF':
-                rdf_triplet = t[self.sys]['rdf-state']['triples']
-                new_turn.setdefault('rdf-state', rdf_triplet)
-
-            elif self.data_type == 'DTSC':  # rdf-state is stored in the usr in this case
-                rdf_triplet = t[self.user]['rdf-state']['triples']
-                new_turn.setdefault('rdf-state', rdf_triplet)
-
-            clean_history.append(new_turn)
-        dataset[self.history] = clean_history
-        return dataset

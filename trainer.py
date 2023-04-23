@@ -4,6 +4,8 @@
 # W&B integration https://docs.wandb.ai/guides/integrations/lightning
 import pytorch_lightning as pl
 import pandas as pd
+import re
+import numpy as np
 import torch
 import evaluate
 from pytorch_lightning import LightningModule
@@ -26,20 +28,35 @@ class MetricsCallback(pl.Callback):
         all_labels = pl_module.eval_epoch_outputs['labels']
         dialogue_states = dict()
         i = 0
+        splitRegex = re.compile(r',|\s')
         for (labels, preds) in zip(all_labels, all_preds):
             mask = labels.eq(-100)
             labels = labels.masked_fill(mask, 0)
             for l, p in zip(labels, preds):
-                label_rdf = self.tokenizer.decode(l, skip_special_tokens=True).replace(',', '')
-                pred_rdf = self.tokenizer.decode(p, skip_special_tokens=True).replace(',', '')
-                label_rdf = label_rdf.split()
-                pred_rdf = pred_rdf.split()
+                #TODO: Have to clean generated triplet.... very annoying!
+                label_rdf = self.tokenizer.decode(l, skip_special_tokens=True)
+                pred_rdf = self.tokenizer.decode(p, skip_special_tokens=True)
+                #label_rdf = np.array(label_rdf.split(','))
+                #pred_rdf = np.array(pred_rdf.split(','))
+
+                label_rdf = splitRegex.split(label_rdf)
+                pred_rdf = splitRegex.split(pred_rdf)
+                # Removing whitespaces
+                label_rdf = list(filter(lambda x: x, label_rdf))
+                pred_rdf = list(filter(lambda x: x, pred_rdf))
+
                 # TODO: Could add penalty for hallucinations!
+                # reducing size of predictions to be same of labels
                 pred_rdf = pred_rdf[:len(label_rdf)]
+
+                size_label_split = len(label_rdf)/3  # triplet
+                size_pred_split = len(pred_rdf)/3  # triplet
+
+                label_rdfs = [triplet.tolist()for triplet in np.array_split(label_rdf, size_label_split)]
+                pred_rdfs = [triplet.tolist() for triplet in np.array_split(pred_rdf, size_pred_split)]
                 #TODO: Joint accuracy, et al.
-                # Compute joint accuracy 
                 i += 1
-                dialogue_states.setdefault(f"dst_{i}", {"prediction": pred_rdf, "reference": label_rdf})
+                dialogue_states.setdefault(f"dst_{i}", {"prediction": pred_rdfs, "reference": label_rdfs})
 
         return dialogue_states
 
@@ -49,9 +66,9 @@ class MetricsCallback(pl.Callback):
         dialogue_states = self.on_shared_epoch_end(pl_module)
         pl_module.eval_epoch_outputs.clear()
         df = pd.DataFrame(dialogue_states).T
-        #TODO: turn into a triplet
-        # compute additional metrics for triplet
         print(df)
+        print(df['reference'].iloc[0])
+        print(df['prediction'].iloc[0])
 
     def on_validation_epoch_end(self, trainer, pl_module):
 
