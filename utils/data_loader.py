@@ -1,5 +1,5 @@
 from datasets import load_from_disk, dataset_dict
-import pytorch_lightning as pl
+from sklearn.model_selection import GroupShuffleSplit
 import torch
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader, Subset
@@ -9,7 +9,6 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 SEED = 42  # for replication purposes
-
 
 class DialogueRDFData(LightningDataModule):
     """
@@ -43,6 +42,8 @@ class DialogueRDFData(LightningDataModule):
 
         collator = PreDataCollator(self.tokenizer, self.max_len)
 
+        txt2rdf = txt2rdf.shuffle(seed=SEED)
+
         if len(txt2rdf) == 1:
             train_dataset = txt2rdf['train']
             #train_dataset = train_dataset.map(collator, remove_columns=self.history, num_proc=8, batched=True)
@@ -72,52 +73,42 @@ class DialogueRDFData(LightningDataModule):
             raise Exception("No data splits provided")
         
 
-        count = 0
-        for i in train_dataset:
-            print(i['input_ids'].shape)
-            #print(i['input_ids'])
-            count += 1
-            if count == 5:
-                print(self.tokenizer.decode(i['input_ids'], skip_special_tokens=True))
-                break
-        #sample = train_dataset[7]
-        #print(sample.keys())
-        #print(type(sample['input_ids']))
-        #print(sample['input_ids'].shape)
-        #print(self.tokenizer.decode(torch.flatten(sample['input_ids']), skip_special_tokens=True))
-        #print("LABELS")
-        #print(self.tokenizer.decode(torch.flatten(sample['labels']), skip_special_tokens=True))
-        #raise SystemExit
-
-
-
     def setup(self, subsetting=True):
         """
 
+        To make sure the data splitting process does not have turns from the same dialogue in different splits, we are splitting
+        using sklearn and not hf's API. The API does not have a splitting by groups functionality
         Added subsetting option to use fewer data points for debugging purposes
         """
 
         size_data = len(self.data_for_model)
         if size_data == 1:
             train_dataset = self.data_for_model['train']
-            train_dataset, test_dataset = train_dataset.train_test_split(test_size=0.2, shuffle=True, seed=SEED).values()  
-            dev_dataset, test_dataset = test_dataset.train_test_split(test_size=0.5, shuffle=True, seed=SEED).values()  
+            train_dataset, test_dataset = self.splitter_by_groups(train_dataset, 'dialogue_id', n_splits=1, train_size=.85)
+            train_dataset, dev_dataset = self.splitter_by_groups(train_dataset, 'dialogue_id', n_splits=1, train_size=.75)
+
+
+            # if using this review size of splits
+            #train_dataset, test_dataset = train_dataset.train_test_split(train_size=0.85, shuffle=True, seed=SEED).values()  
+            #dev_dataset, test_dataset = test_dataset.train_test_split(train_size=0.75, shuffle=True, seed=SEED).values()  
 
         elif size_data == 2:
             train_dataset = self.data_for_model['train']
             test_dataset = self.data_for_model['test']
-            dev_dataset, test_dataset = test_dataset.train_test_split(test_size=0.5, shuffle=True, seed=SEED).values()  
+            train_dataset, dev_dataset = self.splitter_by_groups(train_dataset, 'dialogue_id', n_splits=1, train_size=.75)
+            #train_dataset, dev_dataset = test_dataset.train_test_split(train_size=0.75, shuffle=True, seed=SEED).values()  
 
         else:
             train_dataset = self.data_for_model['train']
             test_dataset = self.data_for_model['test']
             dev_dataset = self.data_for_model['dev']
+        
 
         if subsetting:
             og_set = train_dataset[0]['labels'][:50]
-            train_dataset = Subset(train_dataset, range(75))
-            test_dataset = Subset(test_dataset, range(15))
-            dev_dataset = Subset(dev_dataset, range(17))
+            train_dataset = Subset(train_dataset, range(95))
+            test_dataset = Subset(test_dataset, range(35))
+            dev_dataset = Subset(dev_dataset, range(37))
 
             new_set = train_dataset[0]['labels'][:50]
             compare_tensors = torch.all(torch.eq(og_set, new_set))
@@ -127,11 +118,8 @@ class DialogueRDFData(LightningDataModule):
         self.dev_dataset = dev_dataset
 
 
-
-
-        #INFO collate_fn was passed to datasets and not loaders in prepare_data
-
     #TODO: change workers to 12 when testing with gpu
+    # we are not shuffling because we shuffled the dialogues before and this preserving the order of turns
     def train_dataloader(self):
         return DataLoader(self.train_dataset, batch_size=8, num_workers=self.num_workers)
 
@@ -141,3 +129,11 @@ class DialogueRDFData(LightningDataModule):
     def test_dataloader(self):
         return DataLoader(self.test_dataset, batch_size=8, num_workers=self.num_workers)
 
+    @staticmethod
+    def splitter_by_groups(dataset, col, n_splits=1, train_size=.8):
+
+        gs = GroupShuffleSplit(n_splits=n_splits, train_size=train_size, random_state=SEED)
+        indexes = next(gs.split(dataset, groups=dataset[col]))
+        bigger_dataset = dataset.select(indices=indexes[0])
+        smaller_dataset = dataset.select(indices=indexes[1])
+        return bigger_dataset, smaller_dataset

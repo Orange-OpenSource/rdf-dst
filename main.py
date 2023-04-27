@@ -2,6 +2,7 @@ from datasets import load_from_disk, dataset_dict
 import pytorch_lightning as pl
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 import re
+import torch
 from transformers import AutoTokenizer, AutoModel, T5ForConditionalGeneration
 from utils.data_loader import DialogueRDFData
 from utils.args import create_arg_parser
@@ -48,6 +49,7 @@ def training_and_inference(model, epochs, tokenizer, lr, dataloaders):
     early_stopping = EarlyStopping('val_loss')
     metrics = MetricsCallback(tokenizer)
     callbacks = [checkpoint_callback, early_stopping, metrics]
+    #callbacks = [checkpoint_callback, early_stopping]
     
     trainer = pl.Trainer(max_epochs=epochs, callbacks=callbacks,
                          devices='auto', accelerator='cpu')

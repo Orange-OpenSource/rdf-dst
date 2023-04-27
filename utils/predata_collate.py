@@ -1,6 +1,8 @@
 from dataclasses import dataclass
-import torch
-import numpy as np
+#TODO: Remove libraries and lines used for debugging
+#from itertools import filterfalse
+#import torch
+#import numpy as np
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -26,17 +28,22 @@ class PreDataCollator:
         input_ids = []
         attention_mask = []
         labels = []
+        dialogue_ids = []
+        turn_number = []
         
-        for dialogue, states in zip(batch['turns'], batch['states']):  # dict, history is a str that is the key
-            txt_input, rdfs = self.create_inputs(dialogue, states)
-            for txt, rdf in zip(txt_input, rdfs):
+        for id, dialogue, states in zip(batch['dialogue_id'], batch['turns'], batch['states']):  # dict, history is a str that is the key
+            txt_input, label_rdf = self.create_inputs(dialogue, states)
+            for turn, (txt, rdf) in enumerate(zip(txt_input, label_rdf), 1):
                 tokenized = self.tokenize(txt, rdf)
                 input_ids.append(tokenized['input_ids'])
                 attention_mask.append(tokenized['attention_mask'])
                 labels.append(tokenized['labels'])
+                dialogue_ids.append(id)
+                turn_number.append(turn)
 
 
-        return {'input_ids':input_ids, 'attention_mask':attention_mask,'labels':labels}
+        return {'input_ids': input_ids, 'attention_mask': attention_mask,
+                'labels': labels, 'dialogue_id': dialogue_ids, 'turn_number': turn_number}
 
 
     def create_inputs(self, dialogue, states):
@@ -64,7 +71,7 @@ class PreDataCollator:
             txt += toks[speaker] + dialogue[i+1]['text'] + toks[speaker]
 
             if i > 0:
-                # only 7 states so half of turns, divide by 2 to get idx. This already skips first txt with empty previous rdf!
+                # states are half of turns so divide by 2 to get idx. This already skips first txt with empty previous rdf!
                 idx = i // 2
                 prev_rdf = states[idx-1]
                 flat_prev = ','.join([val.strip() for triplet in prev_rdf['triples'] for val in triplet])
@@ -91,7 +98,8 @@ class PreDataCollator:
                        max_length=self.max_len)
 
 
-        #encoding['labels'] = [0 if label == -100 else label for label in encoding.labels]
+        #pad_token_val = self.tokenizer.get_vocab()[self.tokenizer.pad_token]  # this is literally just 0
+        encoding['labels'] = [-100 if label == 0 else label for label in encoding.labels]
 
         # more computationally costly?
         #items = {key: torch.as_tensor(val) for key, val in encoding.items()}
