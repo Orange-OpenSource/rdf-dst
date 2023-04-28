@@ -1,9 +1,8 @@
-from datasets import load_from_disk, dataset_dict
 import pytorch_lightning as pl
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 import re
-import torch
-from transformers import AutoTokenizer, AutoModel, T5ForConditionalGeneration
+import math
+from transformers import AutoTokenizer, T5ForConditionalGeneration
 from utils.data_loader import DialogueRDFData
 from utils.args import create_arg_parser
 from trainer import RDFDialogueStateModel, MetricsCallback
@@ -28,17 +27,20 @@ def preprocessing(data_dir, tokenizer, num_workers, max_len, batch_size, data_ty
 
     return {'train': train_dataloader, 'test': test_dataloader, 'dev': val_dataloader}
 
-def training_and_inference(model, epochs, tokenizer, lr, dataloaders):
+def training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders):
 
     train_dataloader = dataloaders['train']
     test_dataloader = dataloaders['test']
     val_dataloader = dataloaders['dev']
 
+
     # changing name for a more reusable version to resume training and test
     #checkpoint_name = '{epoch:02d}-{val_loss:.2f}-{encoded_accuracy:.2f}'
     # https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.callbacks.ModelCheckpoint.html
     checkpoint_name = 'best_dst_ckpt'
-    pl_model = RDFDialogueStateModel(model, lr)
+    num_train_optimization_steps = epochs * len(train_dataloader)
+    num_warmup_steps = math.ceil(len(train_dataloader) / grad_acc_steps)
+    pl_model = RDFDialogueStateModel(model, lr, epochs, num_train_optimization_steps, num_warmup_steps)
     # saving every time val_loss improves
     checkpoint_callback = ModelCheckpoint(monitor='val_loss',
                                           filename=checkpoint_name,
@@ -78,6 +80,7 @@ def main():
     max_len = args.seq_length
     lr = args.learning_rate
     num_workers = args.num_workers
+    grad_acc_steps = args.gradient_accumulation_steps
 
 
     dataRegex = re.compile(r"(\w+_)")
@@ -87,7 +90,7 @@ def main():
     data_type = all_data_types[data_key]
 
     dataloaders = preprocessing(data_dir, tokenizer, num_workers, max_len, batch_size, data_type)
-    training_and_inference(model, epochs, tokenizer, lr, dataloaders)
+    training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders)
 
 if __name__ == '__main__':
     main()

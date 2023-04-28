@@ -1,18 +1,9 @@
 
 def postprocess_rdfs(decoded_batch):
 
-
-
     decoded_batch = [row.split(',') for row in decoded_batch]
-
-    print(len(decoded_batch[6]))
-    print(len(decoded_batch[6])/3)
     decoded_batch = [[rdfs[i:i+3] for i in range(0, len(rdfs), 3)] for rdfs in decoded_batch]
 
-    print(decoded_batch[0])
-    print('\n'*3)
-    print(decoded_batch[5])
-    
     return decoded_batch
 class DSTMetrics:
 

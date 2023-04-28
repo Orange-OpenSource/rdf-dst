@@ -22,6 +22,11 @@ def create_arg_parser():
     parser.add_argument(
         "-workers", "--num_workers", default=0, type=int, help="Provide the number of workers"
     )
+
+    parser.add_argument(
+        "--gradient_accumulation_steps", type=int, default=1, help="Number of updates steps to accumulate before performing a backward/update pass."
+        )
+
     parser.add_argument(
         "-lr",
         "--learning_rate",

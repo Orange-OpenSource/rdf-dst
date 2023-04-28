@@ -7,11 +7,11 @@
 # exact match reading comprehension, F1 SQUAD
 import pytorch_lightning as pl
 import pandas as pd
-import re
 import numpy as np
 import torch
 import evaluate
 from pytorch_lightning import LightningModule
+from transformers import get_linear_schedule_with_warmup
 from utils.metric_tools import DSTMetrics, postprocess_rdfs #compute_joint_goal_accuracy
 from torch.optim import AdamW
 
@@ -31,15 +31,24 @@ class MetricsCallback(pl.Callback):
         all_labels = pl_module.eval_epoch_outputs['labels']
         decoded_preds = self.tokenizer.batch_decode(all_preds, skip_special_tokens=True)
         decoded_labels = self.tokenizer.batch_decode(all_labels, skip_special_tokens=True)
-        #decoded_preds = postprocess_rdfs(decoded_preds)
+        decoded_preds = postprocess_rdfs(decoded_preds)
         decoded_labels = postprocess_rdfs(decoded_labels)
-        raise SystemExit
 
-        df = pd.DataFrame(dialogue_states).T
-        print(df)
-        print(df['reference'].iloc[0])
-        print(df['prediction'].iloc[0])
-        return dialogue_states
+        #df = pd.DataFrame(dialogue_states).T
+        #print(df)
+        #print(df['reference'].iloc[0])
+        #print(df['prediction'].iloc[0])
+
+        #return dialogue_states
+        print('\n')
+        print("\nVALIDATION PREDS\n")
+        print(decoded_preds)
+        print("\n"*3)
+        
+        print("\nVALIDATION LABELS\n")
+        print(decoded_preds)
+        print("\n"*3)
+        raise SystemExit
 
     def on_test_epoch_end(self, trainer, pl_module):
 
@@ -60,16 +69,18 @@ class MetricsCallback(pl.Callback):
 
 class RDFDialogueStateModel(LightningModule):
 
-    def __init__(self, model, lr):
+    def __init__(self, model, lr, epochs, num_train_optimization_steps, num_warmup_steps):
         super().__init__()
         self.lr = lr
         self.model = model
+        self.num_training_steps = num_train_optimization_steps
+        self.num_warmup_steps = num_warmup_steps
         self.acc = evaluate.load("accuracy")
         self.f1 = evaluate.load("f1")
         self.my_metrics = dict()
         self.eval_epoch_outputs = dict()
 
-        self.save_hyperparameters("lr")
+        self.save_hyperparameters("lr", "epochs")
 
     def forward(self, input_ids, attention_mask, labels):
         outputs = self.model(input_ids=input_ids,
@@ -158,4 +169,10 @@ class RDFDialogueStateModel(LightningModule):
     def configure_optimizers(self):
         lr = self.lr
         optimizer = AdamW(self.parameters(), lr=lr)
-        return optimizer
+        lr_scheduler = {'scheduler': get_linear_schedule_with_warmup(optimizer,
+                                                                     num_training_steps=self.num_training_steps,
+                                                                     num_warmup_steps=self.num_warmup_steps),
+                        'name': 'learning_rate',
+                        'interval': 'step',
+                        'frequency': 1}
+        return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
