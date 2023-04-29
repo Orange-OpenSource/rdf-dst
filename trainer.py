@@ -12,7 +12,7 @@ import torch
 import evaluate
 from pytorch_lightning import LightningModule
 from transformers import get_linear_schedule_with_warmup
-from utils.metric_tools import DSTMetrics, postprocess_rdfs #compute_joint_goal_accuracy
+from utils.metric_tools import postprocess_rdfs, joint_goal_accuracy
 from torch.optim import AdamW
 
 SEED = 42  # for replication purposes
@@ -20,19 +20,17 @@ SEED = 42  # for replication purposes
 
 class MetricsCallback(pl.Callback):
 
-    def __init__(self, tokenizer):
-        super().__init__()
-        #DSTMetrics(self.tokenizer)
-        self.tokenizer = tokenizer
-
     def on_shared_epoch_end(self, pl_module):
 
-        all_preds = pl_module.eval_epoch_outputs['preds']
-        all_labels = pl_module.eval_epoch_outputs['labels']
-        decoded_preds = self.tokenizer.batch_decode(all_preds, skip_special_tokens=True)
-        decoded_labels = self.tokenizer.batch_decode(all_labels, skip_special_tokens=True)
-        decoded_preds = postprocess_rdfs(decoded_preds)
-        decoded_labels = postprocess_rdfs(decoded_labels)
+        preds = pl_module.eval_epoch_outputs['preds']
+        labels = pl_module.eval_epoch_outputs['labels']
+        results = self.evaluation(preds, labels)
+        raise SystemExit
+        #rel_acc = 0.5
+        #jga = results["joint_goal_accuracy"]
+        #pl_module.my_metrics.setdefault("relative_accuracy", rel_acc)
+        #pl_module.log_dict(pl_module.my_metrics, on_epoch=True)
+
 
         #df = pd.DataFrame(dialogue_states).T
         #print(df)
@@ -40,39 +38,35 @@ class MetricsCallback(pl.Callback):
         #print(df['prediction'].iloc[0])
 
         #return dialogue_states
-        print('\n')
-        print("\nVALIDATION PREDS\n")
-        print(decoded_preds)
-        print("\n"*3)
-        
-        print("\nVALIDATION LABELS\n")
-        print(decoded_preds)
-        print("\n"*3)
-        raise SystemExit
 
     def on_test_epoch_end(self, trainer, pl_module):
 
 
-        dialogue_states = self.on_shared_epoch_end(pl_module)
+        self.on_shared_epoch_end(pl_module)
         pl_module.eval_epoch_outputs.clear()
 
     def on_validation_epoch_end(self, trainer, pl_module):
 
-        dialogue_states = self.on_shared_epoch_end(pl_module)
+        self.on_shared_epoch_end(pl_module)
+        pl_module.eval_epoch_outputs.clear()
+    
 
     @staticmethod
-    def shared_evaluation(pl_module, preds, labels):
-        rel_acc = 0.5
-        pl_module.my_metrics.setdefault("relative_accuracy", rel_acc)
-        pl_module.log_dict(pl_module.my_metrics, on_epoch=True)
-
+    def evaluation(preds, labels):
+        jga = joint_goal_accuracy(preds, labels)
+        return {"joint_goal_accuracy": jga}
 
 class RDFDialogueStateModel(LightningModule):
 
-    def __init__(self, model, lr, epochs, num_train_optimization_steps, num_warmup_steps):
+    def __init__(
+                 self, model,
+                 tokenizer, lr,
+                 epochs, num_train_optimization_steps,
+                 num_warmup_steps):
         super().__init__()
         self.lr = lr
         self.model = model
+        self.tokenizer = tokenizer
         self.num_training_steps = num_train_optimization_steps
         self.num_warmup_steps = num_warmup_steps
         self.acc = evaluate.load("accuracy")
@@ -99,20 +93,32 @@ class RDFDialogueStateModel(LightningModule):
     def shared_eval_step(self, batch, batch_idx, validation=True):
         """
         returns preds
-        no need to ignore -100 as this logic has been removed
-        from preprocessing. TODO: remove the labels argument
         """
-        gen_kwargs = {
-            #"max_new_tokens": 511,
-            "max_length": 512,
-        }
-        inputs = batch["input_ids"]
-        attention = batch["attention_mask"]
-        labels = batch['labels'].cpu()
-        ids = batch['dialogue_id']
-        generated_tokens = self.model.generate(inputs, attention_mask=attention, **gen_kwargs)
+        with torch.no_grad():
+            gen_kwargs = {
+                #"max_new_tokens": 511,
+                "max_length": 256,
+                "min_length": 256,
+            }
+    #            generated_ids = self.model.generate(input_ids=input_ids,
+    #                                                attention_mask=attention_mask,
+    #                                                max_length=states_len,
+    #                                                truncation=True,
+    #                                                num_beams=beam_search,
+    #                                                repetition_penalty=repetition_penalty,
+    #                                                length_penalty=1.0,
+    #                                                early_stopping=True)
 
-        return {"gen_tokens": generated_tokens.cpu(), "labels": labels, "ids": ids}
+    #            prediction = [self.tokenizer.decode(state, skip_special_tokens=True, clean_up_tokenization_spaces=True) for g in generated_ids]
+            generated_tokens = self.model.generate(batch["input_ids"], attention_mask=batch["attention_mask"], **gen_kwargs)
+            decoded_preds = self.tokenizer.batch_decode(generated_tokens.detach().cpu().numpy(), skip_special_tokens=True)
+
+            labels = batch["labels"].detach().cpu().numpy()
+            labels = np.where(labels != -100, labels, 0)
+            decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
+            decoded_preds = postprocess_rdfs(decoded_preds)
+            decoded_labels = postprocess_rdfs(decoded_labels)
+        return {"preds": decoded_preds, "labels": decoded_labels, "ids": batch["dialogue_id"]}
 
     def training_step(self, batch, batch_idx):
         loss, _ = self.common_step(batch, batch_idx)
@@ -120,9 +126,7 @@ class RDFDialogueStateModel(LightningModule):
 
     def validation_step(self, batch, batch_idx):
         loss, logits = self.common_step(batch, batch_idx)
-        # explicit logging, otherwise only logs epoch and steps by default
         outputs = self.shared_eval_step(batch, batch_idx)
-        #preds = self.tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
         outputs.setdefault("loss", loss)
         return outputs
 
@@ -132,35 +136,27 @@ class RDFDialogueStateModel(LightningModule):
 
     def shared_epoch_end(self, outputs):
 
-        preds = torch.cat([out['gen_tokens'] for out in outputs]).cpu()
-        labels = torch.cat([out['labels'] for out in outputs]).cpu()
-        preds = preds.numpy()
-        labels = labels.numpy()
-        # 2 ways, second seems more readable? idk
-        #labels = np.where(labels != -100, labels, tokenizer.pad_token_id)
-        labels = np.where(labels != -100, labels, 0)
 
-        self.eval_epoch_outputs.setdefault('preds', preds)
-        self.eval_epoch_outputs.setdefault('labels', labels)
+        self.eval_epoch_outputs["labels"] = [out['labels'] for out in outputs]
+        self.eval_epoch_outputs["preds"] = [out['preds'] for out in outputs]
 
 
-        labels = labels.flatten()
-        preds = preds.flatten()
-        # compute metrics, masked_select already flattens the sequences and removes the vals == -100
+        #labels = labels.flatten()
+        #preds = preds.flatten()
+        ## compute metrics, masked_select already flattens the sequences and removes the vals == -100
 
-        acc = self.acc.compute(predictions=preds, references=labels)
-        # we have to choose an average setting because this is not binary classification
-        f1 = self.f1.compute(predictions=preds, references=labels, average='macro')
-        self.my_metrics = {'encoded_accuracy': acc['accuracy'], 'encoded_f1':f1['f1']}
+        #acc = self.acc.compute(predictions=preds, references=labels)
+        ## we have to choose an average setting because this is not binary classification
+        #f1 = self.f1.compute(predictions=preds, references=labels, average='macro')
+        #self.my_metrics = {'encoded_accuracy': acc['accuracy'], 'encoded_f1':f1['f1']}
 
     def validation_epoch_end(self, outputs):
-
-        self.shared_epoch_end(outputs)
 
         # lightning aggregates the loss automatically depending on params passed, doing it explicitly just to see.
         # for early stopping purposes
         loss = torch.stack([out['loss'] for out in outputs]).mean()
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.shared_epoch_end(outputs)
 
     def test_epoch_end(self, outputs):
 

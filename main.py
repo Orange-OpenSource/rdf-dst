@@ -1,3 +1,4 @@
+# https://shivanandroy.com/fine-tune-t5-transformer-with-pytorch/
 import pytorch_lightning as pl
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 import re
@@ -19,19 +20,20 @@ def preprocessing(data_dir, tokenizer, num_workers, max_len, batch_size, data_ty
                            data_dir=data_dir, max_len=max_len,
                            batch_size=batch_size, data_type=data_type)
     data.prepare_data()
+    # We tokenize in setup, but pl suggests to tokenize in prepare?
     data.setup(subsetting=True)
 
     train_dataloader = data.train_dataloader()
     test_dataloader = data.test_dataloader()
-    val_dataloader = data.val_dataloader()
+    validation_dataloader = data.validation_dataloader()
 
-    return {'train': train_dataloader, 'test': test_dataloader, 'dev': val_dataloader}
+    return {'train': train_dataloader, 'test': test_dataloader, 'validation': validation_dataloader}
 
 def training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders):
 
     train_dataloader = dataloaders['train']
     test_dataloader = dataloaders['test']
-    val_dataloader = dataloaders['dev']
+    validation_dataloader = dataloaders['validation']
 
 
     # changing name for a more reusable version to resume training and test
@@ -40,8 +42,9 @@ def training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloa
     checkpoint_name = 'best_dst_ckpt'
     num_train_optimization_steps = epochs * len(train_dataloader)
     num_warmup_steps = math.ceil(len(train_dataloader) / grad_acc_steps)
-    pl_model = RDFDialogueStateModel(model, lr, epochs, num_train_optimization_steps, num_warmup_steps)
+    pl_model = RDFDialogueStateModel(model, tokenizer, lr, epochs, num_train_optimization_steps, num_warmup_steps)
     # saving every time val_loss improves
+    # custom save checkpoints callback pytorch lightning
     checkpoint_callback = ModelCheckpoint(monitor='val_loss',
                                           filename=checkpoint_name,
                                           mode="min",
@@ -49,9 +52,8 @@ def training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloa
 
 
     early_stopping = EarlyStopping('val_loss')
-    metrics = MetricsCallback(tokenizer)
+    metrics = MetricsCallback()
     callbacks = [checkpoint_callback, early_stopping, metrics]
-    #callbacks = [checkpoint_callback, early_stopping]
     
     trainer = pl.Trainer(max_epochs=epochs, callbacks=callbacks,
                          devices='auto', accelerator='cpu')
@@ -59,12 +61,11 @@ def training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloa
 
     #logging.info("Training stage")
     trainer.fit(pl_model, train_dataloaders=train_dataloader,
-                val_dataloaders=val_dataloader)  # ckpt_path to continue from ckpt
+                val_dataloaders=validation_dataloader)  # ckpt_path to continue from ckpt
 
     #trainer.validate  # if I want to do more with validation
 
     logging.info("Inference stage")
-    raise SystemExit
     ckpt_path = './lightning_logs/version_1/checkpoints/' + checkpoint_callback.filename + '.ckpt'
     trainer.test(pl_model, dataloaders=test_dataloader, ckpt_path=ckpt_path, verbose=True)# ?
 

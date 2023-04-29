@@ -1,3 +1,13 @@
 # __pycache__
 /__pycache__
+utils/__pycache__
+# rdf dirs
+poc-rdf/
+dstc2_rdf_data/
+multiwoz_rdf_data/
+sfx_rdf_data/
+# dpr package?
+.dpr/
+# checkpoints and logs
+lightning_logs/
 
