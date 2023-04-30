@@ -15,10 +15,12 @@ SEED = 42  # for replication purposes
 
 
 #model = AutoModel.from_pretrained("google/flan-t5-small")  # decoder_inputs and shift right instead of conditional generation. See documentation. Conditional generation does work with labels tho
-def preprocessing(data_dir, tokenizer, num_workers, max_len, batch_size, data_type):
+def preprocessing(data_dir, tokenizer, num_workers, source_len, target_len, batch_size, data_type):
+
     data = DialogueRDFData(tokenizer=tokenizer, num_workers=num_workers,
-                           data_dir=data_dir, max_len=max_len,
-                           batch_size=batch_size, data_type=data_type)
+                           data_dir=data_dir, source_len=source_len,
+                           target_len=target_len, batch_size=batch_size,
+                           data_type=data_type)
     data.prepare_data()
     # We tokenize in setup, but pl suggests to tokenize in prepare?
     data.setup(subsetting=True)
@@ -29,7 +31,7 @@ def preprocessing(data_dir, tokenizer, num_workers, max_len, batch_size, data_ty
 
     return {'train': train_dataloader, 'test': test_dataloader, 'validation': validation_dataloader}
 
-def training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders):
+def training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders, target_len):
 
     train_dataloader = dataloaders['train']
     test_dataloader = dataloaders['test']
@@ -42,7 +44,7 @@ def training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloa
     checkpoint_name = 'best_dst_ckpt'
     num_train_optimization_steps = epochs * len(train_dataloader)
     num_warmup_steps = math.ceil(len(train_dataloader) / grad_acc_steps)
-    pl_model = RDFDialogueStateModel(model, tokenizer, lr, epochs, num_train_optimization_steps, num_warmup_steps)
+    pl_model = RDFDialogueStateModel(model, tokenizer, lr, epochs, num_train_optimization_steps, num_warmup_steps, target_len)
     # saving every time val_loss improves
     # custom save checkpoints callback pytorch lightning
     checkpoint_callback = ModelCheckpoint(monitor='val_loss',
@@ -56,7 +58,7 @@ def training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloa
     callbacks = [checkpoint_callback, early_stopping, metrics]
     
     trainer = pl.Trainer(max_epochs=epochs, callbacks=callbacks,
-                         devices='auto', accelerator='cpu')
+                         devices='auto', accelerator='gpu')
     #trainer.tune  # tune before training to find lr??? Hyperparameter tuning!
 
     #logging.info("Training stage")
@@ -73,25 +75,19 @@ def main():
 
     model = T5ForConditionalGeneration.from_pretrained("google/flan-t5-small")
     tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-small", extra_ids=0) 
-    all_data_types = {'sfx': 'SF', 'multiwoz': 'MWOZ', 'dstc2': 'DSTC'}
     args = create_arg_parser()
     data_dir = args.data_dir
     batch_size = args.batch
     epochs = args.epochs
-    max_len = args.seq_length
+    source_len = args.source_length
+    target_len = args.target_length
     lr = args.learning_rate
     num_workers = args.num_workers
     grad_acc_steps = args.gradient_accumulation_steps
 
 
-    dataRegex = re.compile(r"(\w+_)")
-    res = dataRegex.search(data_dir)
-    # this breaks the output dir from the slot value to rdf data to create the keys for our all_data_types dict
-    data_key = res.group()[:-5]  #TODO: Fix the regex above to make this less brute force
-    data_type = all_data_types[data_key]
-
-    dataloaders = preprocessing(data_dir, tokenizer, num_workers, max_len, batch_size, data_type)
-    training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders)
+    dataloaders = preprocessing(data_dir, tokenizer, num_workers, source_len, target_len, batch_size)
+    training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders, target_len)
 
 if __name__ == '__main__':
     main()

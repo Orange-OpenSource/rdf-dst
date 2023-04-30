@@ -62,13 +62,14 @@ class RDFDialogueStateModel(LightningModule):
                  self, model,
                  tokenizer, lr,
                  epochs, num_train_optimization_steps,
-                 num_warmup_steps):
+                 num_warmup_steps, target_length):
         super().__init__()
         self.lr = lr
         self.model = model
         self.tokenizer = tokenizer
         self.num_training_steps = num_train_optimization_steps
         self.num_warmup_steps = num_warmup_steps
+        self.target_length = target_length
         self.acc = evaluate.load("accuracy")
         self.f1 = evaluate.load("f1")
         self.my_metrics = dict()
@@ -94,11 +95,14 @@ class RDFDialogueStateModel(LightningModule):
         """
         returns preds
         """
+        # https://huggingface.co/blog/how-to-generate
+        # https://huggingface.co/docs/transformers/v4.28.1/en/generation_strategies
         with torch.no_grad():
+            # https://huggingface.co/docs/transformers/v4.28.1/en/main_classes/text_generation#transformers.GenerationConfig
             gen_kwargs = {
                 #"max_new_tokens": 511,
-                "max_length": 256,
-                "min_length": 256,
+                "max_length": self.target_length,
+                "min_length": self.target_length,
             }
     #            generated_ids = self.model.generate(input_ids=input_ids,
     #                                                attention_mask=attention_mask,
@@ -162,6 +166,7 @@ class RDFDialogueStateModel(LightningModule):
 
         self.shared_epoch_end(outputs)
 
+    # https://discuss.huggingface.co/t/t5-finetuning-tips/684/3
     def configure_optimizers(self):
         lr = self.lr
         optimizer = AdamW(self.parameters(), lr=lr)

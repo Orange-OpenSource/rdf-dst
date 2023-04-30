@@ -10,9 +10,10 @@ logging.basicConfig(level=logging.INFO)
 @dataclass
 class PreDataCollator:
     
-    def __init__(self, tokenizer, max_len):
+    def __init__(self, tokenizer, source_len, target_len):
 
-        self.max_len = max_len
+        self.source_len = source_len
+        self.target_len = target_len
         self.user_tkn = '<user_tkn>'
         self.sys_tkn = '<sys_tkn>'
         self.state_tkn = '<state_tkn>'
@@ -91,20 +92,19 @@ class PreDataCollator:
         
         # using tokenizer to encode sentence (includes padding/truncation up to max length)
         encoding = self.tokenizer(dialogue,
-                       text_target=rdf,
                        #is_split_into_words=True,
                        padding='max_length',
                        truncation=True,
-                       max_length=self.max_len)
+                       max_length=self.source_len)
+        
+        target_encoding = self.tokenizer(rdf, padding='max_length',
+                                         truncation=True,
+                                         max_length=self.target_len)
+        
+        labels = target_encoding.input_ids
+        labels[labels == self.tokenizer.pad_token_id] = -100
 
+        #encoding['labels'] = [-100 if label == 0 else label for label in target_encoding.labels]
+        encoding['labels'] = labels
 
-        #pad_token_val = self.tokenizer.get_vocab()[self.tokenizer.pad_token]  # this is literally just 0
-        encoding['labels'] = [-100 if label == 0 else label for label in encoding.labels]
-
-        # more computationally costly?
-        #items = {key: torch.as_tensor(val) for key, val in encoding.items()}
-
-        #mask = items['labels'].eq(-100) 
-        #items['labels'] = items['labels'].masked_fill(mask, 0)
-        #return items
         return encoding

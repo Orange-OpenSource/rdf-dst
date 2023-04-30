@@ -17,12 +17,14 @@ class DialogueRDFData(LightningDataModule):
     """
 
     def __init__(self, tokenizer, num_workers: int,
-                 max_len: int, data_dir: str, batch_size: int=6,
-                 data_type: str='SF'):
+                 source_len: int, target_len: int,
+                 data_dir: str, batch_size: int=6,
+                 ):
+
         super().__init__()
-        self.max_len = max_len
+        self.source_len = source_len
+        self.target_len = target_len
         self.data_dir = data_dir
-        self.data_type = data_type
         self.tokenizer = tokenizer
         #TODO: Review dataset and multiprocessing issues 
         # https://github.com/pytorch/pytorch/issues/8976
@@ -48,7 +50,7 @@ class DialogueRDFData(LightningDataModule):
 
         """
 
-        collator = PreDataCollator(self.tokenizer, self.max_len)
+        collator = PreDataCollator(self.tokenizer, self.source_len, self.target_len)
         self.train_dataset = self.txt2rdf['train'].map(collator, num_proc=8, remove_columns=self.txt2rdf['train'].column_names, batched=True)  
         self.validation_dataset = self.txt2rdf['validation'].map(collator, num_proc=8, remove_columns=self.txt2rdf['validation'].column_names, batched=True) 
         self.test_dataset = self.txt2rdf['test'].map(collator, num_proc=8, remove_columns=self.txt2rdf['test'].column_names, batched=True) 
@@ -63,7 +65,7 @@ class DialogueRDFData(LightningDataModule):
             new_set = self.train_dataset[0]['labels'][:50]
             compare_tensors = torch.all(torch.eq(og_set, new_set))
             assert compare_tensors, "Subset does not correspond to original dataset"
-
+        
 
 
     #TODO: change workers to 12 when testing with gpu

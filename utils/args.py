@@ -35,13 +35,20 @@ def create_arg_parser():
         help="Provide the learning rate"
     )
     parser.add_argument(
-        "-l",
-        "--seq_length",
+        "-s_len",
+        "--source_length",
         default=512,
         type=int,
         help="define Max sequence length"
     )
 
+    parser.add_argument(
+        "-t_len",
+        "--target_length",
+        default=128,
+        type=int,
+        help="define Max sequence length"
+    )
 
     args = parser.parse_args()
     return args
