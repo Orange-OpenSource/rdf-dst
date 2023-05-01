@@ -33,6 +33,7 @@ class MetricsCallback(pl.Callback):
         decoded_labels = pl_module.eval_epoch_outputs['labels']
         dialogue_ids = pl_module.eval_epoch_outputs['dialogue_id']
         
+        # turn level evaluation
         results = self.evaluation(decoded_preds, decoded_labels)
         dialogues = self.dialogue_reconstruction(dialogue_ids, decoded_preds, decoded_labels)
 

@@ -6,13 +6,20 @@ def postprocess_rdfs(decoded_batch):
     return decoded_batch
 
 def joint_goal_accuracy(predictions, references):
-    for pred, ref in zip(predictions, references):
-        continue
-        #print("BATCH\n")
-        #print(len(pred))
-        #print("labels")
-        #print('\n'*2)
-        #print(len(ref))
+    for preds, refs in zip(predictions, references):
+        print("BATCH\n")
+        print(len(preds))
+        print("labels")
+        print('\n'*2)
+        print(len(refs))
+        for pred_rdfs, ref_rdfs in zip(preds, refs):
+            print(pred_rdfs)
+            print(ref_rdfs)
+            for pr_rdf, ref_rdf in zip(pred_rdfs, ref_rdfs):
+                if ref_rdf in pred_rdfs:
+                    print(ref_rdf)
+                break
+            break
     
     return 69
 
