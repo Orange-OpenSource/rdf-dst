@@ -12,20 +12,39 @@ import torch
 import evaluate
 from pytorch_lightning import LightningModule
 from transformers import get_linear_schedule_with_warmup
-from utils.metric_tools import postprocess_rdfs, joint_goal_accuracy
+from utils.metric_tools import postprocess_rdfs, joint_goal_accuracy, DSTMetrics
 from torch.optim import AdamW
+
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 SEED = 42  # for replication purposes
 
 
 class MetricsCallback(pl.Callback):
 
+    def __init__(self):
+        self.dst_metrics = DSTMetrics()
+
     def on_shared_epoch_end(self, pl_module):
 
-        preds = pl_module.eval_epoch_outputs['preds']
-        labels = pl_module.eval_epoch_outputs['labels']
-        results = self.evaluation(preds, labels)
-        raise SystemExit
+        decoded_preds = pl_module.eval_epoch_outputs['preds']
+        decoded_labels = pl_module.eval_epoch_outputs['labels']
+        dialogue_ids = pl_module.eval_epoch_outputs['dialogue_id']
+        
+        results = self.evaluation(decoded_preds, decoded_labels)
+        dialogues = self.dialogue_reconstruction(dialogue_ids, decoded_preds, decoded_labels)
+
+        print("DEBUGGING DIALOGUE CONSTRUCTION - EPOCH END.")
+        print(dialogue_ids)
+        for k in dialogues.keys():
+            print(f"In dialogue {k} there's: {len(dialogues[k])} turns")
+            print(len(dialogues[k]))
+        print("DEBUGGING DIALOGUE CONSTRUCTION - EPOCH END. INIT ANOTHER EPOCH SOON")
+
+        return results
+
         #rel_acc = 0.5
         #jga = results["joint_goal_accuracy"]
         #pl_module.my_metrics.setdefault("relative_accuracy", rel_acc)
@@ -41,15 +60,36 @@ class MetricsCallback(pl.Callback):
 
     def on_test_epoch_end(self, trainer, pl_module):
 
-
-        self.on_shared_epoch_end(pl_module)
+        results = self.on_shared_epoch_end(pl_module)
         pl_module.eval_epoch_outputs.clear()
 
     def on_validation_epoch_end(self, trainer, pl_module):
 
-        self.on_shared_epoch_end(pl_module)
+        results = self.on_shared_epoch_end(pl_module)
         pl_module.eval_epoch_outputs.clear()
     
+    @staticmethod
+    def dialogue_reconstruction(dialogue_id, pred, label):
+
+        dialogues = dict()
+        if isinstance(dialogue_id, int):
+            if dialogue_id in dialogues:
+                dialogues[dialogue_id].append((pred, label))
+            else:
+                dialogues[dialogue_id] = [(pred, label)]
+        else:
+            # flattening to avoid a nested loops
+            dialogue_id = [d for batch in dialogue_id for d in batch]
+            pred = [p for batch in pred for p in batch]
+            label = [l for batch in label for l in batch]
+            for diag_id, pr, lb in zip(dialogue_id, pred, label):
+                if diag_id in dialogues:
+                    dialogues[diag_id].append([(pr, lb)])
+                else:
+                    dialogues[diag_id] = [(pr, lb)]
+        
+        return dialogues
+
 
     @staticmethod
     def evaluation(preds, labels):
@@ -103,6 +143,7 @@ class RDFDialogueStateModel(LightningModule):
                 #"max_new_tokens": 511,
                 "max_length": self.target_length,
                 "min_length": self.target_length,
+                "early_stopping": True
             }
     #            generated_ids = self.model.generate(input_ids=input_ids,
     #                                                attention_mask=attention_mask,
@@ -116,13 +157,13 @@ class RDFDialogueStateModel(LightningModule):
     #            prediction = [self.tokenizer.decode(state, skip_special_tokens=True, clean_up_tokenization_spaces=True) for g in generated_ids]
             generated_tokens = self.model.generate(batch["input_ids"], attention_mask=batch["attention_mask"], **gen_kwargs)
             decoded_preds = self.tokenizer.batch_decode(generated_tokens.detach().cpu().numpy(), skip_special_tokens=True)
-
             labels = batch["labels"].detach().cpu().numpy()
             labels = np.where(labels != -100, labels, 0)
             decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
             decoded_preds = postprocess_rdfs(decoded_preds)
             decoded_labels = postprocess_rdfs(decoded_labels)
-        return {"preds": decoded_preds, "labels": decoded_labels, "ids": batch["dialogue_id"]}
+
+        return {"preds": decoded_preds, "labels": decoded_labels, "ids": batch["dialogue_id"].cpu().numpy()}
 
     def training_step(self, batch, batch_idx):
         loss, _ = self.common_step(batch, batch_idx)
@@ -140,19 +181,24 @@ class RDFDialogueStateModel(LightningModule):
 
     def shared_epoch_end(self, outputs):
 
-
         self.eval_epoch_outputs["labels"] = [out['labels'] for out in outputs]
         self.eval_epoch_outputs["preds"] = [out['preds'] for out in outputs]
+        self.eval_epoch_outputs["dialogue_id"] = [out['ids'] for out in outputs]
 
 
-        #labels = labels.flatten()
-        #preds = preds.flatten()
-        ## compute metrics, masked_select already flattens the sequences and removes the vals == -100
+        #print(self.dialogues)
 
-        #acc = self.acc.compute(predictions=preds, references=labels)
-        ## we have to choose an average setting because this is not binary classification
-        #f1 = self.f1.compute(predictions=preds, references=labels, average='macro')
-        #self.my_metrics = {'encoded_accuracy': acc['accuracy'], 'encoded_f1':f1['f1']}
+        # dialogue level reconstruction for separate evaluation...
+        #print("DEBUGGING DIALOGUE CONSTRUCTION - EPOCH END")
+        #logging.info(self.dialogues.keys())
+        #print(ids)
+        #print()
+        #self.dialogue_reconstruction(ids, preds, labels)
+        #for k in self.dialogues.keys():
+        #    print(f"In dialogue {k} there's: {len(self.dialogues[k])} turns")
+        #    print(len(self.dialogues[k]))
+        #print("DEBUGGING DIALOGUE CONSTRUCTION - EPOCH END. INIT ANOTHER EPOCH SOON")
+
 
     def validation_epoch_end(self, outputs):
 
@@ -162,9 +208,16 @@ class RDFDialogueStateModel(LightningModule):
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         self.shared_epoch_end(outputs)
 
+        #x = self.dialogues.keys()
+        #print(outputs["ids"])
+        #print()
+        #print(x)
+        #raise SystemExit
+
     def test_epoch_end(self, outputs):
 
         self.shared_epoch_end(outputs)
+    
 
     # https://discuss.huggingface.co/t/t5-finetuning-tips/684/3
     def configure_optimizers(self):

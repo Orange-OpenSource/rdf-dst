@@ -1,11 +1,6 @@
 from dataclasses import dataclass
-#TODO: Remove libraries and lines used for debugging
-#from itertools import filterfalse
-#import torch
-#import numpy as np
-import logging
+import re
 
-logging.basicConfig(level=logging.INFO)
 
 @dataclass
 class PreDataCollator:
@@ -20,7 +15,6 @@ class PreDataCollator:
         sentinel_tkns = {"additional_special_tokens": [self.user_tkn, self.sys_tkn, self.state_tkn]}
         tokenizer.add_special_tokens(sentinel_tkns)
         self.tokenizer = tokenizer
-        #logging.info(tokenizer.get_sentinel_tokens)
 
         
     
@@ -34,6 +28,15 @@ class PreDataCollator:
         
         for id, dialogue, states in zip(batch['dialogue_id'], batch['turns'], batch['states']):  # dict, history is a str that is the key
             txt_input, label_rdf = self.create_inputs(dialogue, states)
+
+            # current turn ids have chars in their ID, removing to keep only number
+            idRegex = re.compile(r"(\d+).json")
+            mo = idRegex.search(id)
+            if mo:
+                id = int(mo.group(1))  # ints take less memory
+            else:
+                raise Exception("Regex match failed, dialogue ids may be incorrect after preprocessing")
+
             for turn, (txt, rdf) in enumerate(zip(txt_input, label_rdf), 1):
                 tokenized = self.tokenize(txt, rdf)
                 input_ids.append(tokenized['input_ids'])

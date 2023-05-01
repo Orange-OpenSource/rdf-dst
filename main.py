@@ -1,7 +1,6 @@
 # https://shivanandroy.com/fine-tune-t5-transformer-with-pytorch/
 import pytorch_lightning as pl
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
-import re
 import math
 from transformers import AutoTokenizer, T5ForConditionalGeneration
 from utils.data_loader import DialogueRDFData
@@ -15,12 +14,11 @@ SEED = 42  # for replication purposes
 
 
 #model = AutoModel.from_pretrained("google/flan-t5-small")  # decoder_inputs and shift right instead of conditional generation. See documentation. Conditional generation does work with labels tho
-def preprocessing(data_dir, tokenizer, num_workers, source_len, target_len, batch_size, data_type):
+def preprocessing(data_dir, tokenizer, num_workers, source_len, target_len, batch_size):
 
     data = DialogueRDFData(tokenizer=tokenizer, num_workers=num_workers,
                            data_dir=data_dir, source_len=source_len,
-                           target_len=target_len, batch_size=batch_size,
-                           data_type=data_type)
+                           target_len=target_len, batch_size=batch_size)
     data.prepare_data()
     # We tokenize in setup, but pl suggests to tokenize in prepare?
     data.setup(subsetting=True)
@@ -58,17 +56,21 @@ def training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloa
     callbacks = [checkpoint_callback, early_stopping, metrics]
     
     trainer = pl.Trainer(max_epochs=epochs, callbacks=callbacks,
-                         devices='auto', accelerator='gpu')
+                         devices='auto', accelerator='cpu', enable_progress_bar=True)
+
     #trainer.tune  # tune before training to find lr??? Hyperparameter tuning!
 
-    #logging.info("Training stage")
+    logging.info("Training stage")
     trainer.fit(pl_model, train_dataloaders=train_dataloader,
                 val_dataloaders=validation_dataloader)  # ckpt_path to continue from ckpt
 
     #trainer.validate  # if I want to do more with validation
 
     logging.info("Inference stage")
-    ckpt_path = './lightning_logs/version_1/checkpoints/' + checkpoint_callback.filename + '.ckpt'
+    raise SystemExit
+    #ckpt_path = './lightning_logs/version_22/checkpoints/' + checkpoint_callback.filename + '.ckpt'
+    # only shuffled dialogues
+    ckpt_path = './lightning_logs/version_25/checkpoints/' + checkpoint_callback.filename + '.ckpt'
     trainer.test(pl_model, dataloaders=test_dataloader, ckpt_path=ckpt_path, verbose=True)# ?
 
 def main():

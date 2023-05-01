@@ -1,4 +1,3 @@
-
 def postprocess_rdfs(decoded_batch):
 
     decoded_batch = [row.split(',') for row in decoded_batch]
@@ -8,7 +7,21 @@ def postprocess_rdfs(decoded_batch):
 
 def joint_goal_accuracy(predictions, references):
     for pred, ref in zip(predictions, references):
-        print(pred)
-        print()
+        continue
+        #print("BATCH\n")
+        #print(len(pred))
+        #print("labels")
+        #print('\n'*2)
+        #print(len(ref))
     
     return 69
+
+class DSTMetrics:
+
+    def __init__(self):
+        self.generated_states = dict()
+        self.reference_states = dict()
+
+    def add_batch(self, generated, references):
+        self.generated_states["generated"] = generated
+        self.reference_states["references"] = references

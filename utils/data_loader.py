@@ -1,5 +1,4 @@
-from datasets import load_from_disk, dataset_dict, load_dataset
-from sklearn.model_selection import GroupShuffleSplit
+from datasets import load_dataset
 import torch
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader, Subset
@@ -41,6 +40,7 @@ class DialogueRDFData(LightningDataModule):
         # https://huggingface.co/docs/datasets/v1.12.0/cache.html cleaning cache to see changes in data collator during debugging
         txt2rdf.cleanup_cache_files()  # load_from_cache=False in map???
 
+        # shuffling dialogues
         self.txt2rdf = txt2rdf.shuffle(seed=SEED)
 
 
@@ -58,24 +58,23 @@ class DialogueRDFData(LightningDataModule):
 
         if subsetting:
             og_set = self.train_dataset[0]['labels'][:50]
-            self.train_dataset = Subset(self.train_dataset, range(95))
-            self.test_dataset = Subset(self.test_dataset, range(35))
-            self.validation_dataset = Subset(self.validation_dataset, range(37))
+            self.train_dataset = Subset(self.train_dataset, range(100))
+            self.test_dataset = Subset(self.test_dataset, range(40))
+            self.validation_dataset = Subset(self.validation_dataset, range(52))
 
             new_set = self.train_dataset[0]['labels'][:50]
             compare_tensors = torch.all(torch.eq(og_set, new_set))
             assert compare_tensors, "Subset does not correspond to original dataset"
         
 
-
     #TODO: change workers to 12 when testing with gpu
-    # we are not shuffling because we shuffled the dialogues before and this preserving the order of turns
+    # shuffling turns between dialogues
     def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=8, num_workers=self.num_workers)
+        return DataLoader(self.train_dataset, batch_size=8, num_workers=self.num_workers, shuffle=False)
 
     def validation_dataloader(self):
-        return DataLoader(self.validation_dataset, batch_size=8, num_workers=self.num_workers)
+        return DataLoader(self.validation_dataset, batch_size=8, num_workers=self.num_workers, shuffle=False)
 
     def test_dataloader(self):
-        return DataLoader(self.test_dataset, batch_size=8, num_workers=self.num_workers)
+        return DataLoader(self.test_dataset, batch_size=8, num_workers=self.num_workers, shuffle=False)
 
