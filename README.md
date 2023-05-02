@@ -5,6 +5,10 @@
 
 The scripts to download the datasets are in this repo
 
+USING KISSINGCAT NOW, must install requests then run orange\_certs.py while making sure AWS credentials for kissingcat are in your env as well as your profile.
+
+INSTRUCTIONS WILL BE UPDATED ACCORDINGLY. Running run.sh is enough
+
 ```bash
 git@gitlab.tech.orange:kissingcat/hf-datasets.git
 ```

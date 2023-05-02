@@ -14,10 +14,10 @@ SEED = 42  # for replication purposes
 
 
 #model = AutoModel.from_pretrained("google/flan-t5-small")  # decoder_inputs and shift right instead of conditional generation. See documentation. Conditional generation does work with labels tho
-def preprocessing(data_dir, tokenizer, num_workers, source_len, target_len, batch_size):
+def preprocessing(dataset, tokenizer, num_workers, source_len, target_len, batch_size):
 
     data = DialogueRDFData(tokenizer=tokenizer, num_workers=num_workers,
-                           data_dir=data_dir, source_len=source_len,
+                           dataset=dataset, source_len=source_len,
                            target_len=target_len, batch_size=batch_size)
     data.prepare_data()
     # We tokenize in setup, but pl suggests to tokenize in prepare?
@@ -77,7 +77,7 @@ def main():
     model = T5ForConditionalGeneration.from_pretrained("google/flan-t5-small")
     tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-small", extra_ids=0) 
     args = create_arg_parser()
-    data_dir = args.data_dir
+    dataset = args.dataset
     batch_size = args.batch
     epochs = args.epochs
     source_len = args.source_length
@@ -87,7 +87,7 @@ def main():
     grad_acc_steps = args.gradient_accumulation_steps
 
 
-    dataloaders = preprocessing(data_dir, tokenizer, num_workers, source_len, target_len, batch_size)
+    dataloaders = preprocessing(dataset, tokenizer, num_workers, source_len, target_len, batch_size)
     training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders, target_len)
 
 if __name__ == '__main__':

@@ -30,21 +30,28 @@ class MetricsCallback(pl.Callback):
     def on_shared_epoch_end(self, pl_module):
 
         decoded_preds = pl_module.eval_epoch_outputs['preds']
+        #pred_linearized_rdfs = [pred["linearized_rdfs"] for pred in decoded_preds]
+        #pred_rdfs = [pred["clean_rdfs"] for pred in decoded_preds]
         decoded_labels = pl_module.eval_epoch_outputs['labels']
+        #label_linearized_rdfs = [label["linearized_rdfs"] for label in decoded_labels]
+        #label_rdfs = [label["clean_rdfs"] for label in decoded_labels]
         dialogue_ids = pl_module.eval_epoch_outputs['dialogue_id']
-        
-        linearized_label_rdfs = [['|'.join(rdf) for rdfs in batch for rdf in rdfs] for batch in decoded_labels]
-        linearized_pred_rdfs = [['|'.join(rdf) for rdfs in batch for rdf in rdfs] for batch in decoded_preds]
 
-        results = self.linear_evaluation(linearized_pred_rdfs, linearized_label_rdfs)
+        
+
+        #TODO: For preds, labels in batch then pass and compute from there? check leos code
+        results = self.linear_evaluation(decoded_preds, decoded_labels)
+        #results = self.linear_evaluation(pred_linearized_rdfs, label_linearized_rdfs)
+        #results = self.linear_evaluation(pred_rdfs, label_rdfs)
+        raise SystemExit
 
         # sticking dialogues together for dialogue evaluation instead  of turn evaluation
-        dialogues = self.dialogue_reconstruction(dialogue_ids, decoded_preds, decoded_labels)
+        linearized_dialogues = self.dialogue_reconstruction(dialogue_ids, pred_linearized_rdfs, label_linearized_rdfs)
 
         print("DEBUGGING DIALOGUE CONSTRUCTION - EPOCH END.")
         print(dialogue_ids)
-        for k in dialogues.keys():
-            print(f"In dialogue {k} there's: {len(dialogues[k])} turns")
+        for k in linearized_dialogues.keys():
+            print(f"In dialogue {k} there's: {len(linearized_dialogues[k])} turns")
         print("DEBUGGING DIALOGUE CONSTRUCTION - EPOCH END. INIT ANOTHER EPOCH SOON")
 
         #return results
@@ -165,8 +172,8 @@ class RDFDialogueStateModel(LightningModule):
             labels = np.where(labels != -100, labels, 0)
             decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
             
-            decoded_preds = postprocess_rdfs(decoded_preds)
             decoded_labels = postprocess_rdfs(decoded_labels)
+            decoded_preds = postprocess_rdfs(decoded_preds)
 
         return {"preds": decoded_preds, "labels": decoded_labels, "ids": batch["dialogue_id"].cpu().numpy()}
 

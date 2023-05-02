@@ -17,13 +17,13 @@ class DialogueRDFData(LightningDataModule):
 
     def __init__(self, tokenizer, num_workers: int,
                  source_len: int, target_len: int,
-                 data_dir: str, batch_size: int=6,
+                 dataset: str, batch_size: int=6,
                  ):
 
         super().__init__()
         self.source_len = source_len
         self.target_len = target_len
-        self.data_dir = data_dir
+        self.dataset = dataset
         self.tokenizer = tokenizer
         #TODO: Review dataset and multiprocessing issues 
         # https://github.com/pytorch/pytorch/issues/8976
@@ -34,18 +34,12 @@ class DialogueRDFData(LightningDataModule):
         """
         """
 
-        data_files = {"train": self.data_dir + "train.jsonl", "test": self.data_dir + "test.jsonl", "validation": self.data_dir + "validation.jsonl"}
+        #data_files = {"train": self.data_dir + "train.jsonl", "test": self.data_dir + "test.jsonl", "validation": self.data_dir + "validation.jsonl"}
         #txt2rdf = load_dataset("json", data_files=data_files).with_format("torch")
-        txt2rdf = load_dataset("rdfdial", "multiwoz").with_format("torch")
-        print(txt2rdf)
-        txt2rdf = load_dataset("rdfdial", "multiwoz").with_format("torch")
-        print("TITO")
-        print("\n"*7)
-        print(txt2rdf)
-        raise SystemExit
+        txt2rdf = load_dataset("rdfdial", self.dataset).with_format("torch")
 
         # https://huggingface.co/docs/datasets/v1.12.0/cache.html cleaning cache to see changes in data collator during debugging
-        txt2rdf.cleanup_cache_files()  # load_from_cache=False in map???
+        #txt2rdf.cleanup_cache_files()  # load_from_cache=False in map???
 
         # shuffling dialogues
         self.txt2rdf = txt2rdf.shuffle(seed=SEED)

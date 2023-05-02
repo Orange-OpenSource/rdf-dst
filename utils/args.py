@@ -9,11 +9,17 @@ def create_arg_parser():
         "-b", "--batch", default=6, type=int, help="Provide the number of batch"
     )  # 32?
 
+    #parser.add_argument(
+    #    "-d", "--data_dir", default='./sfx_rdf_data/', type=str,
+    #    choices=['./sfx_rdf_data/', './multiwoz_rdf_data/', './dstc2_rdf_data/'],
+    #    help="Select rdf data from options. Note that DATCHA is missing"
+    #)
+
     parser.add_argument(
-        "-d", "--data_dir", default='./sfx_rdf_data/', type=str,
-        choices=['./sfx_rdf_data/', './multiwoz_rdf_data/', './dstc2_rdf_data/'],
+        "-d", "--dataset", default='sfxdial', type=str,
+        choices=['sfxdial', 'multiwoz', 'dstc2', 'all'],
         help="Select rdf data from options. Note that DATCHA is missing"
-    )  # 32?
+    )
 
     parser.add_argument(
         "-epochs", "--epochs", default=1, type=int, help="Provide the number of epochs"
@@ -34,6 +40,7 @@ def create_arg_parser():
         type=float,
         help="Provide the learning rate"
     )
+
     parser.add_argument(
         "-s_len",
         "--source_length",
