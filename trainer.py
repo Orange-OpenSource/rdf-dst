@@ -12,7 +12,7 @@ import torch
 import evaluate
 from pytorch_lightning import LightningModule
 from transformers import get_linear_schedule_with_warmup
-from utils.metric_tools import postprocess_rdfs, joint_goal_accuracy, DSTMetrics
+from utils.metric_tools import postprocess_rdfs, DSTMetrics
 from torch.optim import AdamW
 
 import logging
@@ -33,29 +33,10 @@ class MetricsCallback(pl.Callback):
         decoded_labels = pl_module.eval_epoch_outputs['labels']
         dialogue_ids = pl_module.eval_epoch_outputs['dialogue_id']
         
-        #for batch in decoded_labels:
-        #    print(batch)
-        #    print(len(batch))
-        #    linearized_rdfs = ['|'.join(rdf) for rdfs in batch for rdf in rdfs]
-        #    print(batch[0])
-        #    print("tito tito")
-        #    print(linearized_rdfs[0])
-        #    break
-        #linearized_rdfs = ['|'.join(rdf) for batch in decoded_labels for rdfs in batch for rdf in rdfs]
+        linearized_label_rdfs = [['|'.join(rdf) for rdfs in batch for rdf in rdfs] for batch in decoded_labels]
+        linearized_pred_rdfs = [['|'.join(rdf) for rdfs in batch for rdf in rdfs] for batch in decoded_preds]
 
-        linearized_rdfs = [['|'.join(rdf) for rdfs in batch for rdf in rdfs] for batch in decoded_labels]
-        #print()
-        #print(linearized_rdfs[0])
-
-        print('\n'*5)
-        print(len(decoded_labels))
-        print(decoded_labels[0])
-        print("tito tito")
-        print('\n'*5)
-        print(len(linearized_rdfs))
-        print(linearized_rdfs[0])
-        raise SystemExit
-        #results = self.linear_evaluation(decoded_linear_pred_rdfs, decoded_linear_label_rdfs)
+        results = self.linear_evaluation(linearized_pred_rdfs, linearized_label_rdfs)
 
         # sticking dialogues together for dialogue evaluation instead  of turn evaluation
         dialogues = self.dialogue_reconstruction(dialogue_ids, decoded_preds, decoded_labels)
@@ -90,6 +71,10 @@ class MetricsCallback(pl.Callback):
 
         results = self.on_shared_epoch_end(pl_module)
         pl_module.eval_epoch_outputs.clear()
+
+    def linear_evaluation(self, preds, labels):
+        jga = self.dst_metrics.joint_goal_accuracy(preds, labels)
+        return {"joint_goal_accuracy": jga}
     
     @staticmethod
     def dialogue_reconstruction(dialogue_id, pred, label):
@@ -114,10 +99,6 @@ class MetricsCallback(pl.Callback):
         return dialogues
 
 
-    @staticmethod
-    def linear_evaluation(preds, labels):
-        jga = joint_goal_accuracy(preds, labels)
-        return {"joint_goal_accuracy": jga}
 
 class RDFDialogueStateModel(LightningModule):
 

@@ -1,15 +1,28 @@
 import re
 
 def postprocess_rdfs(decoded_batch):
+    """
+    returns several rdf triplets per batch
+    """
 
     regexSplit = re.compile(r"(?<!\s),(?!\s)")
     decoded_batch = [regexSplit.split(row) for row in decoded_batch]
     decoded_batch = [[word.strip() for word in rdfs] for rdfs in decoded_batch]
     return [[rdfs[i:i+3] for i in range(0, len(rdfs), 3)] for rdfs in decoded_batch]
-    #linearized_rdfs = ['|'.join(rdf) for batch in clean_rdfs for rdf in batch]
-    #return {"clean_rdfs": clean_rdfs, "linearized_rdfs": linearized_rdfs}
 
-def joint_goal_accuracy(predictions, references):
+
+class DSTMetrics:
+    def joint_goal_accuracy(self, predictions, references):
+        for preds, refs in zip(predictions, references):
+            print(len(preds))
+            print(len(refs))
+            print(refs)
+            break
+        raise SystemExit
+        return 69
+
+# FOR NON-LINEAR RDF, WHAT TOD DO?
+def nonlinear_jga(predictions, references):
     avg_goal_pred_score = 0
     for preds, refs in zip(predictions, references):
         for pred_rdfs, ref_rdfs in zip(preds, refs):
@@ -33,13 +46,3 @@ def joint_goal_accuracy(predictions, references):
             break
     
     return 69
-
-class DSTMetrics:
-
-    def __init__(self):
-        self.generated_states = dict()
-        self.reference_states = dict()
-
-    def add_batch(self, generated, references):
-        self.generated_states["generated"] = generated
-        self.reference_states["references"] = references
