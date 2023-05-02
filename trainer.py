@@ -33,18 +33,40 @@ class MetricsCallback(pl.Callback):
         decoded_labels = pl_module.eval_epoch_outputs['labels']
         dialogue_ids = pl_module.eval_epoch_outputs['dialogue_id']
         
-        # turn level evaluation
-        results = self.evaluation(decoded_preds, decoded_labels)
+        #for batch in decoded_labels:
+        #    print(batch)
+        #    print(len(batch))
+        #    linearized_rdfs = ['|'.join(rdf) for rdfs in batch for rdf in rdfs]
+        #    print(batch[0])
+        #    print("tito tito")
+        #    print(linearized_rdfs[0])
+        #    break
+        #linearized_rdfs = ['|'.join(rdf) for batch in decoded_labels for rdfs in batch for rdf in rdfs]
+
+        linearized_rdfs = [['|'.join(rdf) for rdfs in batch for rdf in rdfs] for batch in decoded_labels]
+        #print()
+        #print(linearized_rdfs[0])
+
+        print('\n'*5)
+        print(len(decoded_labels))
+        print(decoded_labels[0])
+        print("tito tito")
+        print('\n'*5)
+        print(len(linearized_rdfs))
+        print(linearized_rdfs[0])
+        raise SystemExit
+        #results = self.linear_evaluation(decoded_linear_pred_rdfs, decoded_linear_label_rdfs)
+
+        # sticking dialogues together for dialogue evaluation instead  of turn evaluation
         dialogues = self.dialogue_reconstruction(dialogue_ids, decoded_preds, decoded_labels)
 
         print("DEBUGGING DIALOGUE CONSTRUCTION - EPOCH END.")
         print(dialogue_ids)
         for k in dialogues.keys():
             print(f"In dialogue {k} there's: {len(dialogues[k])} turns")
-            print(len(dialogues[k]))
         print("DEBUGGING DIALOGUE CONSTRUCTION - EPOCH END. INIT ANOTHER EPOCH SOON")
 
-        return results
+        #return results
 
         #rel_acc = 0.5
         #jga = results["joint_goal_accuracy"]
@@ -93,7 +115,7 @@ class MetricsCallback(pl.Callback):
 
 
     @staticmethod
-    def evaluation(preds, labels):
+    def linear_evaluation(preds, labels):
         jga = joint_goal_accuracy(preds, labels)
         return {"joint_goal_accuracy": jga}
 
@@ -161,6 +183,7 @@ class RDFDialogueStateModel(LightningModule):
             labels = batch["labels"].detach().cpu().numpy()
             labels = np.where(labels != -100, labels, 0)
             decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
+            
             decoded_preds = postprocess_rdfs(decoded_preds)
             decoded_labels = postprocess_rdfs(decoded_labels)
 
