@@ -1,4 +1,5 @@
 import re
+import numpy as np
 
 def postprocess_rdfs(decoded_batch):
     """
@@ -16,56 +17,26 @@ def postprocess_rdfs(decoded_batch):
 
 
 class DSTMetrics:
-    def joint_goal_accuracy(self, predictions, references):
-        print(len(predictions))
-        print(len(references))
-        print(references[3][-1])
-        print("TITO")
-        print(predictions[3][-1])
-        raise SystemExit
-        print()
-        for preds, refs in zip(predictions, references):
-            for pred_rdfs, ref_rdfs in zip(preds[::-1], refs[::-1]):
-                print(pred_rdfs)
-                print("LABELS")
-                print(ref_rdfs)
-                for rdf in pred_rdfs:
-                    if rdf in ref_rdfs:
-                        print("Correct")
-                        print(rdf)
-                raise SystemExit
-        print("CONTINUE WITH COMPLEX REP TO COMPARE")
-        #raise SystemExit
-        #for preds, refs in zip(predictions, references):
-        #    print(len(preds))
-        #    print(len(refs))
-        #    #print(refs)
-        #    break
-        #raise SystemExit
-        return 69
+    def __init__(self):
+        self.turn_jga_scores = []
 
-# FOR NON-LINEAR RDF, WHAT TOD DO?
-def nonlinear_jga(predictions, references):
-    avg_goal_pred_score = 0
-    for preds, refs in zip(predictions, references):
-        for pred_rdfs, ref_rdfs in zip(preds, refs):
-            print("PREDICTIONS")
-            print(pred_rdfs)
-            print(len(ref_rdfs))
-            print("REFERENCES")
-            print(ref_rdfs)
-            print(len(pred_rdfs))
-            for pr_rdf, ref_rdf in zip(pred_rdfs, ref_rdfs):
-                if (ref_rdf in pred_rdfs) and pr_rdf:  # checking that pr_rdf has several elements
-                    print("CORRECT")
-                    avg_goal_pred_score += 1
+    def joint_goal_accuracy(self, predictions, references, index_dict):
+        if (not predictions) and (not references):
+            return sum(self.turn_jga_scores) / len(self.turn_jga_scores)
 
-                    # reducing size of arrays to facilitate complexity?
-                    ref_rdfs = [rdf for rdf in ref_rdfs if rdf != ref_rdf]
-                    pred_rdfs = [rdf for rdf in pred_rdfs if rdf != ref_rdf]
-                    print(len(ref_rdfs))
-                    print(len(pred_rdfs))
-                break
-            break
-    
-    return 69
+        batch_preds = predictions[0]
+        batch_refs = references[0]
+        scores = []
+        #inv_index = {v: k for k, v in index_dict.items()}
+        for pred_turn, ref_turn in zip(batch_preds, batch_refs):
+            if len(ref_turn) == len(pred_turn):
+                pred_turn_idx = [index_dict[rdf] for rdf in pred_turn if len(rdf) == 3]
+                ref_turn_idx = [index_dict[rdf] for rdf in ref_turn if len(rdf) == 3]  # some slot values are not flawless rdfs in the annotated set
+                missing_els_from_ref = set(pred_turn_idx) - set(ref_turn_idx)
+                score = 0 if missing_els_from_ref else 1
+                scores.append(score)
+            else:
+                scores.append(0)
+        jga_turn_score = sum(scores) / len(scores) if len(scores) != 0 else 0
+        self.turn_jga_scores.append(jga_turn_score)
+        return self.joint_goal_accuracy(predictions[1:], references[1:], index_dict)

@@ -35,31 +35,17 @@ class MetricsCallback(pl.Callback):
         decoded_labels = pl_module.eval_epoch_outputs['labels']
         #label_linearized_rdfs = [label["linearized_rdfs"] for label in decoded_labels]
         #label_rdfs = [label["clean_rdfs"] for label in decoded_labels]
+        self.rdf_indexes = self.index_encoding(decoded_preds, decoded_labels)
         dialogue_ids = pl_module.eval_epoch_outputs['dialogue_id']
-
-        
-
-        #TODO: For preds, labels in batch then pass and compute from there? check leos code
-        results = self.linear_evaluation(decoded_preds, decoded_labels)
-        #results = self.linear_evaluation(pred_linearized_rdfs, label_linearized_rdfs)
-        #results = self.linear_evaluation(pred_rdfs, label_rdfs)
-        raise SystemExit
+        no_context_results = self.linear_evaluation(decoded_preds, decoded_labels)
 
         # sticking dialogues together for dialogue evaluation instead  of turn evaluation
-        linearized_dialogues = self.dialogue_reconstruction(dialogue_ids, pred_linearized_rdfs, label_linearized_rdfs)
+        linearized_dialogues = self.dialogue_reconstruction(dialogue_ids, decoded_preds, decoded_labels)
+        context_results = self.linear_evaluation(linearized_dialogues["ordered_preds"], linearized_dialogues["ordered_labels"])
 
-        print("DEBUGGING DIALOGUE CONSTRUCTION - EPOCH END.")
-        print(dialogue_ids)
-        for k in linearized_dialogues.keys():
-            print(f"In dialogue {k} there's: {len(linearized_dialogues[k])} turns")
-        print("DEBUGGING DIALOGUE CONSTRUCTION - EPOCH END. INIT ANOTHER EPOCH SOON")
 
-        #return results
-
-        #rel_acc = 0.5
-        #jga = results["joint_goal_accuracy"]
-        #pl_module.my_metrics.setdefault("relative_accuracy", rel_acc)
-        #pl_module.log_dict(pl_module.my_metrics, on_epoch=True)
+        pl_module.my_metrics.update({"contextual_jga": context_results, "no_contextual_jga": no_context_results})
+        pl_module.log_dict(pl_module.my_metrics, on_epoch=True)
 
 
         #df = pd.DataFrame(dialogue_states).T
@@ -71,17 +57,36 @@ class MetricsCallback(pl.Callback):
 
     def on_test_epoch_end(self, trainer, pl_module):
 
-        results = self.on_shared_epoch_end(pl_module)
+        self.on_shared_epoch_end(pl_module)
         pl_module.eval_epoch_outputs.clear()
 
     def on_validation_epoch_end(self, trainer, pl_module):
 
-        results = self.on_shared_epoch_end(pl_module)
+        self.on_shared_epoch_end(pl_module)
         pl_module.eval_epoch_outputs.clear()
 
     def linear_evaluation(self, preds, labels):
-        jga = self.dst_metrics.joint_goal_accuracy(preds, labels)
-        return {"joint_goal_accuracy": jga}
+        jga = self.dst_metrics.joint_goal_accuracy(preds, labels, self.rdf_indexes)
+        return round(jga, 4) * 100
+    
+    def index_encoding(self, preds, labels):
+        """
+        encodes all rdfs from preds and labels to vectorize evaluation with numpy
+        """
+        pred_rdfs = [rdfs for batch in preds for rdfs in batch]
+        pred_rdfs = set().union(*pred_rdfs)
+        label_rdfs = [rdfs for batch in labels for rdfs in batch]
+        label_rdfs = set().union(*label_rdfs)
+        unique_rdfs = list(label_rdfs | pred_rdfs)
+        invalid_val = 0
+        rdf_vocab = dict()
+        for i in range(len(unique_rdfs)):
+            if len(unique_rdfs[i]) != 3:
+                invalid_val -= 1
+                rdf_vocab.setdefault(unique_rdfs[i], -i)
+            else:
+                rdf_vocab.setdefault(unique_rdfs[i], i)
+        return rdf_vocab
     
     @staticmethod
     def dialogue_reconstruction(dialogue_id, pred, label):
@@ -89,21 +94,31 @@ class MetricsCallback(pl.Callback):
         dialogues = dict()
         if isinstance(dialogue_id, int):
             if dialogue_id in dialogues:
-                dialogues[dialogue_id].append((pred, label))
+                #dialogues[dialogue_id].append((pred, label))
+                dialogues[dialogue_id]["preds"].append(pred)
+                dialogues[dialogue_id]["labels"].append(label)
             else:
-                dialogues[dialogue_id] = [(pred, label)]
+                #dialogues[dialogue_id] = [(pred, label)]
+                dialogues[diag_id] = {"preds": [pred], "labels": [label]}
         else:
-            # flattening to avoid a nested loops
+           # flattening to avoid a nested loops
             dialogue_id = [d for batch in dialogue_id for d in batch]
             pred = [p for batch in pred for p in batch]
             label = [l for batch in label for l in batch]
             for diag_id, pr, lb in zip(dialogue_id, pred, label):
                 if diag_id in dialogues:
-                    dialogues[diag_id].append([(pr, lb)])
+                    #dialogues[diag_id].append([(pr, lb)])
+                    dialogues[diag_id]["preds"].append(pr)
+                    dialogues[diag_id]["labels"].append(lb)
                 else:
-                    dialogues[diag_id] = [(pr, lb)]
+                    #dialogues[diag_id] = [(pr, lb)]
+                    dialogues[diag_id] = {"preds": [pr], "labels": [lb]}
+
         
-        return dialogues
+        new_batch_preds = [dialogues[k]["preds"] for k in dialogues.keys()]  # v["preds"] if iterating over values instead?
+        new_batch_labels = [dialogues[k]["labels"] for k in dialogues.keys()]
+
+        return {"ordered_preds": new_batch_preds, "ordered_labels": new_batch_labels}
 
 
 
