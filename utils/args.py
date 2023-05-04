@@ -6,7 +6,7 @@ def create_arg_parser():
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-b", "--batch", default=6, type=int, help="Provide the number of batch"
+        "-b", "--batch", default=4, type=int, help="Provide the number of batch"
     )  # 32?
 
     #parser.add_argument(

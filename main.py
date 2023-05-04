@@ -16,8 +16,9 @@ SEED = 42  # for replication purposes
 #wandb_logger = WandbLogger(project="basic_flant5")# using tensorboard for now
 # https://pythonprogramming.net/wandb-deep-learning-tracking/
 wandb.login()  
-wandb.init(project="basic_flant5", sync_tensorboard=True)
-tb_logger = TensorBoardLogger("tb_logs", name="base_flant5_v_beta") 
+wandb.tensorboard.patch(root_logdir=".tb_logs/")
+
+wandb.init(project="basic_flant5")
 
 def preprocessing(dataset, tokenizer, num_workers, source_len, target_len, batch_size):
 
@@ -36,6 +37,9 @@ def preprocessing(dataset, tokenizer, num_workers, source_len, target_len, batch
 
 def training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders, target_len, store):
 
+
+    name = "base_flant5_v_beta"
+    tb_logger = TensorBoardLogger("tb_logs", name=name) 
     train_dataloader = dataloaders['train']
     test_dataloader = dataloaders['test']
     validation_dataloader = dataloaders['validation']
@@ -72,7 +76,7 @@ def training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloa
     #trainer.validate  # if I want to do more with validation
 
     logging.info("Inference stage")
-    ckpt_path = './lightning_logs/version_27/checkpoints/' + checkpoint_callback.filename + '.ckpt'
+    ckpt_path = f'./tb_logs/{name}/version_0/checkpoints/' + checkpoint_callback.filename + '.ckpt'
     trainer.test(pl_model, dataloaders=test_dataloader, ckpt_path=ckpt_path, verbose=True)# ?
 
 def main():

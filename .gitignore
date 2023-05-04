@@ -12,4 +12,6 @@ sfx_rdf_data/
 lightning_logs/
 tb_logs/
 wandb/
+# csv output
+*.csv
 

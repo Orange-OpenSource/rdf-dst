@@ -28,12 +28,12 @@ class PreDataCollator:
             txt_input, label_rdf = self.create_inputs(dialogue, states)
 
             # current turn ids have chars in their ID, removing to keep only number
-            idRegex = re.compile(r"(\d+).json")
-            mo = idRegex.search(id)
-            if mo:
-                id = int(mo.group(1))  # ints take less memory
-            else:
-                raise Exception("Regex match failed, dialogue ids may be incorrect after preprocessing")
+            #idRegex = re.compile(r"(\d+)(.json$)?")
+            #mo = idRegex.search(id)
+            #if mo:
+            #    id = int(mo.group(1))  # ints take less memory
+            #else:
+            #    raise Exception(f"Regex match failed, dialogue ids may be incorrect after preprocessing. THIS IS THE ID: {id}")
 
             for turn, (txt, rdf) in enumerate(zip(txt_input, label_rdf), 1):
                 tokenized = self.tokenize(txt, rdf)

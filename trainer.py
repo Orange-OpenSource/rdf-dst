@@ -156,7 +156,12 @@ class RDFDialogueStateModel(LightningModule):
             decoded_labels = postprocess_rdfs(decoded_labels)
             decoded_preds = postprocess_rdfs(decoded_preds)
 
-        return {"preds": decoded_preds, "labels": decoded_labels, "ids": batch["dialogue_id"].cpu().numpy()}
+            if isinstance(batch["dialogue_id"], list):
+                dialogue_ids = batch["dialogue_id"]
+            elif torch.tensor(batch["dialogue_id"]):
+                dialogue_ids = batch["dialogue_id"].cpu().numpy()
+
+        return {"preds": decoded_preds, "labels": decoded_labels, "ids": dialogue_ids}
 
     def training_step(self, batch, batch_idx):
         loss, _ = self.common_step(batch, batch_idx)
