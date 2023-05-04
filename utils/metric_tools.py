@@ -1,18 +1,21 @@
-import re
-import numpy as np
-
-def postprocess_rdfs(decoded_batch):
+def index_encoding(preds, labels):
     """
-    returns several rdf triplets per batch
+    encodes all rdfs from preds and labels to vectorize evaluation 
     """
-
-    regexSplit = re.compile(r"(?<!\s),(?!\s)")
-    decoded_batch = [regexSplit.split(row) for row in decoded_batch]
-    decoded_batch = [[word.strip() for word in rdfs] for rdfs in decoded_batch]
-    clean_rdfs = [set([tuple(rdfs[i:i+3]) for i in range(0, len(rdfs), 3)]) for rdfs in decoded_batch]
-    #linearized_rdfs = [['|'.join(rdf) for rdf in rdfs] for rdfs in clean_rdfs]
-    return clean_rdfs
-    #return {"clean_rdfs": clean_rdfs, "linearized_rdfs": linearized_rdfs}
+    pred_rdfs = [rdfs for batch in preds for rdfs in batch]
+    pred_rdfs = set().union(*pred_rdfs)
+    label_rdfs = [rdfs for batch in labels for rdfs in batch]
+    label_rdfs = set().union(*label_rdfs)
+    unique_rdfs = list(label_rdfs | pred_rdfs)
+    invalid_val = 0
+    rdf_vocab = dict()
+    for i in range(len(unique_rdfs)):
+        if len(unique_rdfs[i]) != 3:
+            invalid_val -= 1
+            rdf_vocab.setdefault(unique_rdfs[i], -i)
+        else:
+            rdf_vocab.setdefault(unique_rdfs[i], i)
+    return rdf_vocab
 
 
 

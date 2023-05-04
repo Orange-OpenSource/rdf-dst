@@ -16,8 +16,6 @@ class PreDataCollator:
         tokenizer.add_special_tokens(sentinel_tkns)
         self.tokenizer = tokenizer
 
-        
-    
     def __call__(self, batch):
         
         input_ids = []
@@ -93,7 +91,6 @@ class PreDataCollator:
 
     def tokenize(self, dialogue : str, rdf : str):
         
-        # using tokenizer to encode sentence (includes padding/truncation up to max length)
         encoding = self.tokenizer(dialogue,
                        #is_split_into_words=True,
                        padding='max_length',
@@ -107,7 +104,6 @@ class PreDataCollator:
         labels = target_encoding.input_ids
         labels[labels == self.tokenizer.pad_token_id] = -100
 
-        #encoding['labels'] = [-100 if label == 0 else label for label in target_encoding.labels]
         encoding['labels'] = labels
 
         return encoding

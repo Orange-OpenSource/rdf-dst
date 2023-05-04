@@ -1,19 +1,24 @@
 # https://shivanandroy.com/fine-tune-t5-transformer-with-pytorch/
 import pytorch_lightning as pl
+from lightning.pytorch.loggers import WandbLogger, TensorBoardLogger  # tensorboard is installed with lightning, must install wandb manually
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
+import wandb
 import math
 from transformers import AutoTokenizer, T5ForConditionalGeneration
 from utils.data_loader import DialogueRDFData
 from utils.args import create_arg_parser
-from trainer import RDFDialogueStateModel, MetricsCallback
+from trainer import RDFDialogueStateModel, MetricsCallback, MyTrainer
 
 import logging
 
 logging.basicConfig(level=logging.INFO)
 SEED = 42  # for replication purposes
+#wandb_logger = WandbLogger(project="basic_flant5")# using tensorboard for now
+# https://pythonprogramming.net/wandb-deep-learning-tracking/
+wandb.login()  
+wandb.init(project="basic_flant5", sync_tensorboard=True)
+tb_logger = TensorBoardLogger("tb_logs", name="base_flant5_v_beta") 
 
-
-#model = AutoModel.from_pretrained("google/flan-t5-small")  # decoder_inputs and shift right instead of conditional generation. See documentation. Conditional generation does work with labels tho
 def preprocessing(dataset, tokenizer, num_workers, source_len, target_len, batch_size):
 
     data = DialogueRDFData(tokenizer=tokenizer, num_workers=num_workers,
@@ -29,12 +34,11 @@ def preprocessing(dataset, tokenizer, num_workers, source_len, target_len, batch
 
     return {'train': train_dataloader, 'test': test_dataloader, 'validation': validation_dataloader}
 
-def training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders, target_len):
+def training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders, target_len, store):
 
     train_dataloader = dataloaders['train']
     test_dataloader = dataloaders['test']
     validation_dataloader = dataloaders['validation']
-
 
     # changing name for a more reusable version to resume training and test
     #checkpoint_name = '{epoch:02d}-{val_loss:.2f}-{encoded_accuracy:.2f}'
@@ -45,38 +49,42 @@ def training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloa
     pl_model = RDFDialogueStateModel(model, tokenizer, lr, epochs, num_train_optimization_steps, num_warmup_steps, target_len)
     # saving every time val_loss improves
     # custom save checkpoints callback pytorch lightning
+    # https://github.com/Lightning-AI/lightning/issues/3096 --> to save from pretrained?
     checkpoint_callback = ModelCheckpoint(monitor='val_loss',
                                           filename=checkpoint_name,
                                           mode="min",
                                           save_top_k=-1)
 
-
     early_stopping = EarlyStopping('val_loss')
     metrics = MetricsCallback()
     callbacks = [checkpoint_callback, early_stopping, metrics]
     
-    trainer = pl.Trainer(max_epochs=epochs, callbacks=callbacks,
-                         devices='auto', accelerator='cpu', enable_progress_bar=True)
+    trainer = MyTrainer(max_epochs=epochs, callbacks=callbacks, logger=tb_logger,
+                        devices='auto', accelerator='cpu', enable_progress_bar=True)
+    trainer.store = store
 
     #trainer.tune  # tune before training to find lr??? Hyperparameter tuning!
 
-    #logging.info("Training stage")
-    #trainer.fit(pl_model, train_dataloaders=train_dataloader,
-    #            val_dataloaders=validation_dataloader)  # ckpt_path to continue from ckpt
+    logging.info("Training stage")
+    trainer.fit(pl_model, train_dataloaders=train_dataloader,
+                val_dataloaders=validation_dataloader)  # ckpt_path to continue from ckpt
 
     #trainer.validate  # if I want to do more with validation
 
     logging.info("Inference stage")
-    #ckpt_path = './lightning_logs/version_22/checkpoints/' + checkpoint_callback.filename + '.ckpt'
-    # only shuffled dialogues
-    ckpt_path = './lightning_logs/version_25/checkpoints/' + checkpoint_callback.filename + '.ckpt'
+    ckpt_path = './lightning_logs/version_27/checkpoints/' + checkpoint_callback.filename + '.ckpt'
     trainer.test(pl_model, dataloaders=test_dataloader, ckpt_path=ckpt_path, verbose=True)# ?
 
 def main():
 
     model = T5ForConditionalGeneration.from_pretrained("google/flan-t5-small")
+    # 0 ids so I don't have to reshape the embedding
     tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-small", extra_ids=0) 
     args = create_arg_parser()
+    store_bool = {"no": False, "yes": True}
+
+    store = args.store_output
+    store = store_bool[store]
     dataset = args.dataset
     batch_size = args.batch
     epochs = args.epochs
@@ -86,9 +94,9 @@ def main():
     num_workers = args.num_workers
     grad_acc_steps = args.gradient_accumulation_steps
 
-
     dataloaders = preprocessing(dataset, tokenizer, num_workers, source_len, target_len, batch_size)
-    training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders, target_len)
+    training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders, target_len, store)
+    wandb.finish()
 
 if __name__ == '__main__':
     main()

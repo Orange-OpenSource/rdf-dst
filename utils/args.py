@@ -57,5 +57,11 @@ def create_arg_parser():
         help="define Max sequence length"
     )
 
+    parser.add_argument(
+        "-store", "--store_output", default='no', type=str,
+        choices=['yes', 'no'],
+        help="Store output during inference"
+    )
+
     args = parser.parse_args()
     return args

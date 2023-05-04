@@ -10,4 +10,6 @@ sfx_rdf_data/
 .dpr/
 # checkpoints and logs
 lightning_logs/
+tb_logs/
+wandb/
 

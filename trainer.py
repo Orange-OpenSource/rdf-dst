@@ -6,13 +6,12 @@
 # TODO:Evaluation https://aclanthology.org/2022.acl-short.35.pdf
 # exact match reading comprehension, F1 SQUAD
 import pytorch_lightning as pl
-import pandas as pd
 import numpy as np
 import torch
-import evaluate
 from pytorch_lightning import LightningModule
 from transformers import get_linear_schedule_with_warmup
-from utils.metric_tools import postprocess_rdfs, DSTMetrics
+from utils.metric_tools import DSTMetrics, index_encoding
+from utils.post_processing import postprocess_rdfs, dialogue_reconstruction, store_model_predictions
 from torch.optim import AdamW
 
 import logging
@@ -22,6 +21,24 @@ logging.basicConfig(level=logging.INFO)
 SEED = 42  # for replication purposes
 
 
+class MyTrainer(pl.Trainer):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._store = False
+    
+    @property
+    def store(self):
+        return self._store
+    
+    @store.setter
+    def store(self, bool_value: bool):
+        self._store = bool_value
+        if bool_value:
+            logging.info("Trainer will store predictions in a csv during inference")
+        else:
+            logging.info("Trainer will not store any data")
+    
 class MetricsCallback(pl.Callback):
 
     def __init__(self):
@@ -35,93 +52,44 @@ class MetricsCallback(pl.Callback):
         decoded_labels = pl_module.eval_epoch_outputs['labels']
         #label_linearized_rdfs = [label["linearized_rdfs"] for label in decoded_labels]
         #label_rdfs = [label["clean_rdfs"] for label in decoded_labels]
-        self.rdf_indexes = self.index_encoding(decoded_preds, decoded_labels)
         dialogue_ids = pl_module.eval_epoch_outputs['dialogue_id']
+
+        self.rdf_indexes = index_encoding(decoded_preds, decoded_labels)
+        self.ordered_dialogues = dialogue_reconstruction(dialogue_ids, decoded_preds, decoded_labels)
+        
         no_context_results = self.linear_evaluation(decoded_preds, decoded_labels)
-
         # sticking dialogues together for dialogue evaluation instead  of turn evaluation
-        linearized_dialogues = self.dialogue_reconstruction(dialogue_ids, decoded_preds, decoded_labels)
-        context_results = self.linear_evaluation(linearized_dialogues["ordered_preds"], linearized_dialogues["ordered_labels"])
-
-
-        pl_module.my_metrics.update({"contextual_jga": context_results, "no_contextual_jga": no_context_results})
+        context_results = self.linear_evaluation(self.ordered_dialogues["ordered_preds"], self.ordered_dialogues["ordered_labels"])
+        decoded_preds.clear()
+        decoded_labels.clear()
+        dialogue_ids.clear()
+        #print(context_results)
+        #print(no_context_results)
+        results = {"contextual_jga": context_results, "no_contextual_jga": no_context_results}
+        pl_module.my_metrics.update(results)
         pl_module.log_dict(pl_module.my_metrics, on_epoch=True)
 
-
-        #df = pd.DataFrame(dialogue_states).T
-        #print(df)
-        #print(df['reference'].iloc[0])
-        #print(df['prediction'].iloc[0])
-
-        #return dialogue_states
 
     def on_test_epoch_end(self, trainer, pl_module):
 
         self.on_shared_epoch_end(pl_module)
         pl_module.eval_epoch_outputs.clear()
+        if trainer.store:
+            store_model_predictions(self.ordered_dialogues)
+        self.ordered_dialogues.clear()
+
 
     def on_validation_epoch_end(self, trainer, pl_module):
 
         self.on_shared_epoch_end(pl_module)
         pl_module.eval_epoch_outputs.clear()
+        self.ordered_dialogues.clear()
+    
 
     def linear_evaluation(self, preds, labels):
         jga = self.dst_metrics.joint_goal_accuracy(preds, labels, self.rdf_indexes)
-        return round(jga, 4) * 100
+        return round(jga * 100, 3)
     
-    def index_encoding(self, preds, labels):
-        """
-        encodes all rdfs from preds and labels to vectorize evaluation with numpy
-        """
-        pred_rdfs = [rdfs for batch in preds for rdfs in batch]
-        pred_rdfs = set().union(*pred_rdfs)
-        label_rdfs = [rdfs for batch in labels for rdfs in batch]
-        label_rdfs = set().union(*label_rdfs)
-        unique_rdfs = list(label_rdfs | pred_rdfs)
-        invalid_val = 0
-        rdf_vocab = dict()
-        for i in range(len(unique_rdfs)):
-            if len(unique_rdfs[i]) != 3:
-                invalid_val -= 1
-                rdf_vocab.setdefault(unique_rdfs[i], -i)
-            else:
-                rdf_vocab.setdefault(unique_rdfs[i], i)
-        return rdf_vocab
-    
-    @staticmethod
-    def dialogue_reconstruction(dialogue_id, pred, label):
-
-        dialogues = dict()
-        if isinstance(dialogue_id, int):
-            if dialogue_id in dialogues:
-                #dialogues[dialogue_id].append((pred, label))
-                dialogues[dialogue_id]["preds"].append(pred)
-                dialogues[dialogue_id]["labels"].append(label)
-            else:
-                #dialogues[dialogue_id] = [(pred, label)]
-                dialogues[diag_id] = {"preds": [pred], "labels": [label]}
-        else:
-           # flattening to avoid a nested loops
-            dialogue_id = [d for batch in dialogue_id for d in batch]
-            pred = [p for batch in pred for p in batch]
-            label = [l for batch in label for l in batch]
-            for diag_id, pr, lb in zip(dialogue_id, pred, label):
-                if diag_id in dialogues:
-                    #dialogues[diag_id].append([(pr, lb)])
-                    dialogues[diag_id]["preds"].append(pr)
-                    dialogues[diag_id]["labels"].append(lb)
-                else:
-                    #dialogues[diag_id] = [(pr, lb)]
-                    dialogues[diag_id] = {"preds": [pr], "labels": [lb]}
-
-        
-        new_batch_preds = [dialogues[k]["preds"] for k in dialogues.keys()]  # v["preds"] if iterating over values instead?
-        new_batch_labels = [dialogues[k]["labels"] for k in dialogues.keys()]
-
-        return {"ordered_preds": new_batch_preds, "ordered_labels": new_batch_labels}
-
-
-
 class RDFDialogueStateModel(LightningModule):
 
     def __init__(
@@ -136,8 +104,6 @@ class RDFDialogueStateModel(LightningModule):
         self.num_training_steps = num_train_optimization_steps
         self.num_warmup_steps = num_warmup_steps
         self.target_length = target_length
-        self.acc = evaluate.load("accuracy")
-        self.f1 = evaluate.load("f1")
         self.my_metrics = dict()
         self.eval_epoch_outputs = dict()
 
@@ -213,20 +179,6 @@ class RDFDialogueStateModel(LightningModule):
         self.eval_epoch_outputs["dialogue_id"] = [out['ids'] for out in outputs]
 
 
-        #print(self.dialogues)
-
-        # dialogue level reconstruction for separate evaluation...
-        #print("DEBUGGING DIALOGUE CONSTRUCTION - EPOCH END")
-        #logging.info(self.dialogues.keys())
-        #print(ids)
-        #print()
-        #self.dialogue_reconstruction(ids, preds, labels)
-        #for k in self.dialogues.keys():
-        #    print(f"In dialogue {k} there's: {len(self.dialogues[k])} turns")
-        #    print(len(self.dialogues[k]))
-        #print("DEBUGGING DIALOGUE CONSTRUCTION - EPOCH END. INIT ANOTHER EPOCH SOON")
-
-
     def validation_epoch_end(self, outputs):
 
         # lightning aggregates the loss automatically depending on params passed, doing it explicitly just to see.
@@ -235,18 +187,12 @@ class RDFDialogueStateModel(LightningModule):
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         self.shared_epoch_end(outputs)
 
-        #x = self.dialogues.keys()
-        #print(outputs["ids"])
-        #print()
-        #print(x)
-        #raise SystemExit
-
     def test_epoch_end(self, outputs):
 
         self.shared_epoch_end(outputs)
     
-
     # https://discuss.huggingface.co/t/t5-finetuning-tips/684/3
+
     def configure_optimizers(self):
         lr = self.lr
         optimizer = AdamW(self.parameters(), lr=lr)
