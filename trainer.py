@@ -5,10 +5,9 @@
 # W&B integration https://docs.wandb.ai/guides/integrations/lightning
 # TODO:Evaluation https://aclanthology.org/2022.acl-short.35.pdf
 # exact match reading comprehension, F1 SQUAD
-import pytorch_lightning as pl
+import lightning.pytorch as pl
 import numpy as np
 import torch
-from pytorch_lightning import LightningModule
 from transformers import get_linear_schedule_with_warmup
 from utils.metric_tools import DSTMetrics, index_encoding
 from utils.post_processing import postprocess_rdfs, dialogue_reconstruction, store_model_predictions
@@ -90,7 +89,7 @@ class MetricsCallback(pl.Callback):
         jga = self.dst_metrics.joint_goal_accuracy(preds, labels, self.rdf_indexes)
         return round(jga * 100, 3)
     
-class RDFDialogueStateModel(LightningModule):
+class RDFDialogueStateModel(pl.LightningModule):
 
     def __init__(
                  self, model,
@@ -176,6 +175,10 @@ class RDFDialogueStateModel(LightningModule):
     def test_step(self, batch, batch_idx):
         _, logits = self.common_step(batch, batch_idx)
         return self.shared_eval_step(batch, batch_idx)
+
+    #def on_validation_epoch_start(self) -> None:
+    #    super().on_validation_epoch_start()
+    #    self.val_output_list
 
     def shared_epoch_end(self, outputs):
 

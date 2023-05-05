@@ -1,5 +1,4 @@
 # https://shivanandroy.com/fine-tune-t5-transformer-with-pytorch/
-import pytorch_lightning as pl
 from lightning.pytorch.loggers import TensorBoardLogger  # tensorboard is installed with lightning, must install wandb manually
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 import wandb
@@ -9,20 +8,22 @@ from utils.data_loader import DialogueRDFData
 from utils.args import create_arg_parser
 from trainer import RDFDialogueStateModel, MetricsCallback, MyTrainer
 from utils.predata_collate import PreDataCollator
+from dotenv import load_dotenv
 
 import logging
 
 logging.basicConfig(level=logging.INFO)
 SEED = 42  # for replication purposes
+load_dotenv()  # load keys and especially w and biases to see visualizations. Looking in curr dir
 
-def preprocessing(tokenizer, collator, dataset, num_workers, batch_size):
+def preprocessing(collator, dataset, num_workers, batch_size):
 
     data = DialogueRDFData(collator, num_workers=num_workers,
                            dataset=dataset,
                            batch_size=batch_size)
     data.prepare_data()
     # We tokenize in setup, but pl suggests to tokenize in prepare?
-    data.setup(tokenizer, subsetting=True)
+    data.setup(subsetting=True)
 
     train_dataloader = data.train_dataloader()
     test_dataloader = data.test_dataloader()
@@ -74,6 +75,14 @@ def training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloa
     ckpt_path = f'./tb_logs/{name}/version_0/checkpoints/' + checkpoint_callback.filename + '.ckpt'
     trainer.test(pl_model, dataloaders=test_dataloader, ckpt_path=ckpt_path, verbose=True)# ?
 
+    # extract the model to save it with huggingface
+
+
+    for i, (path, _) in enumerate(trainer.checkpoint_callback.best_k_models.items()):
+        print(path)
+        #m = pl_model.load_from_checkpoint(path)  # tb_logs/base_flant5_v_beta/version_0/checkpoints/best_dst_ckpt.ckpt
+        #m.transformer.save_pretrained(f'{i}th_best.pt')
+
 def main():
 
     args = create_arg_parser()
@@ -100,7 +109,7 @@ def main():
     grad_acc_steps = args.gradient_accumulation_steps
 
     collator = PreDataCollator(tokenizer, source_len, target_len, experimental_setup)
-    dataloaders = preprocessing(tokenizer, collator, dataset, num_workers, batch_size)
+    dataloaders = preprocessing(collator, dataset, num_workers, batch_size)
     training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders, target_len, store)
     if logger:
         wandb.finish()

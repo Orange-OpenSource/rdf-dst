@@ -43,7 +43,7 @@ class DialogueRDFData(LightningDataModule):
 
 
         
-    def setup(self, tokenizer, subsetting=True):
+    def setup(self, subsetting=True):
         """
 
         """
@@ -51,23 +51,6 @@ class DialogueRDFData(LightningDataModule):
         self.train_dataset = self.txt2rdf['train'].map(self.collator, num_proc=8, remove_columns=self.txt2rdf['train'].column_names, batched=True)  
         self.validation_dataset = self.txt2rdf['validation'].map(self.collator, num_proc=8, remove_columns=self.txt2rdf['validation'].column_names, batched=True) 
         self.test_dataset = self.txt2rdf['test'].map(self.collator, num_proc=8, remove_columns=self.txt2rdf['test'].column_names, batched=True) 
-        print()
-        print("LABEL")
-        label = self.train_dataset['labels'][47]
-        label = label.masked_fill(label == -100, 0)
-        label = tokenizer.decode(label, skip_special_tokens=True)
-        print(label)
-        print("INPUT")
-        input_ids = self.train_dataset['input_ids'][47]
-        input_ids = input_ids.masked_fill(input_ids == -100, 0)
-        input_ids = tokenizer.decode(input_ids, skip_special_tokens=True)
-        print(input_ids)
-
-#_:system,greeted,_:user,_:search,area,north,_:system,canthelp,_:search/8e9b5b90,_:search/8e9b5b90,food,scottish,_:search/8e9b5b90,type,Restaurant,_:user,inquired,_:system,_:search,food,french,_:search,type,Restaurant
-#I'm sorry but there is no restaurant serving scottish food how about french food
-
-        raise SystemExit
-
 
         if subsetting:
             og_set = self.train_dataset[0]['labels'][:50]
