@@ -5,7 +5,6 @@
 # default epochs == 1 and devices == 0
 epochs="${epochs:-1}"
 devices="${devices:-0}"
-#printf "%s\n\n" "$epochs"
 
 programname=$0
 function usage {
@@ -16,8 +15,10 @@ function usage {
     echo ""
     echo "  --testing_pipeline string   yes or no"
     echo "                              (example: no)"
-    echo "  --epochs integer             number of epochs to train for"
+    echo "  --epochs integer            number of epochs to train for"
     echo "                              (example: 8)"
+    echo "  --experiment integer        which experiment to run. 1, 2, or 3"
+    echo "                              (example: 1)"
     echo "  --devices integer           which gpu to use"
     echo "                              (example: 0)"
     echo ""
@@ -42,12 +43,9 @@ done
 if [[ -z $testing_pipeline ]]; then
     usage
     die "Missing parameter --testing_pipeline"
-elif [[ -z $epochs ]]; then
+elif [[ -z $experiment ]]; then
     usage
-    die "Missing parameter --epochs"
-elif [[ -z $devices ]]; then
-    usage
-    die "Missing parameter --devices"
+    die "Missing parameter --experiment"
 fi
 
 # turning to lowercase
@@ -59,7 +57,7 @@ if [[ $testing_pipeline != "yes" ]] && [[ $testing_pipeline != "no" ]]; then
 fi
 
 if [[ $testing_pipeline == "yes" ]]; then
-    CUDA_VISIBLE_DEVICES=$devices python main.py -epochs "$epochs" -d all -store yes -logger no
+    CUDA_VISIBLE_DEVICES=$devices python main.py -epochs "$epochs" -d all -store yes -logger no -experiment "$experiment"
 else
-    CUDA_VISIBLE_DEVICES=$DEVICES python main.py -epochs 5 --batch 8 -d multiwoz -workers 6 -store no
+    CUDA_VISIBLE_DEVICES=$DEVICES python main.py -epochs 5 --batch 8 -d multiwoz -workers 6 -store no -experiment "$experiment"
 fi

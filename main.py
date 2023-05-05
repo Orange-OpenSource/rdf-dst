@@ -15,14 +15,14 @@ import logging
 logging.basicConfig(level=logging.INFO)
 SEED = 42  # for replication purposes
 
-def preprocessing(collator, dataset, num_workers, batch_size, experimental_setup):
+def preprocessing(tokenizer, collator, dataset, num_workers, batch_size):
 
     data = DialogueRDFData(collator, num_workers=num_workers,
                            dataset=dataset,
                            batch_size=batch_size)
     data.prepare_data()
     # We tokenize in setup, but pl suggests to tokenize in prepare?
-    data.setup(subsetting=True)
+    data.setup(tokenizer, subsetting=True)
 
     train_dataloader = data.train_dataloader()
     test_dataloader = data.test_dataloader()
@@ -90,7 +90,7 @@ def main():
 
     store = bool_4_args[args.store_output]
     dataset = args.dataset
-    experimental_setup = args.experiment
+    experimental_setup = args.experimental_setup
     batch_size = args.batch
     epochs = args.epochs
     source_len = args.source_length
@@ -100,7 +100,7 @@ def main():
     grad_acc_steps = args.gradient_accumulation_steps
 
     collator = PreDataCollator(tokenizer, source_len, target_len, experimental_setup)
-    dataloaders = preprocessing(collator, dataset, num_workers, batch_size)
+    dataloaders = preprocessing(tokenizer, collator, dataset, num_workers, batch_size)
     training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders, target_len, store)
     if logger:
         wandb.finish()
