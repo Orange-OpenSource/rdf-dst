@@ -67,17 +67,20 @@ class PreDataCollator:
                 speaker = dialogue[i+1]['speaker']
                 txt += toks[speaker] + dialogue[i+1]['text'] + toks[speaker]
 
-            # experimental setup 1 and 3
-            if (i > 0) and (self.exp_setup in [1, 3]):
+            # first if builds outputs which are the same for all scenarios
+            if i > 0:
                 # states are half of turns so divide by 2 to get idx. This already skips first txt with empty previous rdf!
-                idx = i // 2
-                prev_rdf = states[idx-1]
-                flat_prev = ','.join([val.strip() for triplet in prev_rdf['triples'] for val in triplet])
-                txt += self.state_tkn + flat_prev + self.state_tkn 
-
                 curr_rdf = states[idx]
                 flat_curr = ','.join([val.strip() for triplet in curr_rdf['triples'] for val in triplet])
                 flattened_rdfs.append(flat_curr)
+
+                # experimental setup 1 and 3
+                if self.exp_setup in [1, 3]:
+
+                    idx = i // 2
+                    prev_rdf = states[idx-1]
+                    flat_prev = ','.join([val.strip() for triplet in prev_rdf['triples'] for val in triplet])
+                    txt += self.state_tkn + flat_prev + self.state_tkn 
 
             txt_input.append(txt)
             txt = ''
