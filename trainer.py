@@ -8,9 +8,9 @@
 import lightning.pytorch as pl
 import numpy as np
 import torch
+import re
 from transformers import get_linear_schedule_with_warmup
-from utils.metric_tools import DSTMetrics, index_encoding
-from utils.post_processing import postprocess_rdfs, dialogue_reconstruction, store_model_predictions
+from utils.metric_tools import DSTMetrics
 from torch.optim import AdamW
 
 import logging
@@ -20,74 +20,17 @@ logging.basicConfig(level=logging.INFO)
 SEED = 42  # for replication purposes
 
 
-class MyTrainer(pl.Trainer):
+def postprocess_rdfs(decoded_batch):
+    """
+    returns several rdf triplets per batch
+    """
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._store = False
-    
-    @property
-    def store(self):
-        return self._store
-    
-    @store.setter
-    def store(self, bool_value: bool):
-        self._store = bool_value
-        if bool_value:
-            logging.info("Trainer will store predictions in a csv during inference")
-        else:
-            logging.info("Trainer will not store any data")
-    
-class MetricsCallback(pl.Callback):
+    regexSplit = re.compile(r"(?<!\s),(?!\s)")
+    decoded_batch = [regexSplit.split(row) for row in decoded_batch]
+    decoded_batch = [[word.strip() for word in rdfs] for rdfs in decoded_batch]
+    clean_rdfs = [set([tuple(rdfs[i:i+3]) for i in range(0, len(rdfs), 3)]) for rdfs in decoded_batch]
+    return clean_rdfs
 
-    def __init__(self):
-        self.dst_metrics = DSTMetrics()
-
-    def on_shared_epoch_end(self, pl_module):
-
-        decoded_preds = pl_module.eval_epoch_outputs['preds']
-        #pred_linearized_rdfs = [pred["linearized_rdfs"] for pred in decoded_preds]
-        #pred_rdfs = [pred["clean_rdfs"] for pred in decoded_preds]
-        decoded_labels = pl_module.eval_epoch_outputs['labels']
-        #label_linearized_rdfs = [label["linearized_rdfs"] for label in decoded_labels]
-        #label_rdfs = [label["clean_rdfs"] for label in decoded_labels]
-        dialogue_ids = pl_module.eval_epoch_outputs['dialogue_id']
-
-        self.rdf_indexes = index_encoding(decoded_preds, decoded_labels)
-        self.ordered_dialogues = dialogue_reconstruction(dialogue_ids, decoded_preds, decoded_labels)
-        
-        no_context_results = self.linear_evaluation(decoded_preds, decoded_labels)
-        # sticking dialogues together for dialogue evaluation instead  of turn evaluation
-        context_results = self.linear_evaluation(self.ordered_dialogues["ordered_preds"], self.ordered_dialogues["ordered_labels"])
-        decoded_preds.clear()
-        decoded_labels.clear()
-        dialogue_ids.clear()
-        #print(context_results)
-        #print(no_context_results)
-        results = {"contextual_jga": context_results, "no_contextual_jga": no_context_results}
-        pl_module.my_metrics.update(results)
-        pl_module.log_dict(pl_module.my_metrics, on_epoch=True)
-
-
-    def on_test_epoch_end(self, trainer, pl_module):
-
-        self.on_shared_epoch_end(pl_module)
-        pl_module.eval_epoch_outputs.clear()
-        if trainer.store:
-            store_model_predictions(self.ordered_dialogues)
-        self.ordered_dialogues.clear()
-
-
-    def on_validation_epoch_end(self, trainer, pl_module):
-
-        self.on_shared_epoch_end(pl_module)
-        pl_module.eval_epoch_outputs.clear()
-        self.ordered_dialogues.clear()
-    
-
-    def linear_evaluation(self, preds, labels):
-        jga = self.dst_metrics.joint_goal_accuracy(preds, labels, self.rdf_indexes)
-        return round(jga * 100, 3)
     
 class RDFDialogueStateModel(pl.LightningModule):
 
@@ -95,8 +38,11 @@ class RDFDialogueStateModel(pl.LightningModule):
                  self, model,
                  tokenizer, lr,
                  epochs, num_train_optimization_steps,
-                 num_warmup_steps, target_length):
+                 num_warmup_steps, target_length,
+                 store):
+
         super().__init__()
+        self.store = store
         self.lr = lr
         self.model = model
         self.tokenizer = tokenizer
@@ -104,7 +50,6 @@ class RDFDialogueStateModel(pl.LightningModule):
         self.num_warmup_steps = num_warmup_steps
         self.target_length = target_length
         self.my_metrics = dict()
-        self.eval_epoch_outputs = dict()
 
         self.save_hyperparameters("lr", "epochs")
 
@@ -170,34 +115,42 @@ class RDFDialogueStateModel(pl.LightningModule):
         loss, logits = self.common_step(batch, batch_idx)
         outputs = self.shared_eval_step(batch, batch_idx)
         outputs.setdefault("loss", loss)
-        return outputs
+        self.eval_output_list.append(outputs)
 
     def test_step(self, batch, batch_idx):
         _, logits = self.common_step(batch, batch_idx)
-        return self.shared_eval_step(batch, batch_idx)
-
-    #def on_validation_epoch_start(self) -> None:
-    #    super().on_validation_epoch_start()
-    #    self.val_output_list
-
-    def shared_epoch_end(self, outputs):
-
-        self.eval_epoch_outputs["labels"] = [out['labels'] for out in outputs]
-        self.eval_epoch_outputs["preds"] = [out['preds'] for out in outputs]
-        self.eval_epoch_outputs["dialogue_id"] = [out['ids'] for out in outputs]
+        outputs = self.shared_eval_step(batch, batch_idx)
+        self.eval_output_list.append(outputs)
 
 
-    def validation_epoch_end(self, outputs):
-
-        # lightning aggregates the loss automatically depending on params passed, doing it explicitly just to see.
-        # for early stopping purposes
-        loss = torch.stack([out['loss'] for out in outputs]).mean()
+##https://github.com/Lightning-AI/lightning/pull/16520
+    def on_validation_epoch_start(self) -> None:
+        super().on_validation_epoch_start()
+        self.eval_output_list = []
+   
+    def on_validation_epoch_end(self) -> None:
+        loss = torch.stack([out['loss'] for out in self.eval_output_list]).mean()
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        self.shared_epoch_end(outputs)
+        self.on_shared_epoch_end(self.eval_output_list, validation=True)
 
-    def test_epoch_end(self, outputs):
 
-        self.shared_epoch_end(outputs)
+    def on_test_epoch_start(self) -> None:
+        super().on_test_epoch_start()
+        self.eval_output_list = []
+
+    def on_test_epoch_end(self) -> None:
+        self.on_shared_epoch_end(self.eval_output_list)
+
+    def on_shared_epoch_end(self, outputs, validation=False):
+
+        dst_metrics = DSTMetrics(outputs)
+        if validation:
+            results = dst_metrics.compute()
+        elif self.store:
+            results = dst_metrics.compute(store=self.store)
+        outputs.clear()
+        self.my_metrics.update(results)
+        self.log_dict(self.my_metrics, on_epoch=True)
     
     # https://discuss.huggingface.co/t/t5-finetuning-tips/684/3
 

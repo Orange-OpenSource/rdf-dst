@@ -1,12 +1,13 @@
 # https://shivanandroy.com/fine-tune-t5-transformer-with-pytorch/
 from lightning.pytorch.loggers import TensorBoardLogger  # tensorboard is installed with lightning, must install wandb manually
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
+import lightning.pytorch as pl
 import wandb
 import math
 from transformers import AutoTokenizer, T5ForConditionalGeneration
 from utils.data_loader import DialogueRDFData
 from utils.args import create_arg_parser
-from trainer import RDFDialogueStateModel, MetricsCallback, MyTrainer
+from trainer import RDFDialogueStateModel
 from utils.predata_collate import PreDataCollator
 from dotenv import load_dotenv
 
@@ -46,7 +47,7 @@ def training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloa
     checkpoint_name = 'best_dst_ckpt'
     num_train_optimization_steps = epochs * len(train_dataloader)
     num_warmup_steps = math.ceil(len(train_dataloader) / grad_acc_steps)
-    pl_model = RDFDialogueStateModel(model, tokenizer, lr, epochs, num_train_optimization_steps, num_warmup_steps, target_len)
+    pl_model = RDFDialogueStateModel(model, tokenizer, lr, epochs, num_train_optimization_steps, num_warmup_steps, target_len, store)
     # saving every time val_loss improves
     # custom save checkpoints callback pytorch lightning
     # https://github.com/Lightning-AI/lightning/issues/3096 --> to save from pretrained?
@@ -56,12 +57,10 @@ def training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloa
                                           save_top_k=-1)
 
     early_stopping = EarlyStopping('val_loss')
-    metrics = MetricsCallback()
-    callbacks = [checkpoint_callback, early_stopping, metrics]
+    callbacks = [checkpoint_callback, early_stopping]
     
-    trainer = MyTrainer(max_epochs=epochs, callbacks=callbacks, logger=tb_logger,
+    trainer = pl.Trainer(max_epochs=epochs, callbacks=callbacks, logger=tb_logger,
                         devices='auto', accelerator='cpu', enable_progress_bar=True)
-    trainer.store = store
 
     #trainer.tune  # tune before training to find lr??? Hyperparameter tuning!
 
