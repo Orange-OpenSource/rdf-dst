@@ -1,6 +1,6 @@
 # https://shivanandroy.com/fine-tune-t5-transformer-with-pytorch/
 import pytorch_lightning as pl
-from lightning.pytorch.loggers import WandbLogger, TensorBoardLogger  # tensorboard is installed with lightning, must install wandb manually
+from lightning.pytorch.loggers import TensorBoardLogger  # tensorboard is installed with lightning, must install wandb manually
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 import wandb
 import math
@@ -8,23 +8,18 @@ from transformers import AutoTokenizer, T5ForConditionalGeneration
 from utils.data_loader import DialogueRDFData
 from utils.args import create_arg_parser
 from trainer import RDFDialogueStateModel, MetricsCallback, MyTrainer
+from utils.predata_collate import PreDataCollator
 
 import logging
 
 logging.basicConfig(level=logging.INFO)
 SEED = 42  # for replication purposes
-#wandb_logger = WandbLogger(project="basic_flant5")# using tensorboard for now
-# https://pythonprogramming.net/wandb-deep-learning-tracking/
-wandb.login()  
-wandb.tensorboard.patch(root_logdir=".tb_logs/")
 
-wandb.init(project="basic_flant5")
+def preprocessing(collator, dataset, num_workers, batch_size, experimental_setup):
 
-def preprocessing(dataset, tokenizer, num_workers, source_len, target_len, batch_size):
-
-    data = DialogueRDFData(tokenizer=tokenizer, num_workers=num_workers,
-                           dataset=dataset, source_len=source_len,
-                           target_len=target_len, batch_size=batch_size)
+    data = DialogueRDFData(collator, num_workers=num_workers,
+                           dataset=dataset,
+                           batch_size=batch_size)
     data.prepare_data()
     # We tokenize in setup, but pl suggests to tokenize in prepare?
     data.setup(subsetting=True)
@@ -81,15 +76,21 @@ def training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloa
 
 def main():
 
+    args = create_arg_parser()
+    bool_4_args = {"no": False, "yes": True}
+    logger = bool_4_args[args.logger]
+    if logger:
+        wandb.login()  
+        wandb.tensorboard.patch(root_logdir=".tb_logs/")
+        wandb.init(project="basic_flant5")
+
     model = T5ForConditionalGeneration.from_pretrained("google/flan-t5-small")
     # 0 ids so I don't have to reshape the embedding
     tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-small", extra_ids=0) 
-    args = create_arg_parser()
-    store_bool = {"no": False, "yes": True}
 
-    store = args.store_output
-    store = store_bool[store]
+    store = bool_4_args[args.store_output]
     dataset = args.dataset
+    experimental_setup = args.experiment
     batch_size = args.batch
     epochs = args.epochs
     source_len = args.source_length
@@ -98,9 +99,11 @@ def main():
     num_workers = args.num_workers
     grad_acc_steps = args.gradient_accumulation_steps
 
-    dataloaders = preprocessing(dataset, tokenizer, num_workers, source_len, target_len, batch_size)
+    collator = PreDataCollator(tokenizer, source_len, target_len, experimental_setup)
+    dataloaders = preprocessing(collator, dataset, num_workers, batch_size)
     training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders, target_len, store)
-    wandb.finish()
+    if logger:
+        wandb.finish()
 
 if __name__ == '__main__':
     main()

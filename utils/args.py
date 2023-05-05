@@ -30,6 +30,12 @@ def create_arg_parser():
     )
 
     parser.add_argument(
+        "-experiment", "--experimental_setup", default=1, type=int,
+        choices=[1, 2, 3],
+        help="Select experimental setup.\n1: Context + states\n2: Context\n3: States"
+    )
+
+    parser.add_argument(
         "--gradient_accumulation_steps", type=int, default=1, help="Number of updates steps to accumulate before performing a backward/update pass."
         )
 
@@ -61,6 +67,12 @@ def create_arg_parser():
         "-store", "--store_output", default='no', type=str,
         choices=['yes', 'no'],
         help="Store output during inference"
+    )
+
+    parser.add_argument(
+        "-logger", "--logger", default='no', type=str,
+        choices=['yes', 'no'],
+        help="Logging with w&b and tensorboard"
     )
 
     args = parser.parse_args()

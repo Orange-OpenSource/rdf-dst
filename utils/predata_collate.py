@@ -5,8 +5,9 @@ import re
 @dataclass
 class PreDataCollator:
     
-    def __init__(self, tokenizer, source_len, target_len):
+    def __init__(self, tokenizer, source_len, target_len, exp_setup):
 
+        self.exp_setup = exp_setup
         self.source_len = source_len
         self.target_len = target_len
         self.user_tkn = '<user_tkn>'
@@ -25,15 +26,7 @@ class PreDataCollator:
         turn_number = []
         
         for id, dialogue, states in zip(batch['dialogue_id'], batch['turns'], batch['states']):  # dict, history is a str that is the key
-            txt_input, label_rdf = self.create_inputs(dialogue, states)
-
-            # current turn ids have chars in their ID, removing to keep only number
-            #idRegex = re.compile(r"(\d+)(.json$)?")
-            #mo = idRegex.search(id)
-            #if mo:
-            #    id = int(mo.group(1))  # ints take less memory
-            #else:
-            #    raise Exception(f"Regex match failed, dialogue ids may be incorrect after preprocessing. THIS IS THE ID: {id}")
+            txt_input, label_rdf = self.create_inputs_outputs(dialogue, states)
 
             for turn, (txt, rdf) in enumerate(zip(txt_input, label_rdf), 1):
                 tokenized = self.tokenize(txt, rdf)
@@ -48,7 +41,7 @@ class PreDataCollator:
                 'labels': labels, 'dialogue_id': dialogue_ids, 'turn_number': turn_number}
 
 
-    def create_inputs(self, dialogue, states):
+    def create_inputs_outputs(self, dialogue, states):
         """
         This is where we choose the inputs and the rdf we will predict.
         Since we are using the whole state history and the first state cannot be predicted
@@ -67,12 +60,15 @@ class PreDataCollator:
         flattened_rdfs.append(flat_curr)
 
         for i in range(0, len(dialogue), 2):
-            speaker = dialogue[i]['speaker']
-            txt += toks[speaker] + dialogue[i]['text'] + toks[speaker]
-            speaker = dialogue[i+1]['speaker']
-            txt += toks[speaker] + dialogue[i+1]['text'] + toks[speaker]
+            # experimental setup 1 and 2
+            if  self.exp_setup in [1, 2]:
+                speaker = dialogue[i]['speaker']
+                txt += toks[speaker] + dialogue[i]['text'] + toks[speaker]
+                speaker = dialogue[i+1]['speaker']
+                txt += toks[speaker] + dialogue[i+1]['text'] + toks[speaker]
 
-            if i > 0:
+            # experimental setup 1 and 3
+            if (i > 0) and (self.exp_setup in [1, 3]):
                 # states are half of turns so divide by 2 to get idx. This already skips first txt with empty previous rdf!
                 idx = i // 2
                 prev_rdf = states[idx-1]

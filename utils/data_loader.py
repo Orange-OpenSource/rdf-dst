@@ -3,7 +3,6 @@ import torch
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader, Subset
 
-from utils.predata_collate import PreDataCollator
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -15,16 +14,14 @@ class DialogueRDFData(LightningDataModule):
     user utterance to yield new state?
     """
 
-    def __init__(self, tokenizer, num_workers: int,
-                 source_len: int, target_len: int,
-                 dataset: str, batch_size: int=6,
+    def __init__(self, collator, num_workers: int,
+                 dataset: str, batch_size: int=8,
                  ):
 
         super().__init__()
-        self.source_len = source_len
-        self.target_len = target_len
         self.dataset = dataset
-        self.tokenizer = tokenizer
+        self.collator = collator
+        self.batch_size = batch_size
         #TODO: Review dataset and multiprocessing issues 
         # https://github.com/pytorch/pytorch/issues/8976
         self.num_workers = num_workers  # no multiprocessing for now
@@ -51,10 +48,9 @@ class DialogueRDFData(LightningDataModule):
 
         """
 
-        collator = PreDataCollator(self.tokenizer, self.source_len, self.target_len)
-        self.train_dataset = self.txt2rdf['train'].map(collator, num_proc=8, remove_columns=self.txt2rdf['train'].column_names, batched=True)  
-        self.validation_dataset = self.txt2rdf['validation'].map(collator, num_proc=8, remove_columns=self.txt2rdf['validation'].column_names, batched=True) 
-        self.test_dataset = self.txt2rdf['test'].map(collator, num_proc=8, remove_columns=self.txt2rdf['test'].column_names, batched=True) 
+        self.train_dataset = self.txt2rdf['train'].map(self.collator, num_proc=8, remove_columns=self.txt2rdf['train'].column_names, batched=True)  
+        self.validation_dataset = self.txt2rdf['validation'].map(self.collator, num_proc=8, remove_columns=self.txt2rdf['validation'].column_names, batched=True) 
+        self.test_dataset = self.txt2rdf['test'].map(self.collator, num_proc=8, remove_columns=self.txt2rdf['test'].column_names, batched=True) 
 
 
         if subsetting:
@@ -71,11 +67,11 @@ class DialogueRDFData(LightningDataModule):
     #TODO: change workers to 12 when testing with gpu
     # shuffling turns between dialogues
     def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=8, num_workers=self.num_workers, shuffle=False)
+        return DataLoader(self.train_dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=False)
 
     def validation_dataloader(self):
-        return DataLoader(self.validation_dataset, batch_size=8, num_workers=self.num_workers, shuffle=False)
+        return DataLoader(self.validation_dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=False)
 
     def test_dataloader(self):
-        return DataLoader(self.test_dataset, batch_size=8, num_workers=self.num_workers, shuffle=False)
+        return DataLoader(self.test_dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=False)
 
