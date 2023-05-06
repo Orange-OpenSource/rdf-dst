@@ -1,6 +1,7 @@
 # __pycache__
 /__pycache__
 utils/__pycache__
+dst-snake/
 # rdf dirs
 poc-rdf/
 dstc2_rdf_data/
@@ -14,4 +15,5 @@ tb_logs/
 wandb/
 # csv output
 *.csv
-
+# env
+.env

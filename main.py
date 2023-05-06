@@ -64,9 +64,9 @@ def training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloa
 
     #trainer.tune  # tune before training to find lr??? Hyperparameter tuning!
 
-    logging.info("Training stage")
-    trainer.fit(pl_model, train_dataloaders=train_dataloader,
-                val_dataloaders=validation_dataloader)  # ckpt_path to continue from ckpt
+    #logging.info("Training stage")
+    #trainer.fit(pl_model, train_dataloaders=train_dataloader,
+    #            val_dataloaders=validation_dataloader)  # ckpt_path to continue from ckpt
 
     #trainer.validate  # if I want to do more with validation
 

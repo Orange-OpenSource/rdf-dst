@@ -67,7 +67,7 @@ class RDFDialogueStateModel(pl.LightningModule):
         attention_mask = batch["attention_mask"]
         return self.forward(input_ids, attention_mask, labels)
 
-    def shared_eval_step(self, batch, batch_idx, validation=True):
+    def shared_eval_step(self, batch, batch_idx):
         """
         returns preds
         """
