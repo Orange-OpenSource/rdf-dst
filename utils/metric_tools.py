@@ -14,14 +14,18 @@ class DSTMetrics:
         self.dialogue_reconstruction()
         data = self.flatten_batches()
 
-        self.slot_counts = {slot: {'tp': 0, 'tn': 0, 'fp': 0, 'fn': 0} for slot in slot_names}
+        # uncomment when I understand slot_names
+        #self.slot_counts = {slot: {'tp': 0, 'tn': 0, 'fp': 0, 'fn': 0} for slot in slot_names}
         no_context_compute = self.compute(data["preds"], data["labels"])
         context_compute = self.compute(data["ordered_preds"], data["ordered_labels"])
+        context_results = {'context_' + k: v for k, v in context_compute.items()}
+        no_context_results = {'no_context_' + k: v for k, v in no_context_compute.items()}
 
         if store:
             self.store_model_predictions()
 
         data.clear()
+        return no_context_results | context_results
 
     def flatten_batches(self):
         flatten_preds = [rdf for pred in self.decoded_preds for rdf in pred]
@@ -64,24 +68,29 @@ class DSTMetrics:
                 ref_slots_values = [self.inv_index[idx][1:] for idx in ref_turn_idx]
 
                 # average_goal_accuracy
-                self.average_goal_accuracy(pred_slot_values, ref_slot_values)
+                self.average_goal_accuracy(pred_slots_values, ref_slots_values)
 
                 # compute slot scores
-                self.build_confusion_table(pred_slot_values, ref_slot_values)
+                self.build_confusion_table(pred_slots_values, ref_slots_values)
 
         else:
             mean_jga = sum(self.all_jga_scores) / len(self.all_jga_scores) if len(self.all_jga_scores) != 0 else 0
+            mean_jga = round(mean_jga * 100, 2)
+
             forgotten_mean_proportion = sum(self.name_forgotten_measures)/len(self.name_forgotten_measures)
+            forgotten_mean_proportion = round(forgotten_mean_proportion * 100, 2)
+
             invented_mean_proportion = sum(self.name_invented_measures)/len(self.name_invented_measures)
-            average_goal_accuracy = sum(i == j for i, j in zip(self.active_predictions, self.active_references)) / len(self.active_predictions) if self.active_predictions else 0
+            invented_mean_proportion = round(invented_mean_proportion * 100, 2)
+
+            average_goal_accuracy = sum(i in self.active_references for i in self.active_predictions) / len(self.active_predictions) if self.active_predictions else 0
+            average_goal_accuracy = round(average_goal_accuracy * 100, 2)
 
             # compute slot scores
-            self.compute_slot_scores
+            #self.compute_slot_scores()
 
-        results = {"jga": mean_jga, "forgotten_mean_proportion": forgotten_mean_proportion,
+        return {"jga": mean_jga, "forgotten_mean_proportion": forgotten_mean_proportion,
                 "invented_mean_proportion": invented_mean_proportion, "average_goal_accuracy": average_goal_accuracy}
-
-        return results
 
 
     def index_encoding(self):
@@ -153,21 +162,21 @@ class DSTMetrics:
     def average_goal_accuracy(self, pred_slot_values, ref_slot_values):
 
         #active_ref = {slot: value for slot, value in ref_slots_values if value not in self.slots_empty_assignment}
-        active_ref = [(slot, value) for slot, value in ref_slots_values if value not in self.slots_empty_assignment]
+        active_ref = [(slot, value) for slot, value in ref_slot_values if value not in self.slots_empty_assignment]
         #active_pred = {slot: value for slot, value in pred_slots_values if slot in active_ref}
-        active_pred = [(slot, value) for slot, value in pred_slots_values if slot in active_ref]
+        active_pred = [(slot, value) for slot, value in pred_slot_values if slot in active_ref]
         if len(active_ref) != 0:
             self.active_references.append(active_ref)
             self.active_predictions.append(active_pred)
     
     def build_confusion_table(self, pred_slot_values, ref_slot_values):
 
-            pred_slots, pred_values = list(zip(*pred_slot_values))
-            ref_slots, ref_values = list(zip(*ref_slot_values))
-            self.true_positives += [slot for i, slot in enumerate(pred_slots) if (slot in ref_slots) and (pred_values[i] == ref_values[i]) and (ref_values[i] not in self.slots_empty_assignment)]
-            self.true_negatives += [slot for i, slot in enumerate(pred_slots) if (slot in ref_slots) and (pred_values[i] == ref_values[i]) and (ref_values[i] in self.slots_empty_assignment)]
-            self.false_positives += [slot for i, slot in enumerate(pred_slots) if (slot not in ref_slots) or (slot in ref_slots and pred_values[i] != ref_values[i] and pred_values[slot] not in self.slots_empty_assignment)]
-            self.false_negatives += [slot for i, slot in enumerate(ref_slots) if (slot not in pred_slots) and (ref_values[i] not in self.slots_empty_assignment)]
+            pred_slot_values = {slot_val[0]: slot_val[1] for slot_val in pred_slot_values}
+            ref_slot_values = {slot_val[0]: slot_val[1] for slot_val in ref_slot_values}
+            self.true_positives += [slot for slot in pred_slot_values if (slot in ref_slot_values) and (pred_slot_values[slot] == ref_slot_values[slot]) and (ref_slot_values[slot] not in self.slots_empty_assignment)]
+            self.true_negatives += [slot for slot in pred_slot_values if (slot in ref_slot_values) and (pred_slot_values[slot] == ref_slot_values[slot]) and (ref_slot_values[slot] in self.slots_empty_assignment)]
+            self.false_positives += [slot for slot in pred_slot_values if (slot not in ref_slot_values) or (slot in ref_slot_values and pred_slot_values[slot] != ref_slot_values[slot] and pred_slot_values[slot] not in self.slots_empty_assignment)]
+            self.false_negatives += [slot for slot in ref_slot_values if (slot not in pred_slot_values) and (ref_slot_values[slot] not in self.slots_empty_assignment)]
 
     def compute_slot_scores(self):
         pass
