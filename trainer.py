@@ -147,9 +147,9 @@ class RDFDialogueStateModel(pl.LightningModule):
 
         dst_metrics = DSTMetrics(outputs)
         if validation:
-            results = dst_metrics.compute()
+            results = dst_metrics()
         elif self.store:
-            results = dst_metrics.compute(store=self.store)
+            results = dst_metrics(store=self.store)
         outputs.clear()
         self.my_metrics.update(results)
         self.log_dict(self.my_metrics, on_epoch=True)
