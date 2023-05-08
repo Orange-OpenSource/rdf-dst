@@ -28,7 +28,8 @@ def postprocess_rdfs(decoded_batch):
     regexSplit = re.compile(r"(?<!\s),(?!\s)")
     decoded_batch = [regexSplit.split(row) for row in decoded_batch]
     decoded_batch = [[word.strip() for word in rdfs] for rdfs in decoded_batch]
-    clean_rdfs = [set([tuple(rdfs[i:i+3]) for i in range(0, len(rdfs), 3)]) for rdfs in decoded_batch]
+    # casting set to list to facilitate flattening before computing metrics
+    clean_rdfs = [list(set([tuple(rdfs[i:i+3]) for i in range(0, len(rdfs), 3)])) for rdfs in decoded_batch]
     return clean_rdfs
 
     
@@ -142,6 +143,7 @@ class RDFDialogueStateModel(pl.LightningModule):
         self.on_shared_epoch_end(self.eval_output_list)
 
     def on_shared_epoch_end(self, outputs, validation=False):
+
 
         dst_metrics = DSTMetrics(outputs)
         if validation:

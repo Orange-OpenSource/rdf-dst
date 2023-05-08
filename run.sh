@@ -14,7 +14,7 @@ function usage {
     echo ""
     echo "usage: $programname --test string --experiment integer --devices integer"
     echo ""
-    echo "  --test string   yes or no"
+    echo "  --test string   		yes or no"
     echo "                              (example: no)"
     echo "  --experiment integer        which experiment to run. 1, 2, or 3"
     echo "                              (example and default val: 1)"
