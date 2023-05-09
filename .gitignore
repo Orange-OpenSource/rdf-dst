@@ -16,4 +16,4 @@ wandb/
 # csv output
 *.csv
 # env
-.env
+#.env
