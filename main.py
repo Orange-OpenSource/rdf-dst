@@ -17,14 +17,14 @@ logging.basicConfig(level=logging.INFO)
 SEED = 42  # for replication purposes
 load_dotenv()  # load keys and especially w and biases to see visualizations. Looking in curr dir
 
-def preprocessing(collator, dataset, num_workers, batch_size):
+def preprocessing(collator, data_dir, num_workers, batch_size):
 
     data = DialogueRDFData(collator, num_workers=num_workers,
-                           dataset=dataset,
+                           data_dir=data_dir,
                            batch_size=batch_size)
     data.prepare_data()
     # We tokenize in setup, but pl suggests to tokenize in prepare?
-    data.setup(subsetting=True)
+    data.setup()
 
     train_dataloader = data.train_dataloader()
     test_dataloader = data.test_dataloader()
@@ -32,10 +32,9 @@ def preprocessing(collator, dataset, num_workers, batch_size):
 
     return {'train': train_dataloader, 'test': test_dataloader, 'validation': validation_dataloader}
 
-def training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders, target_len, store):
+def training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders, target_len, store, name):
 
 
-    name = "base_flant5_v_beta"
     tb_logger = TensorBoardLogger("tb_logs", name=name) 
     train_dataloader = dataloaders['train']
     test_dataloader = dataloaders['test']
@@ -64,9 +63,9 @@ def training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloa
 
     #trainer.tune  # tune before training to find lr??? Hyperparameter tuning!
 
-    #logging.info("Training stage")
-    #trainer.fit(pl_model, train_dataloaders=train_dataloader,
-    #            val_dataloaders=validation_dataloader)  # ckpt_path to continue from ckpt
+    logging.info("Training stage")
+    trainer.fit(pl_model, train_dataloaders=train_dataloader,
+                val_dataloaders=validation_dataloader)  # ckpt_path to continue from ckpt
 
     #trainer.validate  # if I want to do more with validation
 
@@ -77,8 +76,8 @@ def training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloa
     # extract the model to save it with huggingface
 
 
-    for i, (path, _) in enumerate(trainer.checkpoint_callback.best_k_models.items()):
-        print(path)
+    #for i, (path, _) in enumerate(trainer.checkpoint_callback.best_k_models.items()):
+    #    print(path)
         #m = pl_model.load_from_checkpoint(path)  # tb_logs/base_flant5_v_beta/version_0/checkpoints/best_dst_ckpt.ckpt
         #m.transformer.save_pretrained(f'{i}th_best.pt')
 
@@ -99,7 +98,7 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(model_name, extra_ids=0) 
 
     store = bool_4_args[args.store_output]
-    dataset = args.dataset
+    data_dir = args.data_dir
     experimental_setup = args.experimental_setup
     batch_size = args.batch
     epochs = args.epochs
@@ -108,10 +107,11 @@ def main():
     lr = args.learning_rate
     num_workers = args.num_workers
     grad_acc_steps = args.gradient_accumulation_steps
+    model_checkpoint_name = f"flant5_{args.model}_experiment_{experimental_setup}"
 
     collator = PreDataCollator(tokenizer, source_len, target_len, experimental_setup)
-    dataloaders = preprocessing(collator, dataset, num_workers, batch_size)
-    training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders, target_len, store)
+    dataloaders = preprocessing(collator, data_dir, num_workers, batch_size)
+    training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders, target_len, store, model_checkpoint_name)
     if logger:
         wandb.finish()
 
