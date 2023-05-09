@@ -1,4 +1,5 @@
 import pandas as pd
+from collections import ChainMap
 
 class DSTMetrics:
 
@@ -25,7 +26,7 @@ class DSTMetrics:
             self.store_model_predictions()
 
         data.clear()
-        return no_context_results | context_results
+        return dict(ChainMap(no_context_results, context_results))
 
     def flatten_batches(self):
         flatten_preds = [rdf for pred in self.decoded_preds for rdf in pred]
