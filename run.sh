@@ -55,7 +55,7 @@ fi
 
 source ./dst-snake/bin/activate
 if [[ $test == "yes" ]]; then
-    CUDA_VISIBLE_DEVICES=$devices python main.py -epochs "$epochs" -d all -store yes -logger no -experiment "$experiment"
+    CUDA_VISIBLE_DEVICES=$devices python main.py -epochs "$epochs" -d multiwoz -store yes -logger no -experiment "$experiment" -model small
 else
-    CUDA_VISIBLE_DEVICES=$devices python main.py -epochs 5 --batch 8 -d multiwoz -workers 6 -store no -experiment "$experiment"
+    CUDA_VISIBLE_DEVICES=$devices python main.py -epochs 5 --batch 8 -d multiwoz -workers 6 -store no -experiment "$experiment" -model large
 fi

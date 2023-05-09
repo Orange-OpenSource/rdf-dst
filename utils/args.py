@@ -70,6 +70,13 @@ def create_arg_parser():
     )
 
     parser.add_argument(
+        "-model", "--model", default='base', type=str,
+        choices=['small', 'base', 'large', 'xl'],
+        help="Select size of flanT5 transformer"
+    )
+
+
+    parser.add_argument(
         "-logger", "--logger", default='no', type=str,
         choices=['yes', 'no'],
         help="Logging with w&b and tensorboard"

@@ -81,6 +81,8 @@ class RDFDialogueStateModel(pl.LightningModule):
                 "max_length": self.target_length,
                 "min_length": self.target_length,
                 "early_stopping": True
+                #"top_k": 50,
+                #"top_p" :0.95
             }
     #            generated_ids = self.model.generate(input_ids=input_ids,
     #                                                attention_mask=attention_mask,

@@ -56,7 +56,7 @@ def training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloa
                                           mode="min",
                                           save_top_k=-1)
 
-    early_stopping = EarlyStopping('val_loss')
+    early_stopping = EarlyStopping('val_loss', patience=3, min_delta=0)
     callbacks = [checkpoint_callback, early_stopping]
     
     trainer = pl.Trainer(max_epochs=epochs, callbacks=callbacks, logger=tb_logger,
@@ -92,9 +92,11 @@ def main():
         wandb.tensorboard.patch(root_logdir=".tb_logs/")
         wandb.init(project="basic_flant5")
 
-    model = T5ForConditionalGeneration.from_pretrained("google/flan-t5-small")
+    #model_name = "google/flan-t5-small"
+    model_name = "google/flan-t5-" + args.model
+    model = T5ForConditionalGeneration.from_pretrained(model_name)
     # 0 ids so I don't have to reshape the embedding
-    tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-small", extra_ids=0) 
+    tokenizer = AutoTokenizer.from_pretrained(model_name, extra_ids=0) 
 
     store = bool_4_args[args.store_output]
     dataset = args.dataset

@@ -77,10 +77,10 @@ class DSTMetrics:
             mean_jga = sum(self.all_jga_scores) / len(self.all_jga_scores) if len(self.all_jga_scores) != 0 else 0
             mean_jga = round(mean_jga * 100, 2)
 
-            forgotten_mean_proportion = sum(self.name_forgotten_measures)/len(self.name_forgotten_measures)
+            forgotten_mean_proportion = sum(self.name_forgotten_measures)/len(self.name_forgotten_measures) if self.name_forgotten_measures else 0
             forgotten_mean_proportion = round(forgotten_mean_proportion * 100, 2)
 
-            invented_mean_proportion = sum(self.name_invented_measures)/len(self.name_invented_measures)
+            invented_mean_proportion = sum(self.name_invented_measures)/len(self.name_invented_measures) if self.name_forgotten_measures else 0
             invented_mean_proportion = round(invented_mean_proportion * 100, 2)
 
             average_goal_accuracy = sum(i in self.active_references for i in self.active_predictions) / len(self.active_predictions) if self.active_predictions else 0
