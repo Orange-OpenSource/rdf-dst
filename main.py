@@ -92,7 +92,7 @@ def main():
         wandb.init(project="basic_flant5")
 
     #model_name = "google/flan-t5-small"
-    model_name = "google/flan-t5-" + args.model
+    model_name = "t5-" + args.model
     model = T5ForConditionalGeneration.from_pretrained(model_name)
     # 0 ids so I don't have to reshape the embedding
     tokenizer = AutoTokenizer.from_pretrained(model_name, extra_ids=0) 
