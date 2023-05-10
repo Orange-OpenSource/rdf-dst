@@ -59,7 +59,7 @@ def training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloa
     callbacks = [checkpoint_callback, early_stopping]
     
     trainer = pl.Trainer(max_epochs=epochs, callbacks=callbacks, logger=tb_logger,
-                        devices='auto', accelerator='cpu', enable_progress_bar=True)
+                        devices='auto', accelerator='gpu', strategy="ddp", enable_progress_bar=True)
 
     #trainer.tune  # tune before training to find lr??? Hyperparameter tuning!
 
