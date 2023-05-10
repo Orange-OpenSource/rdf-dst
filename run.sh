@@ -4,7 +4,9 @@
 
 # default values
 experiment="${experiment:-1}"
-devices="${devices:-0}"
+order="PCI_BUS_ID"
+# nadia machines have usually 4 gpus
+devices="${devices:-"0,1,2,3"}"
 epochs=1
 
 programname=$0
@@ -18,8 +20,6 @@ function usage {
     echo "                              (example: no)"
     echo "  --experiment integer        which experiment to run. 1, 2, or 3"
     echo "                              (example and default val: 1)"
-    echo "  --devices integer           which gpu to use"
-    echo "                              (example and default val: 0)"
     echo ""
 }
 function die {
@@ -53,9 +53,15 @@ if [[ $test != "yes" ]] && [[ $test != "no" ]]; then
 fi
 
 
+echo "Using manual data loading"
+
+python3 -m venv dst-snake
 source ./dst-snake/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+
 if [[ $test == "yes" ]]; then
-    CUDA_VISIBLE_DEVICES=$devices python main.py -epochs "$epochs" -d multiwoz -store yes -logger no -experiment "$experiment" -model small
+    CUDA_DEVICE_ORDER=$order CUDA_VISIBLE_DEVICES=$devices python main.py -epochs "$epochs" -d ./multiwoz_rdf_data/ -store yes -logger no -experiment "$experiment" -model small
 else
-    CUDA_VISIBLE_DEVICES=$devices python main.py -epochs 5 --batch 8 -d multiwoz -workers 6 -store no -experiment "$experiment" -model large
+    CUDA_DEVICE_ORDER=$order CUDA_VISIBLE_DEVICES=$devices python main.py -epochs 5 --batch 8 -d ./multiwoz_rdf_data/ -workers 6 -store no -experiment "$experiment" -model large
 fi
