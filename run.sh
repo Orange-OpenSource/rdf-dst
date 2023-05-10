@@ -63,5 +63,5 @@ pip install -r requirements.txt
 if [[ $test == "yes" ]]; then
     CUDA_DEVICE_ORDER=$order CUDA_VISIBLE_DEVICES=$devices python main.py -epochs "$epochs" -d ./multiwoz_rdf_data/ -store yes -logger no -experiment "$experiment" -model small
 else
-    CUDA_DEVICE_ORDER=$order CUDA_VISIBLE_DEVICES=$devices python main.py -epochs 5 --batch 8 -d ./multiwoz_rdf_data/ -workers 6 -store no -experiment "$experiment" -model large
+    CUDA_DEVICE_ORDER=$order CUDA_VISIBLE_DEVICES=$devices python main.py -epochs 5 --batch 8 -d ./multiwoz_rdf_data/ -workers 6 -store no -experiment "$experiment" -model base
 fi
