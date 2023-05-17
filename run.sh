@@ -60,7 +60,7 @@ pip install -r requirements.txt
 python old_orange_certs.py
 
 if [[ $test == "yes" ]]; then
-    python main.py -epochs 2 -d ./multiwoz_rdf_data/ -store yes -logger no -experiment "$experiment" -workers 6 -model small
+    python main.py -epochs 2 -d multiwoz -store yes -logger no -experiment "$experiment" -workers 6 -model small
 else
-    python main.py -epochs 5 --batch 4 -d ./multiwoz_rdf_data/ -workers 6 -store yes -experiment "$experiment" -model small -logger yes
+    python main.py -epochs 5 --batch 4 -d multiwoz -workers 6 -store yes -experiment "$experiment" -model small -logger yes
 fi
