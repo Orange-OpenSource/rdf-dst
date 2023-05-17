@@ -6,7 +6,7 @@
 # TODO:Evaluation https://aclanthology.org/2022.acl-short.35.pdf
 # exact match reading comprehension, F1 SQUAD
 import lightning.pytorch as pl
-import pandas as pd
+import numpy as np
 import torch
 import re
 from transformers import get_linear_schedule_with_warmup
@@ -30,9 +30,7 @@ def postprocess_rdfs(decoded_batch):
     decoded_batch = [regexSplit.split(row) for row in decoded_batch]
     decoded_batch = [[word.strip() for word in rdfs] for rdfs in decoded_batch]
     # casting set to list to facilitate flattening before computing metrics
-    # tuples are ordered...
-    #clean_rdfs = [list(set([tuple(rdfs[i:i+3]) for i in range(0, len(rdfs), 3)])) for rdfs in decoded_batch]
-    clean_rdfs = [list(set([set(rdfs[i:i+3]) for i in range(0, len(rdfs), 3)])) for rdfs in decoded_batch]
+    clean_rdfs = [list(set([tuple(rdfs[i:i+3]) for i in range(0, len(rdfs), 3)])) for rdfs in decoded_batch]
     return clean_rdfs
 
     
@@ -108,9 +106,9 @@ class RDFDialogueStateModel(pl.LightningModule):
             decoded_preds = postprocess_rdfs(decoded_preds)
 
             if isinstance(batch["dialogue_id"], list):
-                dialogue_ids = batch["dialogue_id"].detach()
+                dialogue_ids = batch["dialogue_id"]
             elif torch.tensor(batch["dialogue_id"]):
-                dialogue_ids = batch["dialogue_id"].detach()#.cpu().numpy()
+                dialogue_ids = batch["dialogue_id"]#.cpu().numpy()
 
         return {"preds": decoded_preds, "labels": decoded_labels, "ids": dialogue_ids}
 
@@ -158,15 +156,13 @@ class RDFDialogueStateModel(pl.LightningModule):
 
 
         dst_metrics = DSTMetrics(outputs)
-        results = dst_metrics()
-        if not validation:
-            states_df = pd.DataFrame(outputs)
-            states_df.to_csv("nested_states.csv", index=False)
-
+        if validation:
+            results = dst_metrics()
+        elif self.store:
+            results = dst_metrics(store=self.store)
         outputs.clear()
         self.my_metrics.update(results)
         self.log_dict(self.my_metrics, on_epoch=True, sync_dist=True)
-
     
     # https://discuss.huggingface.co/t/t5-finetuning-tips/684/3
 

@@ -18,7 +18,3 @@ wandb/
 # env
 #.env
 poc-rdf-env/
-# config yml
-config.yml
-poc-rdf_requirements.txt
-analyzing.py

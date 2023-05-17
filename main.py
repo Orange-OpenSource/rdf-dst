@@ -4,6 +4,10 @@ from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 import lightning.pytorch as pl
 import wandb
 import math
+import torch
+import re
+import os
+import glob
 from transformers import AutoTokenizer, T5ForConditionalGeneration
 from utils.data_loader import DialogueRDFData
 from utils.args import create_arg_parser
@@ -32,12 +36,11 @@ def preprocessing(collator, data_dir, num_workers, batch_size):
 
     return {'train': train_dataloader, 'test': test_dataloader, 'validation': validation_dataloader}
 
-def training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders, target_len, store, name):
+def training(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders, target_len, store, name):
 
 
     tb_logger = TensorBoardLogger("tb_logs", name=name) 
     train_dataloader = dataloaders['train']
-    test_dataloader = dataloaders['test']
     validation_dataloader = dataloaders['validation']
 
     # changing name for a more reusable version to resume training and test
@@ -59,19 +62,28 @@ def training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloa
     callbacks = [checkpoint_callback, early_stopping]
     
     trainer = pl.Trainer(max_epochs=epochs, callbacks=callbacks, logger=tb_logger,
-                        devices=-1, accelerator='gpu', strategy="ddp", enable_progress_bar=True)
+                         accumulate_grad_batches=2, devices="auto",  # torch.cuda.device_count()
+                         #precision="16-mixed", strategy="ddp",  # issues with precision in PL
+                         strategy="ddp",
+                         accelerator='gpu', enable_progress_bar=True)
+    
 
     #trainer.tune  # tune before training to find lr??? Hyperparameter tuning!
 
     logging.info("Training stage")
     trainer.fit(pl_model, train_dataloaders=train_dataloader,
                 val_dataloaders=validation_dataloader)  # ckpt_path to continue from ckpt
-
+    
     #trainer.validate  # if I want to do more with validation
+    return trainer, pl_model
+
+def evaluate(trainer, name, model, test_dataloader):
 
     logging.info("Inference stage")
-    ckpt_path = f'./tb_logs/{name}/version_0/checkpoints/' + checkpoint_callback.filename + '.ckpt'
-    trainer.test(pl_model, dataloaders=test_dataloader, ckpt_path=ckpt_path, verbose=True)# ?
+    file_path = f'./tb_logs/{name}/'
+    ckpt_path = find_version_num(file_path)
+
+    trainer.test(model, dataloaders=test_dataloader, ckpt_path=ckpt_path, verbose=True)# ?
 
     # extract the model to save it with huggingface
 
@@ -81,17 +93,39 @@ def training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloa
         #m = pl_model.load_from_checkpoint(path)  # tb_logs/base_flant5_v_beta/version_0/checkpoints/best_dst_ckpt.ckpt
         #m.transformer.save_pretrained(f'{i}th_best.pt')
 
+def find_version_num(path):
+
+    dirs = [d for d in os.listdir(path) if 'checkpoints' in os.listdir(path + d)]
+    assert dirs, "No version has any checkpoints. Did you train the model?"
+    newest_version = max(map(regex_match, dirs))
+    # abs path breaks last slash so adding in ckpt
+    path = os.path.abspath(f"{path}version_{newest_version}/checkpoints") + "/*.ckpt"
+    checkpoints = glob.glob(path)
+    return max(checkpoints, key=os.path.getctime)
+
+def regex_match(dir_name):
+    versionRegex = re.compile(r"^version_(\d+)$")
+    res_match = versionRegex.search(dir_name)
+    return int(res_match.group(1))
+
 def main():
 
     args = create_arg_parser()
     bool_4_args = {"no": False, "yes": True}
+    length_exp_setup = {1: {"source_len": 1024, "target_len": 768, "setup": "context and states"},
+                        2: {"source_len": 512,  "target_len": 768, "setup": "only context"},
+                        3: {"source_len": 768,  "target_len": 768, "setup": "only states"}}
+    experimental_setup = args.experimental_setup
+    source_len = length_exp_setup[experimental_setup]["source_len"]
+    target_len = length_exp_setup[experimental_setup]["target_len"]
+    message_setup = length_exp_setup[experimental_setup]["setup"]
+    logging.info(f"{message_setup} with...\nInput_Length: {source_len}\nOutput_Length: {target_len}")
     logger = bool_4_args[args.logger]
     if logger:
         wandb.login()  
         wandb.tensorboard.patch(root_logdir=".tb_logs/")
         wandb.init(project="basic_flant5")
 
-    #model_name = "google/flan-t5-small"
     model_name = "t5-" + args.model
     model = T5ForConditionalGeneration.from_pretrained(model_name)
     # 0 ids so I don't have to reshape the embedding
@@ -99,19 +133,19 @@ def main():
 
     store = bool_4_args[args.store_output]
     data_dir = args.data_dir
-    experimental_setup = args.experimental_setup
     batch_size = args.batch
     epochs = args.epochs
-    source_len = args.source_length
-    target_len = args.target_length
+    #source_len = args.source_length
+    #target_len = args.target_length
     lr = args.learning_rate
     num_workers = args.num_workers
     grad_acc_steps = args.gradient_accumulation_steps
-    model_checkpoint_name = f"flant5_{args.model}_experiment_{experimental_setup}"
+    model_checkpoint_name = f"{model_name}_experiment_{experimental_setup}"
 
     collator = PreDataCollator(tokenizer, source_len, target_len, experimental_setup)
     dataloaders = preprocessing(collator, data_dir, num_workers, batch_size)
-    training_and_inference(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders, target_len, store, model_checkpoint_name)
+    trainer, model = training(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders, target_len, store, model_checkpoint_name)
+    evaluate(trainer, model, dataloaders['test'])
     if logger:
         wandb.finish()
 

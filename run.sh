@@ -3,10 +3,7 @@
 
 
 # default values
-experiment="${experiment:-1}"
-order="PCI_BUS_ID"
-# nadia machines have usually 4 gpus
-devices="${devices:-"0,1,2,3"}"
+experiment="${experiment:-2}"
 epochs=1
 
 programname=$0
@@ -60,8 +57,10 @@ source ./dst-snake/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
 
+python old_orange_certs.py
+
 if [[ $test == "yes" ]]; then
-    CUDA_DEVICE_ORDER=$order CUDA_VISIBLE_DEVICES=$devices python main.py -epochs "$epochs" -d ./multiwoz_rdf_data/ -store yes -logger no -experiment "$experiment" -model small
+    python main.py -epochs 2 -d ./multiwoz_rdf_data/ -store yes -logger no -experiment "$experiment" -workers 6 -model small
 else
-    CUDA_DEVICE_ORDER=$order CUDA_VISIBLE_DEVICES=$devices python main.py -epochs 5 --batch 8 -d ./multiwoz_rdf_data/ -workers 6 -store no -experiment "$experiment" -model base
+    python main.py -epochs 5 --batch 4 -d ./multiwoz_rdf_data/ -workers 6 -store yes -experiment "$experiment" -model small -logger yes
 fi
