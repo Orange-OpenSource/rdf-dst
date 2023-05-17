@@ -24,11 +24,12 @@ class PreDataCollator:
         labels = []
         dialogue_ids = []
         turn_number = []
+        all_states = []
         
         for id, dialogue, states in zip(batch['dialogue_id'], batch['turns'], batch['states']):  # dict, history is a str that is the key
             txt_input, label_rdf = self.create_inputs_outputs(dialogue, states)
 
-            for turn, (txt, rdf) in enumerate(zip(txt_input, label_rdf), 1):
+            for turn, (txt, rdf) in enumerate(zip(txt_input, label_rdf), 0):
                 tokenized = self.tokenize(txt, rdf)
                 input_ids.append(tokenized['input_ids'])
                 attention_mask.append(tokenized['attention_mask'])
@@ -36,10 +37,35 @@ class PreDataCollator:
                 dialogue_ids.append(id)
                 turn_number.append(turn)
 
+                all_states.append(states[turn]['triples'])
 
-        return {'input_ids': input_ids, 'attention_mask': attention_mask,
+
+        return {'input_ids': input_ids, 'attention_mask': attention_mask, "states": all_states,
                 'labels': labels, 'dialogue_id': dialogue_ids, 'turn_number': turn_number}
 
+
+    @staticmethod
+    def flatten_rdf_rep(state):
+        #state = (val.strip() for triplet in state['triples'] for val in triplet)
+        #state = [val.replace('_:' , '') for triplet in state for val in triplet]
+        flatten_dict = dict()
+        for triplet in state['triples']:
+            triplet = [val.strip() for val in triplet]
+            triplet = [val.replace('_:', '') for val in triplet]
+            if triplet[0] in flatten_dict:
+                flatten_dict[triplet[0]].extend(triplet[1:])
+            else:
+                flatten_dict[triplet[0]] = triplet[1:]
+
+        #flatten_rep = []
+        #for k, values in flatten_dict.items():
+        #    flat_rdf = f'{k} is '
+        #    for v in values:
+        #        flat_rdf += f';{v}'
+        #    flatten_rep.append(flat_rdf)
+        return flatten_dict
+
+        #return '\n'.join(flatten_rep)
 
     def create_inputs_outputs(self, dialogue, states):
         """
@@ -51,42 +77,30 @@ class PreDataCollator:
         # we can flatten all of the rdf-states and treat them as strings. But maybe the only last one matters?
         toks = {"user": self.user_tkn, "system": self.sys_tkn}
 
-        txt = ''
-        flattened_rdfs = []
-        txt_input = []
+        states = map(lambda state: ','.join([val.strip() for triplet in state['triples'] for val in triplet]), states)
+        states = list(states)
 
-        curr_rdf = states[0]
-        flat_curr = ','.join([val.strip() for triplet in curr_rdf['triples'] for val in triplet])
-        flattened_rdfs.append(flat_curr)
+        #smarter triplet rep? Not for now. comment
+        #states = map(lambda state: self.flatten_rdf_rep(state), states)
+        #states = list(states)
 
-        for i in range(0, len(dialogue), 2):
-            # experimental setup 1 and 2
-            if  self.exp_setup in [1, 2]:
+
+        dialogue_context = []
+        context = ''
+        if self.exp_setup == 3:
+            input_txt = [''].extend(states[1:])
+        else:
+            for i in range(0, len(dialogue), 2):
+
                 speaker = dialogue[i]['speaker']
-                txt += toks[speaker] + dialogue[i]['text'] + toks[speaker]
+                context += toks[speaker] + dialogue[i]['text'] + toks[speaker]
                 speaker = dialogue[i+1]['speaker']
-                txt += toks[speaker] + dialogue[i+1]['text'] + toks[speaker]
+                context += toks[speaker] + dialogue[i+1]['text'] + toks[speaker]
+                dialogue_context.append(context)
+            prev_states = list(map(lambda state: self.state_tkn + state + self.state_tkn, states[:-1]))
+            input_txt = dialogue_context[:1] + [diag + prev_states[i] for i, diag in enumerate(dialogue_context[1:])] if self.exp_setup == 1 else dialogue_context
 
-            # first if builds outputs which are the same for all scenarios
-            if i > 0:
-                # states are half of turns so divide by 2 to get idx. This already skips first txt with empty previous rdf!
-                idx = i // 2
-                curr_rdf = states[idx]
-                flat_curr = ','.join([val.strip() for triplet in curr_rdf['triples'] for val in triplet])
-                flattened_rdfs.append(flat_curr)
-
-                # experimental setup 1 and 3
-                if self.exp_setup in [1, 3]:
-
-                    prev_rdf = states[idx-1]
-                    flat_prev = ','.join([val.strip() for triplet in prev_rdf['triples'] for val in triplet])
-                    txt += self.state_tkn + flat_prev + self.state_tkn 
-
-            txt_input.append(txt)
-            txt = ''
-
-
-        return txt_input, flattened_rdfs
+        return input_txt, states
 
     def tokenize(self, dialogue : str, rdf : str):
         
@@ -106,3 +120,4 @@ class PreDataCollator:
         encoding['labels'] = labels
 
         return encoding
+
