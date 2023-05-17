@@ -132,18 +132,16 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(model_name, extra_ids=0) 
 
     store = bool_4_args[args.store_output]
-    data_dir = args.data_dir
+    dataset = args.dataset
     batch_size = args.batch
     epochs = args.epochs
-    #source_len = args.source_length
-    #target_len = args.target_length
     lr = args.learning_rate
     num_workers = args.num_workers
     grad_acc_steps = args.gradient_accumulation_steps
     model_checkpoint_name = f"{model_name}_experiment_{experimental_setup}"
 
     collator = PreDataCollator(tokenizer, source_len, target_len, experimental_setup)
-    dataloaders = preprocessing(collator, data_dir, num_workers, batch_size)
+    dataloaders = preprocessing(collator, dataset, num_workers, batch_size)
     trainer, model = training(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders, target_len, store, model_checkpoint_name)
     evaluate(trainer, model, dataloaders['test'])
     if logger:

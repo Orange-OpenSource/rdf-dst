@@ -52,13 +52,6 @@ fi
 
 echo "Using manual data loading"
 
-python3 -m venv dst-snake
-source ./dst-snake/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
-
-python old_orange_certs.py
-
 if [[ $test == "yes" ]]; then
     python main.py -epochs 2 -d multiwoz -store yes -logger no -experiment "$experiment" -workers 6 -model small
 else

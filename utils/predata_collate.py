@@ -120,4 +120,3 @@ class PreDataCollator:
         encoding['labels'] = labels
 
         return encoding
-

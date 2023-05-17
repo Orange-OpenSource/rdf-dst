@@ -7,13 +7,7 @@ def create_arg_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-b", "--batch", default=4, type=int, help="Provide the number of batch"
-    )  # 32?
-
-    #parser.add_argument(
-    #    "-d", "--data_dir", default='./sfx_rdf_data/', type=str,
-    #    choices=['./sfx_rdf_data/', './multiwoz_rdf_data/', './dstc2_rdf_data/'],
-    #    help="Select rdf data from options. Note that DATCHA is missing"
-    #)
+    ) 
 
     parser.add_argument(
         "-d", "--dataset", default='sfxdial', type=str,
@@ -45,22 +39,6 @@ def create_arg_parser():
         default=1e-3,
         type=float,
         help="Provide the learning rate"
-    )
-
-    parser.add_argument(
-        "-s_len",
-        "--source_length",
-        default=512,
-        type=int,
-        help="define Max sequence length"
-    )
-
-    parser.add_argument(
-        "-t_len",
-        "--target_length",
-        default=128,
-        type=int,
-        help="define Max sequence length"
     )
 
     parser.add_argument(

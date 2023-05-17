@@ -63,8 +63,6 @@ class DialogueRDFData(LightningDataModule):
             assert compare_tensors, "Subset does not correspond to original dataset"
         
 
-    #TODO: change workers to 12 when testing with gpu
-    # shuffling turns between dialogues
     def train_dataloader(self):
         return DataLoader(self.train_dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=False)
 
@@ -73,4 +71,3 @@ class DialogueRDFData(LightningDataModule):
 
     def test_dataloader(self):
         return DataLoader(self.test_dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=False)
-
