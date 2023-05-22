@@ -1,5 +1,6 @@
-import pandas as pd
-from collections import ChainMap
+from functools import reduce
+from collections import Counter, ChainMap
+import evaluate
 
 class DSTMetrics:
 
@@ -8,9 +9,10 @@ class DSTMetrics:
         self.decoded_preds = [out['preds'] for out in outputs]
         self.dialogue_ids = [out['ids'] for out in outputs]
         self.slots_empty_assignment = ["none", '', ' ', '*']
+        evaluate.load("squad")
 
 
-    def __call__(self, store=False):
+    def __call__(self):
         self.index_encoding()
         self.dialogue_reconstruction()
         data = self.flatten_batches()
@@ -18,15 +20,26 @@ class DSTMetrics:
         # uncomment when I understand slot_names
         #self.slot_counts = {slot: {'tp': 0, 'tn': 0, 'fp': 0, 'fn': 0} for slot in slot_names}
         no_context_compute = self.compute(data["preds"], data["labels"])
-        context_compute = self.compute(data["ordered_preds"], data["ordered_labels"])
-        context_results = {'context_' + k: v for k, v in context_compute.items()}
-        no_context_results = {'no_context_' + k: v for k, v in no_context_compute.items()}
+        #context_compute = self.compute(data["ordered_preds"], data["ordered_labels"])
+        #context_results = {'context_' + k: v for k, v in context_compute.items()}
+        #no_context_results = {'no_context_' + k: v for k, v in no_context_compute.items()}
 
-        if store:
-            self.store_model_predictions()
+        #data.clear()
+        #return dict(ChainMap(no_context_results, context_results))
+        return no_context_compute
+    
+    def compute(self, predictions, references):
 
-        data.clear()
-        return dict(ChainMap(no_context_results, context_results))
+        self.all_jga_scores = []
+        for pred_turn, ref_turn in zip(predictions, references):
+            pred_turn_idx = [self.rdf_indexes[rdf] for rdf in pred_turn]
+            ref_turn_idx = [self.rdf_indexes[rdf] for rdf in ref_turn]  # some slot values are not flawless rdfs in the annotated set
+            missing_els_from_ref = set(pred_turn_idx) - set(ref_turn_idx)
+            self.joint_goal_accuracy(ref_turn_idx, pred_turn_idx, missing_els_from_ref)
+
+        mean_jga = sum(self.all_jga_scores) / len(self.all_jga_scores) if len(self.all_jga_scores) != 0 else 0
+        return {"jga": mean_jga}
+        
 
     def flatten_batches(self):
         flatten_preds = [rdf for pred in self.decoded_preds for rdf in pred]
@@ -38,60 +51,60 @@ class DSTMetrics:
         return {"preds": flatten_preds, "labels": flatten_labels,
                 "ordered_preds": ordered_preds, "ordered_labels": ordered_labels}
 
-    def compute(self, preds, labels):
+    #def compute(self, preds, labels):
 
-        self.all_jga_scores = []
-        self.name_forgotten_measures = []
-        self.name_invented_measures = []
-        self.active_references = []
-        self.active_predictions = []
+    #    self.all_jga_scores = []
+    #    self.name_forgotten_measures = []
+    #    self.name_invented_measures = []
+    #    self.active_references = []
+    #    self.active_predictions = []
 
-        self.true_positives = []
-        self.true_negatives = []
-        self.false_positives = []
-        self.false_negatives = []
-        for pred_turn, ref_turn in zip(preds, labels):
-            pred_turn_idx = [self.rdf_indexes[rdf] for rdf in pred_turn if len(rdf) == 3]
-            ref_turn_idx = [self.rdf_indexes[rdf] for rdf in ref_turn if len(rdf) == 3]  # some slot values are not flawless rdfs in the annotated set
-            #invented
-            missing_els_from_ref = set(pred_turn_idx) - set(ref_turn_idx)
-            #forgotten
-            missing_els_from_pred = set(ref_turn_idx) - set(pred_turn_idx)
+    #    self.true_positives = []
+    #    self.true_negatives = []
+    #    self.false_positives = []
+    #    self.false_negatives = []
+    #    for pred_turn, ref_turn in zip(preds, labels):
+    #        pred_turn_idx = [self.rdf_indexes[rdf] for rdf in pred_turn if len(rdf) == 3]
+    #        ref_turn_idx = [self.rdf_indexes[rdf] for rdf in ref_turn if len(rdf) == 3]  # some slot values are not flawless rdfs in the annotated set
+    #        #invented
+    #        missing_els_from_ref = set(pred_turn_idx) - set(ref_turn_idx)
+    #        #forgotten
+    #        missing_els_from_pred = set(ref_turn_idx) - set(pred_turn_idx)
 
-            # JGA
-            self.joint_goal_accuracy(ref_turn, pred_turn, missing_els_from_ref)
+    #        # JGA
+    #        self.joint_goal_accuracy(ref_turn, pred_turn, missing_els_from_ref)
 
-            #slot_name_scores
-            self.slot_name_scores(pred_turn_idx, ref_turn_idx, missing_els_from_pred, missing_els_from_ref)
+    #        #slot_name_scores
+    #        self.slot_name_scores(pred_turn_idx, ref_turn_idx, missing_els_from_pred, missing_els_from_ref)
 
-            if pred_turn_idx and ref_turn_idx:
-                pred_slots_values = [self.inv_index[idx][1:] for idx in pred_turn_idx]
-                ref_slots_values = [self.inv_index[idx][1:] for idx in ref_turn_idx]
+    #        if pred_turn_idx and ref_turn_idx:
+    #            pred_slots_values = [self.inv_index[idx][1:] for idx in pred_turn_idx]
+    #            ref_slots_values = [self.inv_index[idx][1:] for idx in ref_turn_idx]
 
-                # average_goal_accuracy
-                self.average_goal_accuracy(pred_slots_values, ref_slots_values)
+    #            # average_goal_accuracy
+    #            self.average_goal_accuracy(pred_slots_values, ref_slots_values)
 
-                # compute slot scores
-                self.build_confusion_table(pred_slots_values, ref_slots_values)
+    #            # compute slot scores
+    #            self.build_confusion_table(pred_slots_values, ref_slots_values)
 
-        else:
-            mean_jga = sum(self.all_jga_scores) / len(self.all_jga_scores) if len(self.all_jga_scores) != 0 else 0
-            mean_jga = round(mean_jga * 100, 2)
+    #    else:
+    #        mean_jga = sum(self.all_jga_scores) / len(self.all_jga_scores) if len(self.all_jga_scores) != 0 else 0
+    #        mean_jga = round(mean_jga * 100, 2)
 
-            forgotten_mean_proportion = sum(self.name_forgotten_measures)/len(self.name_forgotten_measures) if self.name_forgotten_measures else 0
-            forgotten_mean_proportion = round(forgotten_mean_proportion * 100, 2)
+    #        forgotten_mean_proportion = sum(self.name_forgotten_measures)/len(self.name_forgotten_measures) if self.name_forgotten_measures else 0
+    #        forgotten_mean_proportion = round(forgotten_mean_proportion * 100, 2)
 
-            invented_mean_proportion = sum(self.name_invented_measures)/len(self.name_invented_measures) if self.name_forgotten_measures else 0
-            invented_mean_proportion = round(invented_mean_proportion * 100, 2)
+    #        invented_mean_proportion = sum(self.name_invented_measures)/len(self.name_invented_measures) if self.name_forgotten_measures else 0
+    #        invented_mean_proportion = round(invented_mean_proportion * 100, 2)
 
-            average_goal_accuracy = sum(i in self.active_references for i in self.active_predictions) / len(self.active_predictions) if self.active_predictions else 0
-            average_goal_accuracy = round(average_goal_accuracy * 100, 2)
+    #        average_goal_accuracy = sum(i in self.active_references for i in self.active_predictions) / len(self.active_predictions) if self.active_predictions else 0
+    #        average_goal_accuracy = round(average_goal_accuracy * 100, 2)
 
-            # compute slot scores
-            #self.compute_slot_scores()
+    #        # compute slot scores
+    #        #self.compute_slot_scores()
 
-        return {"jga": mean_jga, "forgotten_mean_proportion": forgotten_mean_proportion,
-                "invented_mean_proportion": invented_mean_proportion, "average_goal_accuracy": average_goal_accuracy}
+    #    return {"jga": mean_jga, "forgotten_mean_proportion": forgotten_mean_proportion,
+    #            "invented_mean_proportion": invented_mean_proportion, "average_goal_accuracy": average_goal_accuracy}
 
 
     def index_encoding(self):
@@ -99,9 +112,18 @@ class DSTMetrics:
         encodes all rdfs from preds and labels to vectorize evaluation 
         """
         pred_rdfs = [rdfs for batch in self.decoded_preds for rdfs in batch]
-        pred_rdfs = set().union(*pred_rdfs)
+        pred_rdfs = [rdf for batch in pred_rdfs for rdf in batch]
+        pred_rdfs = Counter(pred_rdfs).keys()
+
         label_rdfs = [rdfs for batch in self.decoded_labels for rdfs in batch]
-        label_rdfs = set().union(*label_rdfs)
+        label_rdfs = [rdf for batch in label_rdfs for rdf in batch]
+        label_rdfs = Counter(label_rdfs).keys()
+
+        label_nodes = reduce(lambda a, b: a | b, label_rdfs)
+        node_encoding = Counter(label_nodes)
+        # we don't need pred nodes, as there may be hallucinations.
+        #pred_nodes = reduce(lambda a, b: a | b, pred_rdfs)
+
         unique_rdfs = list(label_rdfs | pred_rdfs)
         invalid_val = 0
         self.rdf_indexes = dict()
@@ -149,43 +171,32 @@ class DSTMetrics:
             jga_score = 0
             self.all_jga_scores.append(0)
 
-    def slot_name_scores(self, pred_turn_idx, ref_turn_idx, missing_els_from_pred, missing_els_from_ref):
-        turn_measures = dict()
-        # forgotten
-        if pred_turn_idx:
-            turn_measures["forgotten"] = len(missing_els_from_pred) / len(pred_turn_idx)
-            self.name_forgotten_measures.append(turn_measures["forgotten"])
-        # invented
-        if ref_turn_idx:
-            turn_measures["invented"] = len(missing_els_from_ref) / len(ref_turn_idx)
-            self.name_invented_measures.append(turn_measures["invented"])
+    #def slot_name_scores(self, pred_turn_idx, ref_turn_idx, missing_els_from_pred, missing_els_from_ref):
+    #    turn_measures = dict()
+    #    # forgotten
+    #    if pred_turn_idx:
+    #        turn_measures["forgotten"] = len(missing_els_from_pred) / len(pred_turn_idx)
+    #        self.name_forgotten_measures.append(turn_measures["forgotten"])
+    #    # invented
+    #    if ref_turn_idx:
+    #        turn_measures["invented"] = len(missing_els_from_ref) / len(ref_turn_idx)
+    #        self.name_invented_measures.append(turn_measures["invented"])
 
-    def average_goal_accuracy(self, pred_slot_values, ref_slot_values):
+    #def average_goal_accuracy(self, pred_slot_values, ref_slot_values):
 
-        #active_ref = {slot: value for slot, value in ref_slots_values if value not in self.slots_empty_assignment}
-        active_ref = [(slot, value) for slot, value in ref_slot_values if value not in self.slots_empty_assignment]
-        #active_pred = {slot: value for slot, value in pred_slots_values if slot in active_ref}
-        active_pred = [(slot, value) for slot, value in pred_slot_values if slot in active_ref]
-        if len(active_ref) != 0:
-            self.active_references.append(active_ref)
-            self.active_predictions.append(active_pred)
+    #    #active_ref = {slot: value for slot, value in ref_slots_values if value not in self.slots_empty_assignment}
+    #    active_ref = [(slot, value) for slot, value in ref_slot_values if value not in self.slots_empty_assignment]
+    #    #active_pred = {slot: value for slot, value in pred_slots_values if slot in active_ref}
+    #    active_pred = [(slot, value) for slot, value in pred_slot_values if slot in active_ref]
+    #    if len(active_ref) != 0:
+    #        self.active_references.append(active_ref)
+    #        self.active_predictions.append(active_pred)
     
-    def build_confusion_table(self, pred_slot_values, ref_slot_values):
+    #def build_confusion_table(self, pred_slot_values, ref_slot_values):
 
-            pred_slot_values = {slot_val[0]: slot_val[1] for slot_val in pred_slot_values}
-            ref_slot_values = {slot_val[0]: slot_val[1] for slot_val in ref_slot_values}
-            self.true_positives += [slot for slot in pred_slot_values if (slot in ref_slot_values) and (pred_slot_values[slot] == ref_slot_values[slot]) and (ref_slot_values[slot] not in self.slots_empty_assignment)]
-            self.true_negatives += [slot for slot in pred_slot_values if (slot in ref_slot_values) and (pred_slot_values[slot] == ref_slot_values[slot]) and (ref_slot_values[slot] in self.slots_empty_assignment)]
-            self.false_positives += [slot for slot in pred_slot_values if (slot not in ref_slot_values) or (slot in ref_slot_values and pred_slot_values[slot] != ref_slot_values[slot] and pred_slot_values[slot] not in self.slots_empty_assignment)]
-            self.false_negatives += [slot for slot in ref_slot_values if (slot not in pred_slot_values) and (ref_slot_values[slot] not in self.slots_empty_assignment)]
-
-    def compute_slot_scores(self):
-        pass
-
-    def store_model_predictions(self):
-        states_df = pd.DataFrame(self.ordered_dialogues)
-        states_df.to_csv("nested_states.csv", index=False)
-
-
-
-
+    #        pred_slot_values = {slot_val[0]: slot_val[1] for slot_val in pred_slot_values}
+    #        ref_slot_values = {slot_val[0]: slot_val[1] for slot_val in ref_slot_values}
+    #        self.true_positives += [slot for slot in pred_slot_values if (slot in ref_slot_values) and (pred_slot_values[slot] == ref_slot_values[slot]) and (ref_slot_values[slot] not in self.slots_empty_assignment)]
+    #        self.true_negatives += [slot for slot in pred_slot_values if (slot in ref_slot_values) and (pred_slot_values[slot] == ref_slot_values[slot]) and (ref_slot_values[slot] in self.slots_empty_assignment)]
+    #        self.false_positives += [slot for slot in pred_slot_values if (slot not in ref_slot_values) or (slot in ref_slot_values and pred_slot_values[slot] != ref_slot_values[slot] and pred_slot_values[slot] not in self.slots_empty_assignment)]
+    #        self.false_negatives += [slot for slot in ref_slot_values if (slot not in pred_slot_values) and (ref_slot_values[slot] not in self.slots_empty_assignment)]

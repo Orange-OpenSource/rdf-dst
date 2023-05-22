@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-import re
+from utils.postprocessing import clean_node
 
 
 @dataclass
@@ -40,18 +40,14 @@ class PreDataCollator:
                 all_states.append(states[turn]['triples'])
 
 
-        return {'input_ids': input_ids, 'attention_mask': attention_mask, "states": all_states,
+        return {'input_ids': input_ids, 'attention_mask': attention_mask,# "states": all_states,
                 'labels': labels, 'dialogue_id': dialogue_ids, 'turn_number': turn_number}
 
 
     @staticmethod
     def flatten_rdf_rep(state):
-        #state = (val.strip() for triplet in state['triples'] for val in triplet)
-        #state = [val.replace('_:' , '') for triplet in state for val in triplet]
         flatten_dict = dict()
         for triplet in state['triples']:
-            triplet = [val.strip() for val in triplet]
-            triplet = [val.replace('_:', '') for val in triplet]
             if triplet[0] in flatten_dict:
                 flatten_dict[triplet[0]].extend(triplet[1:])
             else:
@@ -77,7 +73,7 @@ class PreDataCollator:
         # we can flatten all of the rdf-states and treat them as strings. But maybe the only last one matters?
         toks = {"user": self.user_tkn, "system": self.sys_tkn}
 
-        states = map(lambda state: ','.join([val.strip() for triplet in state['triples'] for val in triplet]), states)
+        states = map(lambda state: ','.join([clean_node(val) for triplet in state['triples'] for val in triplet]), states)
         states = list(states)
 
         #smarter triplet rep? Not for now. comment
@@ -88,7 +84,7 @@ class PreDataCollator:
         dialogue_context = []
         context = ''
         if self.exp_setup == 3:
-            input_txt = [''].extend(states[1:])
+            input_txt = [self.state_tkn + ' ' + self.state_tkn] + list(map(lambda state: self.state_tkn + state + self.state_tkn, states[:-1]))
         else:
             for i in range(0, len(dialogue), 2):
 
@@ -115,7 +111,7 @@ class PreDataCollator:
                                          max_length=self.target_len)
         
         labels = target_encoding.input_ids
-        labels[labels == self.tokenizer.pad_token_id] = -100
+        labels = [-100 if label == self.tokenizer.pad_token_id else label for label in labels]
 
         encoding['labels'] = labels
 

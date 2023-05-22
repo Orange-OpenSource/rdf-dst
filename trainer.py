@@ -11,6 +11,7 @@ import torch
 import re
 from transformers import get_linear_schedule_with_warmup
 from utils.metric_tools import DSTMetrics
+from utils.postprocessing import postprocess_rdfs
 from torch.optim import AdamW
 from statistics import mean
 
@@ -21,21 +22,6 @@ logging.basicConfig(level=logging.INFO)
 SEED = 42  # for replication purposes
 
 
-def postprocess_rdfs(decoded_batch):
-    """
-    returns several rdf triplets per batch
-    """
-
-    regexSplit = re.compile(r"(?<!\s),(?!\s)")
-    decoded_batch = [regexSplit.split(row) for row in decoded_batch]
-    decoded_batch = [[word.strip() for word in rdfs] for rdfs in decoded_batch]
-    # casting set to list to facilitate flattening before computing metrics
-    # tuples are ordered...
-    #clean_rdfs = [list(set([tuple(rdfs[i:i+3]) for i in range(0, len(rdfs), 3)])) for rdfs in decoded_batch]
-    clean_rdfs = [list(set([set(rdfs[i:i+3]) for i in range(0, len(rdfs), 3)])) for rdfs in decoded_batch]
-    return clean_rdfs
-
-    
 class RDFDialogueStateModel(pl.LightningModule):
 
     def __init__(
@@ -108,7 +94,7 @@ class RDFDialogueStateModel(pl.LightningModule):
             decoded_preds = postprocess_rdfs(decoded_preds)
 
             if isinstance(batch["dialogue_id"], list):
-                dialogue_ids = batch["dialogue_id"].detach()
+                dialogue_ids = batch["dialogue_id"]
             elif torch.tensor(batch["dialogue_id"]):
                 dialogue_ids = batch["dialogue_id"].detach()#.cpu().numpy()
 

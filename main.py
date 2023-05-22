@@ -21,14 +21,15 @@ logging.basicConfig(level=logging.INFO)
 SEED = 42  # for replication purposes
 load_dotenv()  # load keys and especially w and biases to see visualizations. Looking in curr dir
 
-def preprocessing(collator, data_dir, num_workers, batch_size):
+
+def preprocessing(collator, dataset, num_workers, batch_size):
 
     data = DialogueRDFData(collator, num_workers=num_workers,
-                           data_dir=data_dir,
+                           dataset=dataset,
                            batch_size=batch_size)
     data.prepare_data()
     # We tokenize in setup, but pl suggests to tokenize in prepare?
-    data.setup()
+    data.setup(subsetting=subsetting)
 
     train_dataloader = data.train_dataloader()
     test_dataloader = data.test_dataloader()
@@ -36,7 +37,8 @@ def preprocessing(collator, data_dir, num_workers, batch_size):
 
     return {'train': train_dataloader, 'test': test_dataloader, 'validation': validation_dataloader}
 
-def training(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders, target_len, store, name):
+
+def training(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders, target_len, name):
 
 
     tb_logger = TensorBoardLogger("tb_logs", name=name) 
@@ -65,7 +67,8 @@ def training(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders, target_l
                          accumulate_grad_batches=2, devices="auto",  # torch.cuda.device_count()
                          #precision="16-mixed", strategy="ddp",  # issues with precision in PL
                          strategy="ddp",
-                         accelerator='gpu', enable_progress_bar=True)
+                         #accelerator='gpu', enable_progress_bar=True)
+                         accelerator='cpu', enable_progress_bar=True)
     
 
     #trainer.tune  # tune before training to find lr??? Hyperparameter tuning!
@@ -110,17 +113,28 @@ def regex_match(dir_name):
 
 def main():
 
+    global subsetting
+    global store
     args = create_arg_parser()
     bool_4_args = {"no": False, "yes": True}
-    length_exp_setup = {1: {"source_len": 1024, "target_len": 768, "setup": "context and states"},
-                        2: {"source_len": 512,  "target_len": 768, "setup": "only context"},
-                        3: {"source_len": 768,  "target_len": 768, "setup": "only states"}}
+    length_exp_setup = {1: {"source_len": 1010, "target_len": 768, "setup": "context and states"},  # max is 1007
+                        2: {"source_len": 500,  "target_len": 768, "setup": "only context"},  # max is 495 in all exp set ups. could reduce vector
+                        3: {"source_len": 768,  "target_len": 768, "setup": "only states"}}  # max is 767
+
+    length_exp_setup = {1: {"source_len": 256, "target_len": 512, "setup": "context and states"},  # max is 1007
+                        2: {"source_len": 256,  "target_len": 512, "setup": "only context"},  # max is 495 in all exp set ups. could reduce vector
+                        3: {"source_len": 256,  "target_len": 512, "setup": "only states"}}  # max is 767
+
     experimental_setup = args.experimental_setup
     source_len = length_exp_setup[experimental_setup]["source_len"]
     target_len = length_exp_setup[experimental_setup]["target_len"]
     message_setup = length_exp_setup[experimental_setup]["setup"]
     logging.info(f"{message_setup} with...\nInput_Length: {source_len}\nOutput_Length: {target_len}")
     logger = bool_4_args[args.logger]
+
+    subsetting = bool_4_args[args.subsetting]
+    store = bool_4_args[args.store_output]
+
     if logger:
         wandb.login()  
         wandb.tensorboard.patch(root_logdir=".tb_logs/")
@@ -131,7 +145,6 @@ def main():
     # 0 ids so I don't have to reshape the embedding
     tokenizer = AutoTokenizer.from_pretrained(model_name, extra_ids=0) 
 
-    store = bool_4_args[args.store_output]
     dataset = args.dataset
     batch_size = args.batch
     epochs = args.epochs
@@ -142,8 +155,8 @@ def main():
 
     collator = PreDataCollator(tokenizer, source_len, target_len, experimental_setup)
     dataloaders = preprocessing(collator, dataset, num_workers, batch_size)
-    trainer, model = training(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders, target_len, store, model_checkpoint_name)
-    evaluate(trainer, model, dataloaders['test'])
+    trainer, model = training(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders, target_len, model_checkpoint_name)
+    evaluate(trainer, model_checkpoint_name, model, dataloaders['test'])
     if logger:
         wandb.finish()
 

@@ -11,7 +11,7 @@ def create_arg_parser():
 
     parser.add_argument(
         "-d", "--dataset", default='sfxdial', type=str,
-        choices=['sfxdial', 'multiwoz', 'dstc2', 'all'],
+        choices=['sfxdial', 'multiwoz', 'dstc2', 'all', 'multiwoz-sim', 'camrest-sim'],
         help="Select rdf data from options. Note that DATCHA is missing"
     )
 
@@ -27,6 +27,11 @@ def create_arg_parser():
         "-experiment", "--experimental_setup", default=1, type=int,
         choices=[1, 2, 3],
         help="Select experimental setup.\n1: Context + states\n2: Context\n3: States"
+    )
+
+    parser.add_argument(
+        "-subset", "--subsetting", default='no', type=str,
+        choices=['yes', 'no'], help="Provide the number of epochs"
     )
 
     parser.add_argument(

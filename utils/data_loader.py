@@ -1,4 +1,4 @@
-from datasets import load_dataset
+from datasets import load_dataset, concatenate_datasets, DatasetDict
 import torch
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader, Subset
@@ -31,16 +31,15 @@ class DialogueRDFData(LightningDataModule):
         """
         """
 
-        #data_files = {"train": self.data_dir + "train.jsonl", "test": self.data_dir + "test.jsonl", "validation": self.data_dir + "validation.jsonl"}
-        #txt2rdf = load_dataset("json", data_files=data_files).with_format("torch")
         txt2rdf = load_dataset("rdfdial", self.dataset).with_format("torch")
+        all_data = concatenate_datasets([txt2rdf['validation'], txt2rdf['train'], txt2rdf['test']])  # splits are weird
+        train_val = all_data.train_test_split(test_size=0.2)
+        test_val = train_val['test'].train_test_split(test_size=0.5)
+        txt2rdf.update({'train': train_val['train'], 'validation': test_val['train'], 'test': test_val['test']})
 
-        # https://huggingface.co/docs/datasets/v1.12.0/cache.html cleaning cache to see changes in data collator during debugging
-        #txt2rdf.cleanup_cache_files()  # load_from_cache=False in map???
 
         # shuffling dialogues
         self.txt2rdf = txt2rdf.shuffle(seed=SEED)
-
 
         
     def setup(self, subsetting=True):
@@ -52,11 +51,38 @@ class DialogueRDFData(LightningDataModule):
         self.validation_dataset = self.txt2rdf['validation'].map(self.collator, num_proc=8, remove_columns=self.txt2rdf['validation'].column_names, batched=True) 
         self.test_dataset = self.txt2rdf['test'].map(self.collator, num_proc=8, remove_columns=self.txt2rdf['test'].column_names, batched=True) 
 
+        
+        #from transformers import AutoTokenizer
+        #tokenizer = AutoTokenizer.from_pretrained("t5-small")
+        #max_input_size = set()
+        #max_label_size = set()
+        #count = 0
+        #for t in self.train_dataset:
+        #    input_ids = t["input_ids"]
+        #    input_amount = torch.sum(input_ids==0)
+        #    input_ids = tokenizer.decode(input_ids, skip_special_tokens=True)
+        #    print(input_ids)
+        #    print()
+        #    max_input_size.add(input_amount)
+        #    labels = t["labels"]
+        #    label_amount = torch.sum(labels==-100)
+        #    max_label_size.add(label_amount)
+        #    labels = torch.masked_fill(labels, labels == -100, 0)
+        #    labels = tokenizer.decode(labels, skip_special_tokens=True)
+        #    print(labels)
+        #    print()
+        #    print(t["states"])
+        #    print()
+        #    count += 1
+        #    if count == 12:
+        #        break
+        
+
         if subsetting:
             og_set = self.train_dataset[0]['labels'][:50]
-            self.train_dataset = Subset(self.train_dataset, range(100))
-            self.test_dataset = Subset(self.test_dataset, range(40))
-            self.validation_dataset = Subset(self.validation_dataset, range(52))
+            self.train_dataset = Subset(self.train_dataset, range(50))
+            self.test_dataset = Subset(self.test_dataset, range(20))
+            self.validation_dataset = Subset(self.validation_dataset, range(26))
 
             new_set = self.train_dataset[0]['labels'][:50]
             compare_tensors = torch.all(torch.eq(og_set, new_set))
