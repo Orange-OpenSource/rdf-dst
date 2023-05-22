@@ -67,8 +67,7 @@ def training(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders, target_l
                          accumulate_grad_batches=2, devices="auto",  # torch.cuda.device_count()
                          #precision="16-mixed", strategy="ddp",  # issues with precision in PL
                          strategy="ddp",
-                         #accelerator='gpu', enable_progress_bar=True)
-                         accelerator='cpu', enable_progress_bar=True)
+                         accelerator='gpu', enable_progress_bar=True)
     
 
     #trainer.tune  # tune before training to find lr??? Hyperparameter tuning!
@@ -120,10 +119,6 @@ def main():
     length_exp_setup = {1: {"source_len": 1010, "target_len": 768, "setup": "context and states"},  # max is 1007
                         2: {"source_len": 500,  "target_len": 768, "setup": "only context"},  # max is 495 in all exp set ups. could reduce vector
                         3: {"source_len": 768,  "target_len": 768, "setup": "only states"}}  # max is 767
-
-    length_exp_setup = {1: {"source_len": 256, "target_len": 512, "setup": "context and states"},  # max is 1007
-                        2: {"source_len": 256,  "target_len": 512, "setup": "only context"},  # max is 495 in all exp set ups. could reduce vector
-                        3: {"source_len": 256,  "target_len": 512, "setup": "only states"}}  # max is 767
 
     experimental_setup = args.experimental_setup
     source_len = length_exp_setup[experimental_setup]["source_len"]
