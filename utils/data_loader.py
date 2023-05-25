@@ -1,7 +1,7 @@
 from datasets import load_dataset, concatenate_datasets, DatasetDict
 import torch
 from pytorch_lightning import LightningDataModule
-from torch.utils.data import DataLoader, Subset
+from torch.utils.data import DataLoader
 
 import logging
 
@@ -52,41 +52,57 @@ class DialogueRDFData(LightningDataModule):
         self.test_dataset = self.txt2rdf['test'].map(self.collator, num_proc=8, remove_columns=self.txt2rdf['test'].column_names, batched=True) 
 
         
-        #from transformers import AutoTokenizer
-        #tokenizer = AutoTokenizer.from_pretrained("t5-small")
-        #max_input_size = set()
-        #max_label_size = set()
-        #count = 0
-        #for t in self.train_dataset:
-        #    input_ids = t["input_ids"]
-        #    input_amount = torch.sum(input_ids==0)
-        #    input_ids = tokenizer.decode(input_ids, skip_special_tokens=True)
-        #    print(input_ids)
-        #    print()
-        #    max_input_size.add(input_amount)
-        #    labels = t["labels"]
-        #    label_amount = torch.sum(labels==-100)
-        #    max_label_size.add(label_amount)
-        #    labels = torch.masked_fill(labels, labels == -100, 0)
-        #    labels = tokenizer.decode(labels, skip_special_tokens=True)
-        #    print(labels)
-        #    print()
-        #    print(t["states"])
-        #    print()
-        #    count += 1
-        #    if count == 12:
-        #        break
+        from transformers import AutoTokenizer
+        tokenizer = AutoTokenizer.from_pretrained("t5-small")
+        max_input_size = set()
+        max_label_size = set()
+        long_dialogues = set()
+        count = 0
+        for t in self.train_dataset:
+            res = t["context_size"] + t["state_size"] * 3 
+            #if 510 < res < 540:  # 530 is fine but 536 is not
+            if 510 < res:  # 530 is fine
+                input_ids = t["input_ids"]
+                input_amount = torch.sum(input_ids==0)
+                input_ids = tokenizer.decode(input_ids, skip_special_tokens=True)
+                print(input_ids)
+                print()
+                max_input_size.add(input_amount)
+                labels = t["labels"]
+                label_amount = torch.sum(labels==-100)
+                max_label_size.add(label_amount)
+                labels = torch.masked_fill(labels, labels == -100, 0)
+                labels = tokenizer.decode(labels, skip_special_tokens=True)
+                print(labels)
+                print()
+                print(t["states"])
+                #print(len(t["states"]))
+                #print(t["state_size"])
+                print()
+                #print(f"Size of context {t['context_size']}")
+                print(f"'Size' of input {res}")
+                print()
+                long_dialogues.add(t["dialogue_id"])
+                count += 1
+                if count == 8:
+                    break
+        print("TITO")
+        #print(max(len(t["states"]) for t in self.train_dataset))
+        #print(long_dialogues)
+        raise SystemExit
         
 
         if subsetting:
             og_set = self.train_dataset[0]['labels'][:50]
-            self.train_dataset = Subset(self.train_dataset, range(50))
-            self.test_dataset = Subset(self.test_dataset, range(20))
-            self.validation_dataset = Subset(self.validation_dataset, range(26))
+            self.train_dataset = self.train_dataset.select(range(50))
+            self.test_dataset = self.train_dataset.select(range(20))
+            self.validation_dataset = self.train_dataset.select(range(26))
 
             new_set = self.train_dataset[0]['labels'][:50]
             compare_tensors = torch.all(torch.eq(og_set, new_set))
             assert compare_tensors, "Subset does not correspond to original dataset"
+        
+
         
 
     def train_dataloader(self):

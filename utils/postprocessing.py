@@ -3,6 +3,7 @@ import re
 def clean_node(node):
 
     node = node.replace('_:', '')
+    node = node.replace(',', '')  # removing commas to facilitate RDF creation and splitting
     underscoreRegex = re.compile(r"_")
     node = underscoreRegex.sub(' ', node)
     return node.lower().strip()
