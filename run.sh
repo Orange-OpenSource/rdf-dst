@@ -54,7 +54,7 @@ fi
 echo "Using manual data loading"
 
 if [[ $test == "yes" ]]; then
-    python main.py -epochs 2 -d multiwoz -store yes -logger no -experiment "$experiment" -workers 6 -model small -subset yes
+    python main.py -epochs 5 -d multiwoz -store yes -logger no -experiment "$experiment" -workers 6 -model small -subset yes
 else
     python main.py -epochs 5 --batch 4 -d multiwoz -workers 6 -store yes -experiment "$experiment" -model small -logger yes -subset no
 fi

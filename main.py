@@ -1,4 +1,7 @@
 # https://shivanandroy.com/fine-tune-t5-transformer-with-pytorch/
+from dotenv import load_dotenv
+load_dotenv()  # load keys and especially w and biases to see visualizations. Looking in curr dir
+
 from lightning.pytorch.loggers import TensorBoardLogger  # tensorboard is installed with lightning, must install wandb manually
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 import lightning.pytorch as pl
@@ -13,14 +16,11 @@ from utils.data_loader import DialogueRDFData
 from utils.args import create_arg_parser
 from trainer import RDFDialogueStateModel
 from utils.predata_collate import PreDataCollator
-from dotenv import load_dotenv
 
 import logging
 
 logging.basicConfig(level=logging.INFO)
 SEED = 42  # for replication purposes
-load_dotenv()  # load keys and especially w and biases to see visualizations. Looking in curr dir
-
 
 def preprocessing(collator, dataset, num_workers, batch_size):
 
@@ -116,9 +116,11 @@ def main():
     global store
     args = create_arg_parser()
     bool_4_args = {"no": False, "yes": True}
-    length_exp_setup = {1: {"source_len": 1010, "target_len": 768, "setup": "context and states"},  # max is 1007
+    # should use flanT5 for longer input! --> i think the max is 2048
+    length_exp_setup = {1: {"source_len": 1024, "target_len": 768, "setup": "context and states"},  # max is 1007
                         2: {"source_len": 500,  "target_len": 768, "setup": "only context"},  # max is 495 in all exp set ups. could reduce vector
                         3: {"source_len": 768,  "target_len": 768, "setup": "only states"}}  # max is 767
+    
 
     experimental_setup = args.experimental_setup
     source_len = length_exp_setup[experimental_setup]["source_len"]
@@ -137,8 +139,10 @@ def main():
 
     model_name = "t5-" + args.model
     model = T5ForConditionalGeneration.from_pretrained(model_name)
+    # T5 config change?  https://huggingface.co/docs/transformers/model_doc/t5
     # 0 ids so I don't have to reshape the embedding
     tokenizer = AutoTokenizer.from_pretrained(model_name, extra_ids=0) 
+    cut_context = True if ((model_name[:2] == 't5') and (experimental_setup == 1)) else False
 
     dataset = args.dataset
     batch_size = args.batch
@@ -148,7 +152,7 @@ def main():
     grad_acc_steps = args.gradient_accumulation_steps
     model_checkpoint_name = f"{model_name}_experiment_{experimental_setup}"
 
-    collator = PreDataCollator(tokenizer, source_len, target_len, experimental_setup)
+    collator = PreDataCollator(tokenizer, source_len, target_len, experimental_setup, cut_context=cut_context)
     dataloaders = preprocessing(collator, dataset, num_workers, batch_size)
     trainer, model = training(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders, target_len, model_checkpoint_name)
     evaluate(trainer, model_checkpoint_name, model, dataloaders['test'])

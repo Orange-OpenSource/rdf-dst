@@ -1,3 +1,6 @@
+# github.com/snowblink14/smatch
+# https://github.com/mdtux89/amr-evaluation
+# https://github.com/IBM/transition-amr-parser
 from dataclasses import dataclass
 from utils.postprocessing import clean_node
 import random
@@ -6,8 +9,9 @@ import random
 @dataclass
 class PreDataCollator:
     
-    def __init__(self, tokenizer, source_len, target_len, exp_setup):
+    def __init__(self, tokenizer, source_len, target_len, exp_setup, cut_context):
 
+        self.cut_context = cut_context
         self.exp_setup = exp_setup
         self.source_len = source_len
         self.target_len = target_len
@@ -30,7 +34,8 @@ class PreDataCollator:
         dialogue_ids = []
         turn_number = []
 
-        #all_states = []
+        all_states = []
+        all_input_sizes = []
         
         for id, dialogue, states in zip(batch['dialogue_id'], batch['turns'], batch['states']):  # dict, history is a str that is the key
             txt_input, label_rdf = self.create_inputs_outputs(dialogue, states)
@@ -43,10 +48,10 @@ class PreDataCollator:
                 dialogue_ids.append(id)
                 turn_number.append(turn)
 
-                #all_states.append(states[turn]['triples'])
+                all_input_sizes.append(len(txt))
+                all_states.append(states[turn]['triples'])
 
-
-        return {'input_ids': input_ids, 'attention_mask': attention_mask,# "states": all_states
+        return {'input_ids': input_ids, 'attention_mask': attention_mask, "states": all_states, "input_size": all_input_sizes,
                 'labels': labels, 'dialogue_id': dialogue_ids, 'turn_number': turn_number}
 
 
@@ -72,12 +77,13 @@ class PreDataCollator:
     def explicit_info_injection(self, word, i):
         special_tkn = {0: self.subject_tkn, 1: self.relation_tkn, 2: self.object_tkn}
         return special_tkn[i] + clean_node(word)
-
+    
     def create_inputs_outputs(self, dialogue, states):
         """
         This is where we choose the inputs and the rdf we will predict.
         Since we are using the whole state history and the first state cannot be predicted
         with a previous state, we initialize with an empty state and try to predict current state
+        # pretokenizing: https://huggingface.co/learn/nlp-course/chapter6/4
         """
 
         # we can flatten all of the rdf-states and treat them as strings. But maybe the only last one matters?
@@ -87,83 +93,62 @@ class PreDataCollator:
         #states = map(lambda state: self.flatten_rdf_rep(state), states)
         #states = list(states)
 
-        states = map(lambda state: [clean_node(val) for triplet in state['triples'] for val in triplet], states)
-        #states = map(lambda state: [self.explicit_info_injection(val, i) for triplet in state['triples'] for i, val in enumerate(triplet)], states)
-        states = map(lambda state: ['|'.join(state[i:i+3]) for i in range(0, len(state), 3)], states)
-
-        #states = map(lambda state: ','.join(random.sample(state, len(state))), states)
-        # no shuffling
-        states = map(lambda state: ','.join(state), states)
+        states = map(lambda state: [[self.explicit_info_injection(val, i) for i, val in enumerate(triple)] for triple in state['triples']], states)
+        # shuffling for augmentation
+        #states = map(lambda state: random.sample(state, len(state)), states)
         states = list(states)
+        states = [[node for rdf in state for node in rdf] for state in states]
 
-        dialogue_context = []
-        #context = ''
-        context = []
+        context = ''
+        all_context = []
         if self.exp_setup == 3:
-            input_txt = [self.state_tkn + ' ' + self.state_tkn] + list(map(lambda state: self.state_tkn + state + self.state_tkn, states[:-1]))
+            model_input = [' '] + list(map(lambda state: [self.state_tkn] + state, states[:-1]))
         else:
+            prev_states = list(map(lambda state: [self.state_tkn] + state, states[:-1]))
             for i in range(0, len(dialogue), 2):
 
                 speaker = dialogue[i]['speaker']
-                #context += toks[speaker] + dialogue[i]['text'] + toks[speaker]
-                diag = dialogue[i]['text'].split()
-                context.append(toks[speaker])
-                context.extend(diag)
-                context.append(toks[speaker])
+                context += toks[speaker] + dialogue[i]['text']
 
                 speaker = dialogue[i+1]['speaker']
-                diag = dialogue[i+1]['text'].split()
-                context.append(toks[speaker])
-                context.extend(diag)
-                context.append(toks[speaker])
-                #context += toks[speaker] + dialogue[i+1]['text'] + toks[speaker]
-                dialogue_context.append(context)
-            prev_states = list(map(lambda state: self.state_tkn + state + self.state_tkn, states[:-1]))
+                context += toks[speaker] + dialogue[i+1]['text']
+                all_context.append(context)
 
-            #if self.exp_setup == 1:
-            #    counting_diag = [diag.replace(self.user_tkn, '') for diag in dialogue_context]
-            #    counting_diag = [diag.replace(self.sys_tkn, '').split() for diag in counting_diag]
-            #    #diag_size = len([tok for turn in counting_diag for tok in turn])
-            #    diag_size = [len(diag) for diag in counting_diag]
-            #    state_size = [len(state.split(',')) for state in states]
+            model_input = [diag.split() for diag in all_context]
 
-                #last_state = states[-1].split(',')
-                #if len(last_state) > 40:
-                #    print(len(last_state))
-                #    print()
-                #    print(diag_size)
-                #    print()
-                #    raise SystemExit
+            if self.exp_setup == 1:
+                model_input = model_input[:1] + list(map(list.__add__, model_input[1:], prev_states))
 
-            print()
-            print(dialogue_context[3])
-            print()
-            print(prev_states[3])
-            print()
-            print()
-            raise SystemExit
-            input_txt = dialogue_context[:1] + [diag + prev_states[i] for i, diag in enumerate(dialogue_context[1:])] if self.exp_setup == 1 else dialogue_context
-            #print()
-            #print(input_txt)
-            #print()
-            #raise SystemExit
+                # cutting context in T5 left to right because the sequence is too long. Our threshold is 
+                if self.cut_context:
+                    model_input = list(map(self.reduce_context, model_input))
+
+        labels = map(lambda state: ','.join(['|'.join(state[i:i+3]) for i in range(0, len(state), 3)]), states)
+        labels = list(labels)
+
+        return model_input, labels
+
+
+    def reduce_context(self, txt):
+        """
+        cut context for T5 because context is too long for standard T5
+        """
+        threshold = 525
+        if len(txt) > threshold:
+            slice_val = len(txt) - threshold
+            txt = txt[slice_val:]
+        return txt
+
+    def tokenize(self, dialogue : list, rdf : str):
         
-        return input_txt, states
-
-    def tokenize(self, dialogue : str, rdf : str):
-        
-        print()
-        print(dialogue)
-        print()
-        raise SystemExit
-
         encoding = self.tokenizer(dialogue,
-                       #is_split_into_words=True,
+                       is_split_into_words=True,
                        padding='max_length',
                        truncation=True,
                        max_length=self.source_len)
         
         target_encoding = self.tokenizer(rdf, padding='max_length',
+                                         is_split_into_words=False,
                                          truncation=True,
                                          max_length=self.target_len)
         
