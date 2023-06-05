@@ -38,8 +38,12 @@ class DSTMetrics:
         all_scores = []
         for p, l in zip(preds, labels):
             score = []
+            #if len(p) == len(l):
             for rdf in l:
                 score.append(1 if rdf in p else 0)
+            #else:
+            score.append(0)
+
             all_scores.append(np.mean(score))
 
         return round(np.mean(all_scores), 2) * 100

@@ -97,7 +97,8 @@ class PreDataCollator:
         context = ''
         all_context = []
         if self.exp_setup == 3:
-            model_input = [' '] + list(map(lambda state: [self.state_tkn] + state, states[:-1]))
+            model_input = list(map(lambda state: [self.state_tkn] + state, states[:-1]))
+            model_input.insert(0, [self.state_tkn, ' '])
         else:
             prev_states = list(map(lambda state: [self.state_tkn] + state, states[:-1]))
             for i in range(0, len(dialogue), 2):
@@ -110,7 +111,7 @@ class PreDataCollator:
                 all_context.append(context)
 
             model_input = [diag.split() for diag in all_context]
-
+            
             if self.exp_setup == 1:
                 model_input = model_input[:1] + list(map(list.__add__, model_input[1:], prev_states))
 
@@ -127,6 +128,7 @@ class PreDataCollator:
     def reduce_context(self, txt):
         """
         cut context for T5 because context is too long for standard T5
+        This has been hardcoded as 525, where we have observed that a list with more than these tokens, breaks the model
         """
         threshold = 525
         if len(txt) > threshold:

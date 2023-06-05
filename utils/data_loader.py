@@ -75,6 +75,7 @@ class DialogueRDFData(LightningDataModule):
         #    count += 1
         #    if count == 8:
         #        break
+        #raise SystemExit
 
         # {'PMUL0322.json', 'MUL0873.json', 'MUL0143.json', 'PMUL3394.json', 'MUL1626.json', 'PMUL0396.json',
         #  'PMUL3997.json', 'MUL0767.json', 'MUL1203.json', 'PMUL2130.json', 'PMUL1729.json', 'PMUL2936.json', 'MUL1001.json',
