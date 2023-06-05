@@ -8,7 +8,7 @@
 import lightning.pytorch as pl
 import pandas as pd
 import torch
-import re
+import os
 from transformers import get_linear_schedule_with_warmup
 from utils.metric_tools import DSTMetrics
 from utils.postprocessing import postprocess_rdfs
@@ -147,7 +147,14 @@ class RDFDialogueStateModel(pl.LightningModule):
         results = dst_metrics()
         if not validation:
             states_df = pd.DataFrame(outputs)
-            states_df.to_csv("nested_states.csv", index=False)
+            # 
+            if os.getenv('DPR_JOB'):
+                path = os.path.join("/userstorage/", os.getenv('DPR_JOB'))
+            else:
+                path = "."
+            if not os.path.exists(path):
+                os.makedirs(path)
+            states_df.to_csv(os.path.join(path, "nested_states.csv"), index=False)
 
         outputs.clear()
         self.my_metrics.update(results)

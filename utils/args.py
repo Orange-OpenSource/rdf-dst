@@ -35,6 +35,11 @@ def create_arg_parser():
     )
 
     parser.add_argument(
+        "-acc", "--accelerator", default='gpu', type=str,
+        choices=['gpu', 'cpu', 'tpu'], help="Provide the number of epochs"
+    )
+
+    parser.add_argument(
         "--gradient_accumulation_steps", type=int, default=1, help="Number of updates steps to accumulate before performing a backward/update pass."
         )
 

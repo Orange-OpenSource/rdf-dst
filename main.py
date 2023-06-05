@@ -1,4 +1,6 @@
 # https://shivanandroy.com/fine-tune-t5-transformer-with-pytorch/
+# https://colab.research.google.com/github/PytorchLightning/lightning-tutorials/blob/publication/.notebooks/lightning_examples/mnist-hello-world.ipynb
+# pl --> https://www.sensiocoders.com/blog/109_pl2
 from dotenv import load_dotenv
 load_dotenv()  # load keys and especially w and biases to see visualizations. Looking in curr dir
 
@@ -7,7 +9,6 @@ from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 import lightning.pytorch as pl
 import wandb
 import math
-import torch
 import re
 import os
 import glob
@@ -38,46 +39,56 @@ def preprocessing(collator, dataset, num_workers, batch_size):
     return {'train': train_dataloader, 'test': test_dataloader, 'validation': validation_dataloader}
 
 
-def training(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders, target_len, name):
-
-
+def config_model(model, tokenizer, lr, epochs, target_len, accelerator, num_train_optimization_steps, num_warmup_steps, name):
+    """
+    returns trainer to use for finetuning and inference
+    """
     tb_logger = TensorBoardLogger("tb_logs", name=name) 
-    train_dataloader = dataloaders['train']
-    validation_dataloader = dataloaders['validation']
 
-    # changing name for a more reusable version to resume training and test
-    #checkpoint_name = '{epoch:02d}-{val_loss:.2f}-{encoded_accuracy:.2f}'
-    # https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.callbacks.ModelCheckpoint.html
     checkpoint_name = 'best_dst_ckpt'
-    num_train_optimization_steps = epochs * len(train_dataloader)
-    num_warmup_steps = math.ceil(len(train_dataloader) / grad_acc_steps)
-    pl_model = RDFDialogueStateModel(model, tokenizer, lr, epochs, num_train_optimization_steps, num_warmup_steps, target_len, store)
-    # saving every time val_loss improves
-    # custom save checkpoints callback pytorch lightning
-    # https://github.com/Lightning-AI/lightning/issues/3096 --> to save from pretrained?
     checkpoint_callback = ModelCheckpoint(monitor='val_loss',
                                           filename=checkpoint_name,
                                           mode="min",
                                           save_top_k=-1)
 
     early_stopping = EarlyStopping('val_loss', patience=3, min_delta=0)
+
     callbacks = [checkpoint_callback, early_stopping]
-    
-    trainer = pl.Trainer(max_epochs=epochs, callbacks=callbacks, logger=tb_logger,
+    trainer =  pl.Trainer(max_epochs=epochs, callbacks=callbacks, logger=tb_logger,
                          accumulate_grad_batches=2, devices="auto",  # torch.cuda.device_count()
                          #precision="16-mixed", strategy="ddp",  # issues with precision in PL
                          strategy="ddp",
-                         accelerator='gpu', enable_progress_bar=True)
+                         accelerator=accelerator, enable_progress_bar=True)
     
+    pl_model = RDFDialogueStateModel(model, tokenizer, lr, epochs, num_train_optimization_steps, num_warmup_steps, target_len, store)
+    return {'trainer': trainer, 'model': pl_model}
+
+
+def training(trainer, model, dataloaders):
+
+
+    # changing name for a more reusable version to resume training and test
+    #checkpoint_name = '{epoch:02d}-{val_loss:.2f}-{encoded_accuracy:.2f}'
+    # https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.callbacks.ModelCheckpoint.html
+
+    # saving every time val_loss improves
+    # custom save checkpoints callback pytorch lightning
+    # https://github.com/Lightning-AI/lightning/issues/3096 --> to save from pretrained?
 
     #trainer.tune  # tune before training to find lr??? Hyperparameter tuning!
 
     logging.info("Training stage")
-    trainer.fit(pl_model, train_dataloaders=train_dataloader,
-                val_dataloaders=validation_dataloader)  # ckpt_path to continue from ckpt
+    trainer.fit(model, train_dataloaders=dataloaders['train'],
+                val_dataloaders=dataloaders['validation'])  # ckpt_path to continue from ckpt
     
     #trainer.validate  # if I want to do more with validation
-    return trainer, pl_model
+
+    # extract the model to save it with huggingface
+
+    #for i, (path, _) in enumerate(trainer.checkpoint_callback.best_k_models.items()):
+    #    print(path)
+        #m = pl_model.load_from_checkpoint(path)  # tb_logs/base_flant5_v_beta/version_0/checkpoints/best_dst_ckpt.ckpt
+        #m.transformer.save_pretrained(f'{i}th_best.pt')
 
 def evaluate(trainer, name, model, test_dataloader):
 
@@ -87,13 +98,6 @@ def evaluate(trainer, name, model, test_dataloader):
 
     trainer.test(model, dataloaders=test_dataloader, ckpt_path=ckpt_path, verbose=True)# ?
 
-    # extract the model to save it with huggingface
-
-
-    #for i, (path, _) in enumerate(trainer.checkpoint_callback.best_k_models.items()):
-    #    print(path)
-        #m = pl_model.load_from_checkpoint(path)  # tb_logs/base_flant5_v_beta/version_0/checkpoints/best_dst_ckpt.ckpt
-        #m.transformer.save_pretrained(f'{i}th_best.pt')
 
 def find_version_num(path):
 
@@ -114,11 +118,12 @@ def main():
 
     global subsetting
     global store
+
     args = create_arg_parser()
     bool_4_args = {"no": False, "yes": True}
     # should use flanT5 for longer input! --> i think the max is 2048
     length_exp_setup = {1: {"source_len": 1024, "target_len": 768, "setup": "context and states"},  # max is 1007
-                        2: {"source_len": 500,  "target_len": 768, "setup": "only context"},  # max is 495 in all exp set ups. could reduce vector
+                        2: {"source_len": 512,  "target_len": 768, "setup": "only context"},  # max is 495 in all exp set ups. could reduce vector
                         3: {"source_len": 768,  "target_len": 768, "setup": "only states"}}  # max is 767
     
 
@@ -150,12 +155,29 @@ def main():
     lr = args.learning_rate
     num_workers = args.num_workers
     grad_acc_steps = args.gradient_accumulation_steps
+    accelerator = args.accelerator
     model_checkpoint_name = f"{model_name}_experiment_{experimental_setup}"
 
     collator = PreDataCollator(tokenizer, source_len, target_len, experimental_setup, cut_context=cut_context)
     dataloaders = preprocessing(collator, dataset, num_workers, batch_size)
-    trainer, model = training(model, epochs, tokenizer, lr, grad_acc_steps, dataloaders, target_len, model_checkpoint_name)
-    evaluate(trainer, model_checkpoint_name, model, dataloaders['test'])
+
+    num_train_optimization_steps = epochs * len(dataloaders['train'])
+    num_warmup_steps = math.ceil(len(dataloaders['train']) / grad_acc_steps)
+
+    config = config_model(model,
+                          tokenizer,
+                          lr,
+                          epochs,
+                          target_len,
+                          accelerator,
+                          num_train_optimization_steps,
+                          num_warmup_steps,
+                          model_checkpoint_name)
+    pl_model = config['model']
+    trainer = config['trainer']
+
+    training(trainer, pl_model, dataloaders)
+    evaluate(trainer, model_checkpoint_name, pl_model, dataloaders['test'])
     if logger:
         wandb.finish()
 

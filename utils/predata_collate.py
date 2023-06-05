@@ -34,24 +34,19 @@ class PreDataCollator:
         dialogue_ids = []
         turn_number = []
 
-        all_states = []
-        all_input_sizes = []
-        
         for id, dialogue, states in zip(batch['dialogue_id'], batch['turns'], batch['states']):  # dict, history is a str that is the key
             txt_input, label_rdf = self.create_inputs_outputs(dialogue, states)
 
             for turn, (txt, rdf) in enumerate(zip(txt_input, label_rdf), 0):
                 tokenized = self.tokenize(txt, rdf)
+
                 input_ids.append(tokenized['input_ids'])
                 attention_mask.append(tokenized['attention_mask'])
                 labels.append(tokenized['labels'])
                 dialogue_ids.append(id)
                 turn_number.append(turn)
 
-                all_input_sizes.append(len(txt))
-                all_states.append(states[turn]['triples'])
-
-        return {'input_ids': input_ids, 'attention_mask': attention_mask, "states": all_states, "input_size": all_input_sizes,
+        return {'input_ids': input_ids, 'attention_mask': attention_mask,
                 'labels': labels, 'dialogue_id': dialogue_ids, 'turn_number': turn_number}
 
 

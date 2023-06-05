@@ -8,16 +8,15 @@ def clean_node(node):
     node = underscoreRegex.sub(' ', node)
     return node.lower().strip()
 
+def clean_rdf(rdf):
+    return '|'.join([clean_node(node) for node in rdf.split('|')])
+
+
 def postprocess_rdfs(decoded_batch):
     """
     returns several rdf triplets per batch
     """
 
-    regexSplit = re.compile(r"(?<!\s),(?!\s)")
-    decoded_batch = [regexSplit.split(row) for row in decoded_batch]
-    decoded_batch = [[clean_node(word) for word in rdfs] for rdfs in decoded_batch]
+    decoded_batch = [row.split(',') for row in decoded_batch]
+    return [frozenset(clean_rdf(rdfs) for rdfs in row) for row in decoded_batch]
 
-    # they are frozensets so we can play around with them in evaluation
-    clean_rdfs = [list(tuple([frozenset(rdfs[i:i+3]) for i in range(0, len(rdfs), 3)])) for rdfs in decoded_batch]
-
-    return clean_rdfs

@@ -32,11 +32,11 @@ class DialogueRDFData(LightningDataModule):
         """
 
         txt2rdf = load_dataset("rdfdial", self.dataset).with_format("torch")
+
         all_data = concatenate_datasets([txt2rdf['validation'], txt2rdf['train'], txt2rdf['test']])  # splits are weird
         train_val = all_data.train_test_split(test_size=0.2)
         test_val = train_val['test'].train_test_split(test_size=0.5)
         txt2rdf.update({'train': train_val['train'], 'validation': test_val['train'], 'test': test_val['test']})
-
 
         # shuffling dialogues
         self.txt2rdf = txt2rdf.shuffle(seed=SEED)
@@ -56,35 +56,25 @@ class DialogueRDFData(LightningDataModule):
         #tokenizer = AutoTokenizer.from_pretrained("t5-small")
         #max_input_size = set()
         #max_label_size = set()
-        #long_dialogues = set()
         #count = 0
 
         #for t in self.train_dataset:
-        #    #if 525 < t["input_size"]:  # 555 for input_size is fine. sometimes ignores certain tokens so maybe cut at 553
-        #    if t["dialogue_id"] == 'MUL3394.json' and (t["input_size"] > 300): 
-        #        input_ids = t["input_ids"]
-        #        input_amount = torch.sum(input_ids==0)
-        #        input_ids = tokenizer.decode(input_ids, skip_special_tokens=True)
-        #        print(input_ids)
-        #        print()
-        #        max_input_size.add(input_amount)
-        #        labels = t["labels"]
-        #        label_amount = torch.sum(labels==-100)
-        #        max_label_size.add(label_amount)
-        #        labels = torch.masked_fill(labels, labels == -100, 0)
-        #        labels = tokenizer.decode(labels, skip_special_tokens=True)
-        #        print(labels)
-        #        print()
-        #        print(t["states"])
-        #        #print(len(t["states"]))
-        #        #print(t["state_size"])
-        #        print()
-        #        print(f"Input Size {t['input_size']}")  # an issue with input more than 600?
-        #        print()
-        #        long_dialogues.add(t["dialogue_id"])
-        #        count += 1
-        #        if count == 8:
-        #            break
+        #    input_ids = t["input_ids"]
+        #    input_amount = torch.sum(input_ids==0)
+        #    input_ids = tokenizer.decode(input_ids, skip_special_tokens=True)
+        #    print(input_ids)
+        #    print()
+        #    max_input_size.add(input_amount)
+        #    labels = t["labels"]
+        #    label_amount = torch.sum(labels==-100)
+        #    max_label_size.add(label_amount)
+        #    labels = torch.masked_fill(labels, labels == -100, 0)
+        #    labels = tokenizer.decode(labels, skip_special_tokens=True)
+        #    print(labels)
+        #    print()
+        #    count += 1
+        #    if count == 8:
+        #        break
 
         # {'PMUL0322.json', 'MUL0873.json', 'MUL0143.json', 'PMUL3394.json', 'MUL1626.json', 'PMUL0396.json',
         #  'PMUL3997.json', 'MUL0767.json', 'MUL1203.json', 'PMUL2130.json', 'PMUL1729.json', 'PMUL2936.json', 'MUL1001.json',
@@ -99,14 +89,10 @@ class DialogueRDFData(LightningDataModule):
         # 'PMUL0460.json', 'MUL1003.json', 'MUL0047.json', 'MUL0008.json', 'PMUL2043.json', 'MUL0157.json'}
 
         if subsetting:
-            og_set = self.train_dataset[0]['labels'][:50]
-            self.train_dataset = self.train_dataset.select(range(50))
-            self.test_dataset = self.train_dataset.select(range(20))
-            self.validation_dataset = self.train_dataset.select(range(26))
+            self.train_dataset = self.train_dataset.select(range(25))
+            self.test_dataset = self.train_dataset.select(range(10))
+            self.validation_dataset = self.train_dataset.select(range(13))
 
-            new_set = self.train_dataset[0]['labels'][:50]
-            compare_tensors = torch.all(torch.eq(og_set, new_set))
-            assert compare_tensors, "Subset does not correspond to original dataset"
         
     def train_dataloader(self):
         return DataLoader(self.train_dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=False)

@@ -4,7 +4,7 @@
 
 source ./dst-snake/bin/activate
 # default values
-experiment="${experiment:-1}"
+experiment="${experiment:-3}"
 epochs=1
 
 programname=$0
@@ -12,9 +12,9 @@ function usage {
     echo ""
     echo "Runs DST experiments to generate DST as RDFs"
     echo ""
-    echo "usage: $programname --test string --experiment integer --devices integer"
+    echo "usage: $programname --debug string --experiment integer --devices integer"
     echo ""
-    echo "  --test string   		yes or no"
+    echo "  --debug string   		    yes or no"
     echo "                              (example: no)"
     echo "  --experiment integer        which experiment to run. 1, 2, or 3"
     echo "                              (example and default val: 1)"
@@ -37,24 +37,24 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-if [[ -z $test ]]; then
+if [[ -z $debug ]]; then
     usage
-    die "Missing parameter --test"
+    die "Missing parameter --debug"
 fi
 
 # turning to lowercase
-test="${test,,}"
+debug="${debug,,}"
 
-if [[ $test != "yes" ]] && [[ $test != "no" ]]; then
+if [[ $debug != "yes" ]] && [[ $debug != "no" ]]; then
     usage
-    die "Incorrect parameter. Type either yes or no --test"
+    die "Incorrect parameter. Type either yes or no --debug"
 fi
 
 
 echo "Using manual data loading"
 
-if [[ $test == "yes" ]]; then
-    python main.py -epochs 5 -d multiwoz -store yes -logger no -experiment "$experiment" -workers 6 -model small -subset yes
+if [[ $debug == "yes" ]]; then
+    python main.py -epochs 3 -d multiwoz -store yes -logger no -experiment "$experiment" -workers 6 -model small -subset yes -acc gpu
 else
-    python main.py -epochs 5 --batch 4 -d multiwoz -workers 6 -store yes -experiment "$experiment" -model small -logger yes -subset no
+    python main.py -epochs 5 --batch 8 -d multiwoz -workers 6 -store yes -experiment "$experiment" -model base -logger yes -subset no
 fi
