@@ -20,10 +20,10 @@ class DSTMetrics:
     def __call__(self):
         preds = self.data["preds"]
         labels = self.data["labels"]
-        scores = self.joint_goal(preds, labels)
-        rdf_f1 = self.exact_triple_scores(preds, labels)
-        span_scores = self.span_eval(preds, labels)
-        scores.update(rdf_f1)
+        jga = self.joint_goal_accuracy(preds, labels)
+        scores = self.f1_smatch(preds, labels)
+        span_scores = self.span_evaluation(preds, labels)
+        scores.update(jga)
         scores.update(span_scores)
         return scores
 
@@ -33,7 +33,7 @@ class DSTMetrics:
         flatten_labels = [rdf for label in self.decoded_labels for rdf in label]
         return {"preds": flatten_preds, "labels": flatten_labels}
     
-    def span_eval(self, preds, labels):
+    def span_evaluation(self, preds, labels):
         preds = [','.join(p) for p in preds]
         labels = [','.join(p) for p in labels]
         meteor_score = self.meteor.compute(predictions=preds, references=labels)['meteor']  # getting the dumb value from dict object
@@ -41,9 +41,8 @@ class DSTMetrics:
         return {"meteor": round(meteor_score, 2) * 100, "gleu": round(gleu_score, 2) * 100}
 
     
-    def joint_goal(self, preds, labels):
+    def joint_goal_accuracy(self, preds, labels):
         joint_goal_accuracy = []
-        average_rdfs = []
         for p, l in zip(preds, labels):
             score = []
             #print(f"References:\n{l}\nSize:{len(l)}")
@@ -53,15 +52,12 @@ class DSTMetrics:
                 score.append(1 if rdf in p else 0)
                 #TODO: Consider an exact match and hallucinations match, exact will yield a really low score!
 
-            average_rdfs.append(np.mean(score))
             joint_goal_accuracy.append(1 if 0 not in score else 0)
 
-        joint_goal_accuracy = round(np.mean(joint_goal_accuracy), 2) * 100
-        average_rdfs = round(np.mean(average_rdfs), 2) * 100
-        return {"jga": joint_goal_accuracy, "average_acc_rdfs": average_rdfs}
+        return {"jga": round(np.mean(joint_goal_accuracy), 2) * 100}
     
 
-    def exact_triple_scores(self, newcandlist, newreflist):
+    def f1_smatch(self, newcandlist, newreflist):
         """
         closer LAS, smatch
         """
