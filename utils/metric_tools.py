@@ -13,13 +13,18 @@ class DSTMetrics:
             self.data = self.flatten_batches()
 
         self.slots_empty_assignment = ["none", '', ' ', '*']
+        # may need to directly download punkt when running  from clusters and omw and wordnet?
+        self.gleu = evaluate.load("google_bleu")
+        self.meteor = evaluate.load("meteor")
 
     def __call__(self):
         preds = self.data["preds"]
         labels = self.data["labels"]
         scores = self.joint_goal(preds, labels)
         rdf_f1 = self.exact_triple_scores(preds, labels)
+        span_scores = self.span_eval(preds, labels)
         scores.update(rdf_f1)
+        scores.update(span_scores)
         return scores
 
 
@@ -27,6 +32,14 @@ class DSTMetrics:
         flatten_preds = [rdf for pred in self.decoded_preds for rdf in pred]
         flatten_labels = [rdf for label in self.decoded_labels for rdf in label]
         return {"preds": flatten_preds, "labels": flatten_labels}
+    
+    def span_eval(self, preds, labels):
+        preds = [','.join(p) for p in preds]
+        labels = [','.join(p) for p in labels]
+        meteor_score = self.meteor.compute(predictions=preds, references=labels)['meteor']  # getting the dumb value from dict object
+        gleu_score = self.gleu.compute(predictions=preds, references=labels)['google_bleu']
+        return {"meteor": round(meteor_score, 2) * 100, "gleu": round(gleu_score, 2) * 100}
+
     
     def joint_goal(self, preds, labels):
         joint_goal_accuracy = []

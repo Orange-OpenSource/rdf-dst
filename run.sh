@@ -1,11 +1,11 @@
 # !/bin/bash -e
 # https://keestalkstech.com/2022/03/named-arguments-in-a-bash-script/
 
+DIR=./dst-snake
 
-source ./dst-snake/bin/activate
-# default values
-experiment="${experiment:-3}"
-epochs=1
+# default values, workers must be 1 with marcel... 6 with nadia?
+experiment="${experiment:-1}"
+workers=1
 
 programname=$0
 function usage {
@@ -24,6 +24,22 @@ function die {
     printf "Script failed: %s\n\n" "$1"
     exit 1
 }
+
+
+# NO NEED FOR VIRTUAL ENV WITH A CONTAINER!
+#if [ -d "$DIR" ];
+#then
+#    echo "$DIR directory exists."
+#else
+#    echo "$DIR directory does not exist. Setting up virtual environment..."
+#    ./setup.sh
+#fi
+#
+#if [ ! -d "$DIR" ]; then
+#    die "Virtual environment was not properly setup"
+#fi
+#
+#source ./dst-snake/bin/activate
 
 while [ $# -gt 0 ]; do
     if [[ $1 == "--help" ]]; then
@@ -54,7 +70,7 @@ fi
 echo "Using manual data loading"
 
 if [[ $debug == "yes" ]]; then
-    python main.py -epochs 3 -d multiwoz -store yes -logger no -experiment "$experiment" -workers 6 -model small -subset yes -acc gpu
+    python main.py -epochs 3 -d multiwoz -store yes -logger no -experiment "$experiment" -workers "$workers" -model small -subset yes -acc gpu
 else
-    python main.py -epochs 5 --batch 8 -d multiwoz -workers 6 -store yes -experiment "$experiment" -model base -logger yes -subset no
+    python main.py -epochs 5 --batch 16 -d multiwoz -workers "$workers" -store yes -experiment "$experiment" -model base -logger yes -subset no
 fi
