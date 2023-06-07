@@ -35,8 +35,8 @@ def create_arg_parser():
     )
 
     parser.add_argument(
-        "-acc", "--accelerator", default='gpu', type=str,
-        choices=['gpu', 'cpu', 'tpu'], help="Provide the number of epochs"
+        "-acc", "--accelerator", default='cuda', type=str,  # cuda or gpu?
+        choices=['hpu', 'cpu', 'tpu', 'cuda', 'ipu', 'auto', 'mps'], help="Provide the number of epochs"
     )
 
     parser.add_argument(

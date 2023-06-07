@@ -128,10 +128,6 @@ class RDFDialogueStateModel(pl.LightningModule):
                  prog_bar=True, logger=True, sync_dist=True)
         self.on_shared_epoch_end(self.eval_output_list, validation=True)
 
-        #with torch.cuda.device(0):
-        #    info = torch.cuda.mem_get_info()
-        #    print(f"Available GPU {info}")
-
 
     def on_test_epoch_start(self) -> None:
         super().on_test_epoch_start()

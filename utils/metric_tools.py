@@ -1,6 +1,5 @@
-from collections import Counter
-import evaluate
 import numpy as np
+import evaluate
 
 class DSTMetrics:
 
@@ -15,16 +14,11 @@ class DSTMetrics:
 
         self.slots_empty_assignment = ["none", '', ' ', '*']
 
-        evaluate.load("squad")
-
     def __call__(self):
         preds = self.data["preds"]
         labels = self.data["labels"]
-        jga = self.joint_goal_accuracy(preds, labels)
+        scores = self.joint_goal(preds, labels)
         rdf_f1 = self.exact_triple_scores(preds, labels)
-        squad_f1 = self.counter_squad_method(preds, labels)
-        scores = {"jga": jga}
-        scores.update(squad_f1)
         scores.update(rdf_f1)
         return scores
 
@@ -34,60 +28,25 @@ class DSTMetrics:
         flatten_labels = [rdf for label in self.decoded_labels for rdf in label]
         return {"preds": flatten_preds, "labels": flatten_labels}
     
-    def joint_goal_accuracy(self, preds, labels):
-        all_scores = []
+    def joint_goal(self, preds, labels):
+        joint_goal_accuracy = []
+        average_rdfs = []
         for p, l in zip(preds, labels):
             score = []
-            #if len(p) == len(l):
+            #print(f"References:\n{l}\nSize:{len(l)}")
+            #print()
+            #print(f"Predictions:\n{p}\nSize:{len(p)}")
             for rdf in l:
                 score.append(1 if rdf in p else 0)
-            #else:
-            score.append(0)
+                #TODO: Consider an exact match and hallucinations match, exact will yield a really low score!
 
-            all_scores.append(np.mean(score))
+            average_rdfs.append(np.mean(score))
+            joint_goal_accuracy.append(1 if 0 not in score else 0)
 
-        return round(np.mean(all_scores), 2) * 100
+        joint_goal_accuracy = round(np.mean(joint_goal_accuracy), 2) * 100
+        average_rdfs = round(np.mean(average_rdfs), 2) * 100
+        return {"jga": joint_goal_accuracy, "average_acc_rdfs": average_rdfs}
     
-    def f1_score(self, pred, ref):
-        ref = "|".join(ref).split('|')
-        pred = "|".join(pred).split('|')
-        common = Counter(ref) & Counter(pred)
-        num_same = sum(common.values())
-
-        if num_same == 0:
-            return {'precision': 0, 'recall': 0, 'f1' : 0}
-
-        precision = 1.0 * num_same / len(pred)
-        recall = 1.0 * num_same / len(ref)
-        f1 = (2 * precision * recall) / (precision + recall)
-
-        return {'precision': precision, 'recall': recall, 'f1' : f1}
-
-
-    def counter_squad_method(self, candlist, reflist):
-        # exact match is already JGA, so no need for implementing exact match here
-        # this is looking for the nodes, much more flexible
-        """
-        closer to UAS
-        """
-        f1 = []
-        precision = []
-        recall = []
-        for ref, pred in zip(reflist, candlist):
-            res = self.f1_score(ref, pred)
-            f1.append(res['f1'])
-            precision.append(res['precision'])
-            recall.append(res['recall'])
-
-        f1 = sum(f1) / len(f1)
-        precision = sum(precision) / len(precision)
-        recall = sum(recall) / len(recall)
-
-        f1 = round(f1, 2) * 100
-        precision = round(precision, 2) * 100
-        recall = round(recall, 2) * 100
-        return {'squad_precision': precision, 'squad_recall': recall, 'squad_f1' : f1}
-
 
     def exact_triple_scores(self, newcandlist, newreflist):
         """
@@ -99,6 +58,7 @@ class DSTMetrics:
         ]
 
 
+        # which one is which?
         precisions = [
             len(i) / len(c) if len(c) > 0 else 1
             for i,c in zip(intersections, newcandlist)

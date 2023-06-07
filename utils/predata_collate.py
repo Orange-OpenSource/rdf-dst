@@ -115,9 +115,9 @@ class PreDataCollator:
             if self.exp_setup == 1:
                 model_input = model_input[:1] + list(map(list.__add__, model_input[1:], prev_states))
 
-                # cutting context in T5 left to right because the sequence is too long. Our threshold is 
-                if self.cut_context:
-                    model_input = list(map(self.reduce_context, model_input))
+            # cutting context in T5 left to right because the sequence is too long.
+            if self.cut_context:
+                model_input = list(map(self.reduce_context, model_input))
 
         labels = map(lambda state: ','.join(['|'.join(state[i:i+3]) for i in range(0, len(state), 3)]), states)
         labels = list(labels)

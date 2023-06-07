@@ -56,9 +56,9 @@ def config_model(model, tokenizer, lr, epochs, target_len, accelerator, num_trai
     callbacks = [checkpoint_callback, early_stopping]
     trainer =  pl.Trainer(max_epochs=epochs, callbacks=callbacks, logger=tb_logger,
                          accumulate_grad_batches=2, devices="auto",  # torch.cuda.device_count()
-                         #precision="16-mixed", strategy="ddp",  # issues with precision in PL
-                         strategy="ddp",
-                         accelerator=accelerator, enable_progress_bar=True)
+                         #precision="16-mixed",  # issues with precision in PL
+                         strategy="ddp", accelerator=accelerator,
+                         enable_progress_bar=True)
     
     pl_model = RDFDialogueStateModel(model, tokenizer, lr, epochs, num_train_optimization_steps, num_warmup_steps, target_len, store)
     return {'trainer': trainer, 'model': pl_model}
