@@ -20,9 +20,9 @@ class DSTMetrics:
     def __call__(self):
         preds = self.data["preds"]
         labels = self.data["labels"]
-        jga = self.joint_goal_accuracy(preds, labels)
         scores = self.f1_smatch(preds, labels)
         span_scores = self.span_evaluation(preds, labels)
+        jga = self.joint_goal_accuracy(preds, labels)
         scores.update(jga)
         scores.update(span_scores)
         return scores

@@ -6,6 +6,8 @@ DIR=./dst-snake
 # default values, workers must be 1 with marcel... 6 with nadia?
 experiment="${experiment:-1}"
 workers=1
+framework="pl"
+script="empty"
 
 programname=$0
 function usage {
@@ -14,7 +16,9 @@ function usage {
     echo ""
     echo "usage: $programname --debug string --experiment integer --devices integer"
     echo ""
-    echo "  --debug string   		    yes or no"
+    echo "  --framework string          using HF, torch, or lightning"
+    echo "                              (example: pl, torch, hf)"
+    echo "  --debug string   		 yes or no"
     echo "                              (example: no)"
     echo "  --experiment integer        which experiment to run. 1, 2, or 3"
     echo "                              (example and default val: 1)"
@@ -58,6 +62,10 @@ if [[ -z $debug ]]; then
     die "Missing parameter --debug"
 fi
 
+if [[ -z $framework ]]; then
+    framework="pl"
+fi
+
 # turning to lowercase
 debug="${debug,,}"
 
@@ -67,10 +75,27 @@ if [[ $debug != "yes" ]] && [[ $debug != "no" ]]; then
 fi
 
 
-echo "Using manual data loading"
+handle_option(){
+	case $1 in
+		"pl")
+			script="pl_main.py"
+			script="assess_marcel_pl.py"
+			;;
+		"hf")
+			script="hf_main.py"
+			;;
+		 
+		"torch")
+			script="torch_main.py"
+			script="assess_marcel_torch.py"
+			;;
+	esac
+}
+# shell doesn't return variables per se, but if previously defined, the function overwrites the global var
+handle_option "$framework"
 
 if [[ $debug == "yes" ]]; then
-    python main.py -epochs 3 -d multiwoz -store yes -logger no -experiment "$experiment" -workers "$workers" -model small -subset yes -acc gpu
+    python "$script" -epochs 3 -d multiwoz -store yes -logger no -experiment "$experiment" -workers "$workers" -model small -subset yes -acc gpu
 else
-    python main.py -epochs 5 --batch 16 -d multiwoz -workers "$workers" -store yes -experiment "$experiment" -model base -logger yes -subset no
+    python "$script" -epochs 5 --batch 16 -d multiwoz -workers "$workers" -store yes -experiment "$experiment" -model base -logger yes -subset no
 fi
