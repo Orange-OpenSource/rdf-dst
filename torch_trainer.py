@@ -91,8 +91,6 @@ class MyTrainer:
             if verbose:
                 self.pretty_print(epoch=epoch, train_loss=train_loss, val_loss=val_loss, results=my_evaluation.results)
 
-
-
         # SAVE TOKENIZER !  need DPR_JOB method to better save this
         self.tokenizer.save("web_dial_dst_en_tokenizer.json")  # or is it save_pretrained? or does save_pretrained already saves the tokenizer?
 
@@ -102,16 +100,17 @@ class MyTrainer:
             print(f"{metric}: {value}")
 
 
-    def configure_optimizers(self):
-        lr = self.lr
-        optimizer = AdamW(self.parameters(), lr=lr)
-        lr_scheduler = {'scheduler': get_linear_schedule_with_warmup(optimizer,
-                                                                     num_training_steps=self.num_training_steps,
-                                                                     num_warmup_steps=self.num_warmup_steps),
-                        'name': 'learning_rate',
-                        'interval': 'step',
-                        'frequency': 1}
-        return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
+    # rewrite when bored to improve how we use optimizer and lr
+    #def configure_optimizers(self):
+    #    lr = self.lr
+    #    optimizer = AdamW(self.parameters(), lr=lr)
+    #    lr_scheduler = {'scheduler': get_linear_schedule_with_warmup(optimizer,
+    #                                                                 num_training_steps=self.num_training_steps,
+    #                                                                 num_warmup_steps=self.num_warmup_steps),
+    #                    'name': 'learning_rate',
+    #                    'interval': 'step',
+    #                    'frequency': 1}
+    #    return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
 
 
 

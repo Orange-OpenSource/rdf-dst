@@ -21,18 +21,18 @@ import logging
 logging.basicConfig(level=logging.INFO)
 SEED = 42  # for replication purposes
 
-def preprocessing(collator, dataset, num_workers, batch_size):
+def preprocessing(collator, dataset, num_workers, batch_size, method):
 
     data = DialogueRDFData(collator, num_workers=num_workers,
                            dataset=dataset,
                            batch_size=batch_size)
-    data.prepare_data()
+    data.prepare_data(method)
     # We tokenize in setup, but pl suggests to tokenize in prepare?
-    data.setup(subsetting=subsetting)
+    dataloaders = data.setup(subsetting=subsetting)
 
-    train_dataloader = data.train_dataloader()
-    test_dataloader = data.test_dataloader()
-    validation_dataloader = data.validation_dataloader()
+    train_dataloader = dataloaders["train"]
+    test_dataloader = dataloaders["test"]
+    validation_dataloader = dataloaders["validation"]
 
     return {'train': train_dataloader, 'test': test_dataloader, 'validation': validation_dataloader}
 
