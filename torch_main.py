@@ -4,9 +4,6 @@
 from dotenv import load_dotenv
 load_dotenv()  # load keys and especially w and biases to see visualizations. Looking in curr dir
 
-from lightning.pytorch.loggers import TensorBoardLogger  # tensorboard is installed with lightning, must install wandb manually
-from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
-import lightning.pytorch as pl
 import wandb
 import math
 import re
@@ -15,8 +12,9 @@ import glob
 from transformers import AutoTokenizer, T5ForConditionalGeneration
 from utils.data_loader import DialogueRDFData
 from utils.args import create_arg_parser
-from trainer import RDFDialogueStateModel
+from torch_trainer import MyTrainer
 from utils.predata_collate import PreDataCollator
+from torch.utils.tensorboard import SummaryWriter
 
 import logging
 
@@ -39,10 +37,20 @@ def preprocessing(collator, dataset, num_workers, batch_size):
     return {'train': train_dataloader, 'test': test_dataloader, 'validation': validation_dataloader}
 
 
-def config_model(model, tokenizer, lr, epochs, target_len, accelerator, num_train_optimization_steps, num_warmup_steps, name):
+def config_train_eval(model,
+                      tokenizer,
+                      lr,
+                      epochs, target_len, 
+                      accelerator,
+                      num_train_optimization_steps, num_warmup_steps, name):
     """
     returns trainer to use for finetuning and inference
     """
+
+    parent_dir = 'tb_logs'
+    # other way to log with writer?
+    # https://stackoverflow.com/questions/66945431/how-to-log-metrics-eg-validation-loss-to-tensorboard-when-using-pytorch-light
+    tb_logger = SummaryWriter(parent_dir)
 
     # Optimizer
     # Split weights in two groups, one with weight decay and the other not.
@@ -60,17 +68,12 @@ def config_model(model, tokenizer, lr, epochs, target_len, accelerator, num_trai
     ]
 
 
-    tb_logger = TensorBoardLogger("tb_logs", name=name) 
+    base_path = os.path.join(parent_dir, name)
+    version_dir = create_version_num(base_path)
+    checkpoint_path = os.path.join(version_dir, 'checkpoints')
+    model_name_path = 'best_dst_ckpt'
+    trainer = MyTrainer
 
-    checkpoint_name = 'best_dst_ckpt'
-    checkpoint_callback = ModelCheckpoint(monitor='val_loss',
-                                          filename=checkpoint_name,
-                                          mode="min",
-                                          save_top_k=-1)
-
-    early_stopping = EarlyStopping('val_loss', patience=3, min_delta=0)
-
-    callbacks = [checkpoint_callback, early_stopping]
     trainer =  pl.Trainer(max_epochs=epochs, callbacks=callbacks, logger=tb_logger,
                          accumulate_grad_batches=2, devices="auto",  # torch.cuda.device_count()
                          #precision="16-mixed",  # issues with precision in PL
@@ -78,8 +81,22 @@ def config_model(model, tokenizer, lr, epochs, target_len, accelerator, num_trai
                          enable_progress_bar=True)
     
     pl_model = RDFDialogueStateModel(model, tokenizer, lr, epochs, num_train_optimization_steps, num_warmup_steps, target_len, store)
+
+    tb_logger.flush()
+    tb_logger.close()
     return {'trainer': trainer, 'model': pl_model}
 
+def create_version_num(base_path):
+    dirs = [d for d in os.listdir(base_path) if d.startswith("version_")]
+    if dirs:
+        highest_version = max(existing_versions, key=lambda x: int(x[8:]))  # Extract the version number
+        version_number = int(highest_version[8:]) + 1
+    else:
+        version_number = 0
+
+    new_dir = os.path.join(base_path, f"version_{version_number:01d}")
+    os.makedirs(new_dir)
+    return new_dir
 
 def training(trainer, model, dataloaders):
 
@@ -146,8 +163,9 @@ def main():
 
     if logger:
         wandb.login()  
-        wandb.tensorboard.patch(root_logdir=".tb_logs/")
+        wandb.tensorboard.patch(root_logdir=".tb_logs/")  # save=False?, tensorboard_x=True?
         wandb.init(project="basic_flant5")
+
 
     model_name = "t5-" + args.model
     model = T5ForConditionalGeneration.from_pretrained(model_name)
@@ -171,7 +189,7 @@ def main():
     num_train_optimization_steps = epochs * len(dataloaders['train'])
     num_warmup_steps = math.ceil(len(dataloaders['train']) / grad_acc_steps)
 
-    config = config_model(model,
+    config = config_train_eval(model,
                           tokenizer,
                           lr,
                           epochs,
