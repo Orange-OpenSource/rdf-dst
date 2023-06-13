@@ -1,3 +1,6 @@
+import os
+
+
 class SaveBestModel:
     """
     Class to save the best model while training. If the current epoch's
@@ -14,8 +17,9 @@ class SaveBestModel:
         if current_valid_loss < self.best_valid_loss:
             self.best_valid_loss = current_valid_loss
             # TODO: define checkpoint name with epoch and DPR_JOB
-            model_name_path += f'-v{epoch+1}'
-            model.save_pretrained(os.path.join(self.path, self.model_name_path))
+            curr_model_path = self.model_name_path + f'-v{epoch+1}'
+            storage_path = os.path.join(self.path, curr_model_path)
+            model.save_pretrained(storage_path)
 
 
 class EarlyStopping:
@@ -45,7 +49,5 @@ class EarlyStopping:
             self.counter = 0
         elif self.best_loss - val_loss < self.min_delta:
             self.counter += 1
-            print(f"INFO: Early stopping counter {self.counter} of {self.patience}")
             if self.counter >= self.patience:
-                print('INFO: Early stopping')
                 self.early_stop = True

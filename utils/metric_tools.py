@@ -3,7 +3,14 @@ import evaluate
 
 class DSTMetrics:
 
-    def __init__(self, outputs, from_file: bool=False):
+    def __init__(self):
+        self.slots_empty_assignment = ["none", '', ' ', '*']
+        # may need to directly download punkt when running  from clusters and omw and wordnet?
+        self.gleu = evaluate.load("google_bleu")
+        self.meteor = evaluate.load("meteor")
+    
+
+    def __call__(self, outputs, from_file: bool=False):
         if from_file:
             self.data = outputs
         else:
@@ -12,12 +19,6 @@ class DSTMetrics:
             self.dialogue_ids = [out['ids'] for out in outputs]
             self.data = self.flatten_batches()
 
-        self.slots_empty_assignment = ["none", '', ' ', '*']
-        # may need to directly download punkt when running  from clusters and omw and wordnet?
-        self.gleu = evaluate.load("google_bleu")
-        self.meteor = evaluate.load("meteor")
-
-    def __call__(self):
         preds = self.data["preds"]
         labels = self.data["labels"]
         scores = self.f1_smatch(preds, labels)

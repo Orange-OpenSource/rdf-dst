@@ -3,7 +3,7 @@
 Storing CSVs with results from relevant results
 
 MULTIWOZ RDF
-| Model          | JGA | JGC F1 | GLEU | METEOR | JGC RECALL | JGC PRECISION |
+| Model          | JGA | JGA F1 | GLEU | METEOR | JGA RECALL | JGA PRECISION |
 |----------------|-----|--------|------|--------|------------|---------------|
 | T5-base. Exp 1 | 70% | 84%    | 80%  | 75%    | 96%        | 75%           |
 | T5-base. Exp 2 | 38% | 72%    | 65%  | 67%    | 90%        | 60%           |

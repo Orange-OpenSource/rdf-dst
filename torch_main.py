@@ -1,6 +1,3 @@
-# https://shivanandroy.com/fine-tune-t5-transformer-with-pytorch/
-# https://colab.research.google.com/github/PytorchLightning/lightning-tutorials/blob/publication/.notebooks/lightning_examples/mnist-hello-world.ipynb
-# pl --> https://www.sensiocoders.com/blog/109_pl2
 from dotenv import load_dotenv
 load_dotenv()  # load keys and especially w and biases to see visualizations. Looking in curr dir
 
@@ -10,9 +7,10 @@ import re
 import os
 import glob
 from transformers import AutoTokenizer, T5ForConditionalGeneration
-from utils.data_loader import DialogueRDFData
+from utils.torch_data_loader import DialogueRDFData
 from utils.args import create_arg_parser
-from torch_trainer import MyTrainer
+from utils.metric_tools import DSTMetrics
+from torch_trainer import MyTrainer, MyEvaluation
 from utils.predata_collate import PreDataCollator
 from torch.utils.tensorboard import SummaryWriter
 
@@ -26,23 +24,23 @@ def preprocessing(collator, dataset, num_workers, batch_size, method):
     data = DialogueRDFData(collator, num_workers=num_workers,
                            dataset=dataset,
                            batch_size=batch_size)
-    data.prepare_data(method)
+    data.load_hf_data(method)
     # We tokenize in setup, but pl suggests to tokenize in prepare?
-    dataloaders = data.setup(subsetting=subsetting)
+    dataloaders = data.create_loaders(subsetting=subsetting)
 
     train_dataloader = dataloaders["train"]
     test_dataloader = dataloaders["test"]
     validation_dataloader = dataloaders["validation"]
-
     return {'train': train_dataloader, 'test': test_dataloader, 'validation': validation_dataloader}
 
 
 def config_train_eval(model,
-                      tokenizer,
                       lr,
-                      epochs, target_len, 
-                      accelerator,
-                      num_train_optimization_steps, num_warmup_steps, name):
+                      weight_decay,
+                      epochs,
+                      dst_metrics,
+                      num_train_optimization_steps, num_warmup_steps,
+                      accelerator, name):
     """
     returns trainer to use for finetuning and inference
     """
@@ -50,7 +48,12 @@ def config_train_eval(model,
     parent_dir = 'tb_logs'
     # other way to log with writer?
     # https://stackoverflow.com/questions/66945431/how-to-log-metrics-eg-validation-loss-to-tensorboard-when-using-pytorch-light
-    tb_logger = SummaryWriter(parent_dir)
+    base_path = os.path.join(parent_dir, name)
+    version_dir = create_version_num(base_path)
+    checkpoint_path = os.path.join(version_dir, 'checkpoints')
+    model_name_path = 'best_dst_ckpt'
+
+    tb_logger = SummaryWriter(version_dir)
 
     # Optimizer
     # Split weights in two groups, one with weight decay and the other not.
@@ -59,7 +62,7 @@ def config_train_eval(model,
     optimizer_grouped_parameters = [
         {
             "params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
-            "weight_decay": args.weight_decay,
+            "weight_decay": weight_decay,
         },
         {
             "params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)],
@@ -68,28 +71,17 @@ def config_train_eval(model,
     ]
 
 
-    base_path = os.path.join(parent_dir, name)
-    version_dir = create_version_num(base_path)
-    checkpoint_path = os.path.join(version_dir, 'checkpoints')
-    model_name_path = 'best_dst_ckpt'
-    trainer = MyTrainer
+    trainer = MyTrainer(model, tb_logger, accelerator, dst_metrics, warmup_steps=num_warmup_steps,
+                        total_steps=total_iterations, lr=lr, epochs=epochs, accumulation_steps=2,
+                        verbosity=True)
 
-    trainer =  pl.Trainer(max_epochs=epochs, callbacks=callbacks, logger=tb_logger,
-                         accumulate_grad_batches=2, devices="auto",  # torch.cuda.device_count()
-                         #precision="16-mixed",  # issues with precision in PL
-                         strategy="ddp", accelerator=accelerator,
-                         enable_progress_bar=True)
-    
-    pl_model = RDFDialogueStateModel(model, tokenizer, lr, epochs, num_train_optimization_steps, num_warmup_steps, target_len, store)
 
-    tb_logger.flush()
-    tb_logger.close()
-    return {'trainer': trainer, 'model': pl_model}
+    return {'trainer': trainer, 'model_name_path': model_name_path, 'checkpoint_path': checkpoint_path}
 
 def create_version_num(base_path):
     dirs = [d for d in os.listdir(base_path) if d.startswith("version_")]
     if dirs:
-        highest_version = max(existing_versions, key=lambda x: int(x[8:]))  # Extract the version number
+        highest_version = max(dirs, key=lambda x: int(x[8:]))  # Extract the version number
         version_number = int(highest_version[8:]) + 1
     else:
         version_number = 0
@@ -98,29 +90,35 @@ def create_version_num(base_path):
     os.makedirs(new_dir)
     return new_dir
 
-def training(trainer, model, dataloaders):
+def training(trainer, dataloaders, tokenizer, target_length, model_name_path, checkpoint_path):
+    """
+    returns model and tokenizer
+
+    """
 
 
     logging.info("Training stage")
-    trainer.fit(model, train_dataloaders=dataloaders['train'],
-                val_dataloaders=dataloaders['validation'])  # ckpt_path to continue from ckpt
+    return trainer.train_loop(dataloaders['train'], dataloaders['validation'], tokenizer,
+                              target_length=target_length,
+                              path=checkpoint_path, model_name_path=model_name_path)
     
-    #trainer.validate  # if I want to do more with validation
 
-    # extract the model to save it with huggingface
+def evaluate(model, tokenizer, test_dataloader, device, 
+             target_len, dst_metrics):
 
-    #for i, (path, _) in enumerate(trainer.checkpoint_callback.best_k_models.items()):
-    #    print(path)
-        #m = pl_model.load_from_checkpoint(path)  # tb_logs/base_flant5_v_beta/version_0/checkpoints/best_dst_ckpt.ckpt
-        #m.transformer.save_pretrained(f'{i}th_best.pt')
-
-def evaluate(trainer, name, model, test_dataloader):
 
     logging.info("Inference stage")
+
+
+    my_evaluation = MyEvaluation(model, tokenizer, device, target_len, dst_metrics)
+    my_evaluation(test_dataloader, validation=False, verbose=False)
+
+def load_model(name):
     file_path = f'./tb_logs/{name}/'
     ckpt_path = find_version_num(file_path)
-
-    trainer.test(model, dataloaders=test_dataloader, ckpt_path=ckpt_path, verbose=True)# ?
+    model = T5ForConditionalGeneration.from_pretrained(ckpt_path)
+    #tokenizer = AutoTokenizer.from_pretrained(model_name, extra_ids=0) 
+    return model
 
 
 def find_version_num(path):
@@ -128,9 +126,9 @@ def find_version_num(path):
     dirs = [d for d in os.listdir(path) if 'checkpoints' in os.listdir(path + d)]
     assert dirs, "No version has any checkpoints. Did you train the model?"
     newest_version = max(map(regex_match, dirs))
-    # abs path breaks last slash so adding in ckpt
-    path = os.path.abspath(f"{path}version_{newest_version}/checkpoints") + "/*.ckpt"
-    checkpoints = glob.glob(path)
+    parent_dir = f"{path}version_{newest_version}/checkpoints"
+    pattern = parent_dir + "/best_dst_ckpt-*"
+    checkpoints = [dir_path for dir_path in glob.glob(pattern) if os.path.isdir(dir_path)]
     return max(checkpoints, key=os.path.getctime)
 
 def regex_match(dir_name):
@@ -177,32 +175,45 @@ def main():
     dataset = args.dataset
     batch_size = args.batch
     epochs = args.epochs
+    weight_decay = args.weight_decay
     lr = args.learning_rate
     num_workers = args.num_workers
     grad_acc_steps = args.gradient_accumulation_steps
     accelerator = args.accelerator
+    method = 'online'
     model_checkpoint_name = f"{model_name}_experiment_{experimental_setup}"
 
     collator = PreDataCollator(tokenizer, source_len, target_len, experimental_setup, cut_context=cut_context)
-    dataloaders = preprocessing(collator, dataset, num_workers, batch_size)
+    dataloaders = preprocessing(collator, dataset, num_workers, batch_size, method)
 
     num_train_optimization_steps = epochs * len(dataloaders['train'])
     num_warmup_steps = math.ceil(len(dataloaders['train']) / grad_acc_steps)
+    dst_metrics = DSTMetrics()  # this is loading the metrics now so we don't have to do this again
 
     config = config_train_eval(model,
-                          tokenizer,
                           lr,
+                          weight_decay,
                           epochs,
-                          target_len,
-                          accelerator,
+                          dst_metrics,
                           num_train_optimization_steps,
                           num_warmup_steps,
+                          accelerator,
                           model_checkpoint_name)
-    pl_model = config['model']
+
+    model_name_path = config['model_name_path']
+    checkpoint_path = config['checkpoint_path']
     trainer = config['trainer']
 
-    training(trainer, pl_model, dataloaders)
-    evaluate(trainer, model_checkpoint_name, pl_model, dataloaders['test'])
+    #model_tok = training(trainer, dataloaders, tokenizer, target_len, model_name_path, checkpoint_path)
+    #model = model_tok["model"]
+    #tokenizer = model_tok["tokenizer"]
+
+    stored_locally = True
+    if stored_locally:
+        model = load_model(model_checkpoint_name)
+
+    evaluate(model, tokenizer, dataloaders['test'], accelerator, 
+             target_len, dst_metrics)
     if logger:
         wandb.finish()
 

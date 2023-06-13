@@ -52,6 +52,14 @@ def create_arg_parser():
     )
 
     parser.add_argument(
+        "-wd",
+        "--weight_decay",
+        default=0.0,
+        type=float,
+        help="Provide weight decay"
+    )
+
+    parser.add_argument(
         "-store", "--store_output", default='no', type=str,
         choices=['yes', 'no'],
         help="Store output during inference"

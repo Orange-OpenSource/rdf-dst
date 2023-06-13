@@ -6,7 +6,7 @@ DIR=./dst-snake
 # default values, workers must be 1 with marcel... 6 with nadia?
 experiment="${experiment:-1}"
 workers=1
-framework="pl"
+framework="torch"
 script="empty"
 
 programname=$0
@@ -79,7 +79,7 @@ handle_option(){
 	case $1 in
 		"pl")
 			script="pl_main.py"
-			script="assess_marcel_pl.py"
+			#script="assess_marcel_pl.py"
 			;;
 		"hf")
 			script="hf_main.py"
@@ -87,7 +87,7 @@ handle_option(){
 		 
 		"torch")
 			script="torch_main.py"
-			script="assess_marcel_torch.py"
+			#script="assess_marcel_torch.py"
 			;;
 	esac
 }
@@ -95,7 +95,7 @@ handle_option(){
 handle_option "$framework"
 
 if [[ $debug == "yes" ]]; then
-    python "$script" -epochs 3 -d multiwoz -store yes -logger no -experiment "$experiment" -workers "$workers" -model small -subset yes -acc gpu
+    python "$script" -epochs 3 -d multiwoz -store yes -logger no -experiment "$experiment" -workers "$workers" -model small -subset yes -acc cpu
 else
     python "$script" -epochs 5 --batch 16 -d multiwoz -workers "$workers" -store yes -experiment "$experiment" -model base -logger yes -subset no
 fi
