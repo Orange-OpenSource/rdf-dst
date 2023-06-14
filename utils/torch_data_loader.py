@@ -30,12 +30,14 @@ class DialogueRDFData:
         """
         if method == "local":
             #TODO: Write code to read from local
-            pass
+            train = load_dataset("json", data_files="multiwoz_rdf_data/train.jsonl")
+            test = load_dataset("json", data_files="multiwoz_rdf_data/test.jsonl")
+            validation = load_dataset("json", data_files="multiwoz_rdf_data/validation.jsonl")
+            all_data = concatenate_datasets([train, test, validation])  # splits are weird
         else:
 
             txt2rdf = load_dataset("rdfdial", self.dataset).with_format("torch")
-
-        all_data = concatenate_datasets([txt2rdf['validation'], txt2rdf['train'], txt2rdf['test']])  # splits are weird
+            all_data = concatenate_datasets([txt2rdf['validation'], txt2rdf['train'], txt2rdf['test']])  # splits are weird
         train_val = all_data.train_test_split(test_size=0.2)
         test_val = train_val['test'].train_test_split(test_size=0.5)
         txt2rdf.update({'train': train_val['train'], 'validation': test_val['train'], 'test': test_val['test']})

@@ -6,7 +6,8 @@ import math
 import re
 import os
 import glob
-from transformers import AutoTokenizer, T5ForConditionalGeneration
+# longt5 needs special module to avoid errors
+from transformers import AutoTokenizer, T5ForConditionalGeneration, LongT5ForConditionalGeneration
 from utils.torch_data_loader import DialogueRDFData
 from utils.args import create_arg_parser
 from utils.metric_tools import DSTMetrics
@@ -54,6 +55,7 @@ def config_train_eval(model,
     model_name_path = 'best_dst_ckpt'
 
     tb_logger = SummaryWriter(version_dir)
+    # flush and close happens at the end of the training loop in the other class. may not be a clean way to do this.
 
     # Optimizer
     # Split weights in two groups, one with weight decay and the other not.
@@ -111,7 +113,8 @@ def evaluate(model, tokenizer, test_dataloader, device,
 
 
     my_evaluation = MyEvaluation(model, tokenizer, device, target_len, dst_metrics)
-    my_evaluation(test_dataloader, validation=False, verbose=False)
+    my_evaluation(test_dataloader, validation=False, verbose=True)
+    print(my_evaluation.results)
 
 def load_model(name):
     file_path = f'./tb_logs/{name}/'
@@ -204,11 +207,11 @@ def main():
     checkpoint_path = config['checkpoint_path']
     trainer = config['trainer']
 
-    #model_tok = training(trainer, dataloaders, tokenizer, target_len, model_name_path, checkpoint_path)
-    #model = model_tok["model"]
+    model_tok = training(trainer, dataloaders, tokenizer, target_len, model_name_path, checkpoint_path)
+    model = model_tok["model"]
     #tokenizer = model_tok["tokenizer"]
 
-    stored_locally = True
+    stored_locally = False
     if stored_locally:
         model = load_model(model_checkpoint_name)
 

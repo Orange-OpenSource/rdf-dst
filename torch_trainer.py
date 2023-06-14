@@ -133,7 +133,6 @@ class MyEvaluation:
                            "early_stopping": True
                           }
     
-        self.results = None
 
     def __call__(self, eval_data, validation=False, verbose=False):
     

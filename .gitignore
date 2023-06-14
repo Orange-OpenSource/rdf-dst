@@ -22,3 +22,8 @@ poc-rdf-env/
 config.yml
 poc-rdf_requirements.txt
 analyzing.py
+# others
+helping_anvar/
+*.png
+*.txt
+unit-testing-snake/

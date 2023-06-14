@@ -4,7 +4,6 @@ import evaluate
 class DSTMetrics:
 
     def __init__(self):
-        self.slots_empty_assignment = ["none", '', ' ', '*']
         # may need to directly download punkt when running  from clusters and omw and wordnet?
         self.gleu = evaluate.load("google_bleu")
         self.meteor = evaluate.load("meteor")
