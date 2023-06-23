@@ -138,6 +138,8 @@ class MyEvaluation:
     
         self.model.eval()
     
+        print("TITO WAS HERE")
+        raise SystemExit
         total_loss = 0
         outputs = []
         disable = not verbose

@@ -34,7 +34,10 @@ class PreDataCollator:
         dialogue_ids = []
         turn_number = []
 
-        for id, dialogue, states in zip(batch['dialogue_id'], batch['turns'], batch['states']):  # dict, history is a str that is the key
+#        all_states = []
+#        all_txt = []
+
+        for diag_id, dialogue, states in zip(batch['dialogue_id'], batch['turns'], batch['states']):  # dict, history is a str that is the key
             txt_input, label_rdf = self.create_inputs_outputs(dialogue, states)
 
             for turn, (txt, rdf) in enumerate(zip(txt_input, label_rdf), 0):
@@ -43,31 +46,16 @@ class PreDataCollator:
                 input_ids.append(tokenized['input_ids'])
                 attention_mask.append(tokenized['attention_mask'])
                 labels.append(tokenized['labels'])
-                dialogue_ids.append(id)
+                dialogue_ids.append(diag_id)
                 turn_number.append(turn)
 
-        return {'input_ids': input_ids, 'attention_mask': attention_mask,
+                #debug_states = [s for s in states[turn]['triples']]
+                #all_states.append(debug_states)
+                #all_txt.append(txt)
+
+        return {'input_ids': input_ids, 'attention_mask': attention_mask, #'states': all_states, 'txt': all_txt,
                 'labels': labels, 'dialogue_id': dialogue_ids, 'turn_number': turn_number}
 
-
-    @staticmethod
-    def flatten_rdf_rep(state):
-        flatten_dict = dict()
-        for triplet in state['triples']:
-            if triplet[0] in flatten_dict:
-                flatten_dict[triplet[0]].extend(triplet[1:])
-            else:
-                flatten_dict[triplet[0]] = triplet[1:]
-
-        #flatten_rep = []
-        #for k, values in flatten_dict.items():
-        #    flat_rdf = f'{k} is '
-        #    for v in values:
-        #        flat_rdf += f';{v}'
-        #    flatten_rep.append(flat_rdf)
-        return flatten_dict
-
-        #return '\n'.join(flatten_rep)
 
     def explicit_info_injection(self, word, i):
         special_tkn = {0: self.subject_tkn, 1: self.relation_tkn, 2: self.object_tkn}
@@ -84,13 +72,11 @@ class PreDataCollator:
         # we can flatten all of the rdf-states and treat them as strings. But maybe the only last one matters?
         toks = {"user": self.user_tkn, "system": self.sys_tkn}
 
-        #smarter triplet rep? Not for now. comment
-        #states = map(lambda state: self.flatten_rdf_rep(state), states)
-        #states = list(states)
 
         states = map(lambda state: [[self.explicit_info_injection(val, i) for i, val in enumerate(triple)] for triple in state['triples']], states)
         # shuffling for augmentation
-        #states = map(lambda state: random.sample(state, len(state)), states)
+        
+        states = map(lambda state: random.sample(state, len(state)), states)
         states = list(states)
         states = [[node for rdf in state for node in rdf] for state in states]
 
@@ -130,7 +116,7 @@ class PreDataCollator:
         cut context for T5 because context is too long for standard T5
         This has been hardcoded as 525, where we have observed that a list with more than these tokens, breaks the model
         """
-        threshold = 525
+        threshold = self.tokenizer.model_max_length // 2  # 512 usually
         if len(txt) > threshold:
             slice_val = len(txt) - threshold
             txt = txt[slice_val:]

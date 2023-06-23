@@ -142,7 +142,9 @@ def main():
         wandb.tensorboard.patch(root_logdir=".tb_logs/")
         wandb.init(project="basic_flant5")
 
-    model_name = "t5-" + args.model
+    models = {'t5': 't5', 'flan-t5': 'google/flan-t5', 'long-t5-local': 'google/long-t5-local', 'long-t5-tglobal': 'google/long-t5-tglobal'}
+    model_name = models[args.model]
+    model_name +=  ('-' + args.model_size)
     model = T5ForConditionalGeneration.from_pretrained(model_name)
     # T5 config change?  https://huggingface.co/docs/transformers/model_doc/t5
     # 0 ids so I don't have to reshape the embedding

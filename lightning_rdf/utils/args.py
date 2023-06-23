@@ -16,6 +16,12 @@ def create_arg_parser():
     )
 
     parser.add_argument(
+        "-method", "--method", default='online', type=str,
+        choices=['online', 'local'],
+        help="Select to load data locally or from HF. When running from colab or jean zay, using local."
+    )
+
+    parser.add_argument(
         "-epochs", "--epochs", default=1, type=int, help="Provide the number of epochs"
     )
 
@@ -67,10 +73,15 @@ def create_arg_parser():
 
     parser.add_argument(
         "-model", "--model", default='base', type=str,
-        choices=['small', 'base', 'large', 'xl'],
-        help="Select size of flanT5 transformer"
+        choices=['t5', 'flan-t5', 'long-t5-local', 'long-t5-tglobal'],  # adapter model
+        help="Select transformer"
     )
 
+    parser.add_argument(
+        "-model_size", "--model_size", default='base', type=str,
+        choices=['small', 'base', 'large', 'xl'],
+        help="Select size of transformer"
+    )
 
     parser.add_argument(
         "-logger", "--logger", default='no', type=str,

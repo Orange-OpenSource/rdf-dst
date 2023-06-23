@@ -16,9 +16,13 @@ class SaveBestModel:
     def __call__(self, current_valid_loss, epoch, model):
         if current_valid_loss < self.best_valid_loss:
             self.best_valid_loss = current_valid_loss
-            # TODO: define checkpoint name with epoch and DPR_JOB
             curr_model_path = self.model_name_path + f'-v{epoch+1}'
-            storage_path = os.path.join(self.path, curr_model_path)
+            if os.getenv('DPR_JOB'):
+                dpr_path = os.path.join("/userstorage/", os.getenv('DPR_JOB'))
+                dpr_path = os.path.join(dpr_path, self.path)
+                storage_path = os.path.join(dpr_path, curr_model_path)
+            else:
+                storage_path = os.path.join(self.path, curr_model_path)
             model.save_pretrained(storage_path)
 
 

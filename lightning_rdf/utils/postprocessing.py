@@ -2,6 +2,7 @@ import re
 
 def clean_node(node):
 
+# _:booking/0699e989  BEFORE ALL OF THIS FIND PATTERNS LIKE THIS IN A GIVEN NODE, REPLACE FORWARD AND CODE WITH PAD TOKEN
     node = node.replace('_:', '')
     node = node.replace(',', '')  # removing commas to facilitate RDF creation and splitting
     underscoreRegex = re.compile(r"_")

@@ -8,6 +8,7 @@ experiment="${experiment:-1}"
 workers=1
 framework="torch"
 script="empty"
+model="t5"  # t5, flant-t5, long-t5-local, long-t5-tglobal
 
 programname=$0
 function usage {
@@ -78,14 +79,17 @@ fi
 handle_option(){
 	case $1 in
 		"pl")
+			cd lightning_rdf/
 			script="pl_main.py"
 			#script="assess_marcel_pl.py"
 			;;
 		"hf")
+			cd hf_rdf/
 			script="hf_main.py"
 			;;
 		 
 		"torch")
+			cd torch_rdf/
 			script="torch_main.py"
 			#script="assess_marcel_torch.py"
 			;;
@@ -95,7 +99,7 @@ handle_option(){
 handle_option "$framework"
 
 if [[ $debug == "yes" ]]; then
-    python "$script" -epochs 2 -d multiwoz -store yes -logger yes -experiment "$experiment" -workers "$workers" -model small -subset yes -acc cpu
+    python "$script" -epochs 3 -d multiwoz -store yes -logger yes -experiment "$experiment" -workers "$workers" -model "$model" -model_size small -subset yes -acc cuda -method local
 else
-    python "$script" -epochs 5 --batch 16 -d multiwoz -workers "$workers" -store yes -experiment "$experiment" -model base -logger yes -subset no
+    python "$script" -epochs 5 --batch 16 -d multiwoz -workers "$workers" -store yes -experiment "$experiment" -model "$model" -model_size base -logger yes -subset no
 fi

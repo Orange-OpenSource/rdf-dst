@@ -25,7 +25,7 @@ def preprocessing(collator, dataset, num_workers, batch_size, method):
     data = DialogueRDFData(collator, num_workers=num_workers,
                            dataset=dataset,
                            batch_size=batch_size)
-    data.load_hf_data(method)
+    data.load_hf_data(method, baseline=True)
     # We tokenize in setup, but pl suggests to tokenize in prepare?
     dataloaders = data.create_loaders(subsetting=subsetting)
 
@@ -81,6 +81,20 @@ def config_train_eval(model,
     return {'trainer': trainer, 'model_name_path': model_name_path, 'checkpoint_path': checkpoint_path}
 
 def create_version_num(base_path):
+
+    if os.getenv('DPR_JOB'):
+        path = os.path.join("/userstorage/", os.getenv('DPR_JOB'))
+        base_path = os.path.join(path, base_path)
+    else:
+        path = "."
+        base_path = os.path.join(path, base_path)
+
+    if not os.path.exists(base_path):
+        os.makedirs(base_path)
+
+    print(base_path)
+    raise SystemExit
+
     dirs = [d for d in os.listdir(base_path) if d.startswith("version_")]
     if dirs:
         highest_version = max(dirs, key=lambda x: int(x[8:]))  # Extract the version number
@@ -126,6 +140,7 @@ def load_model(name):
 
 def find_version_num(path):
 
+
     dirs = [d for d in os.listdir(path) if 'checkpoints' in os.listdir(path + d)]
     assert dirs, "No version has any checkpoints. Did you train the model?"
     newest_version = max(map(regex_match, dirs))
@@ -145,16 +160,33 @@ def main():
     global store
 
     args = create_arg_parser()
+    # self attention layer swapped with local attention or transient-global (tglobal) attention
+    #TODO: Missing adapter version for each model. Future question, what about a pure GCN?
+    models = {'t5': 't5', 'flan-t5': 'google/flan-t5', 'long-t5-local': 'google/long-t5-local', 'long-t5-tglobal': 'google/long-t5-tglobal'}
+    model_name = models[args.model]
+    model_name +=  ('-' + args.model_size)
+        #model_name = "Stancld/longt5-tglobal-large-16384-pubmed-3k_steps"  # self attention layer swapped with transient-global (tglobal) attention
+
     bool_4_args = {"no": False, "yes": True}
-    # should use flanT5 for longer input! --> i think the max is 2048
-    length_exp_setup = {1: {"source_len": 1024, "target_len": 768, "setup": "context and states"},  # max is 1007
-                        2: {"source_len": 512,  "target_len": 768, "setup": "only context"},  # max is 495 in all exp set ups. could reduce vector
-                        3: {"source_len": 768,  "target_len": 768, "setup": "only states"}}  # max is 767
+    length_exp_setup = {1: {"source_len": 1024, "target_len": 1024, "setup": "context and states"},
+                        2: {"source_len": 512,  "target_len": 1024, "setup": "only context"},
+                        3: {"source_len": 768,  "target_len": 1024, "setup": "only states"}}
     
 
     experimental_setup = args.experimental_setup
     source_len = length_exp_setup[experimental_setup]["source_len"]
+    if ("google" in model_name) and (experimental_setup == 1):  # longer sequence than 2048 may not be needed...
+        source_len *= 2
+
     target_len = length_exp_setup[experimental_setup]["target_len"]
+
+    if 'long' not in model_name:
+        model = T5ForConditionalGeneration.from_pretrained(model_name)
+    else:
+        model = LongT5ForConditionalGeneration.from_pretrained(model_name)
+
+    tokenizer = AutoTokenizer.from_pretrained(model_name, extra_ids=0, truncation=True, model_max_length=max([target_len, source_len])) 
+
     message_setup = length_exp_setup[experimental_setup]["setup"]
     logging.info(f"{message_setup} with...\nInput_Length: {source_len}\nOutput_Length: {target_len}")
     logger = bool_4_args[args.logger]
@@ -162,17 +194,6 @@ def main():
     subsetting = bool_4_args[args.subsetting]
     store = bool_4_args[args.store_output]
 
-    if logger:
-        wandb.login()  
-        wandb.tensorboard.patch(root_logdir=".tb_logs/")  # save=False?, tensorboard_x=True?
-        wandb.init(project="basic_flant5")
-
-
-    model_name = "t5-" + args.model
-    model = T5ForConditionalGeneration.from_pretrained(model_name)
-    # T5 config change?  https://huggingface.co/docs/transformers/model_doc/t5
-    # 0 ids so I don't have to reshape the embedding
-    tokenizer = AutoTokenizer.from_pretrained(model_name, extra_ids=0) 
     cut_context = True if ((model_name[:2] == 't5') and (experimental_setup == 1)) else False
 
     dataset = args.dataset
@@ -183,7 +204,7 @@ def main():
     num_workers = args.num_workers
     grad_acc_steps = args.gradient_accumulation_steps
     accelerator = args.accelerator
-    method = 'online'
+    method = args.method
     model_checkpoint_name = f"{model_name}_experiment_{experimental_setup}"
 
     collator = PreDataCollator(tokenizer, source_len, target_len, experimental_setup, cut_context=cut_context)
@@ -206,6 +227,11 @@ def main():
     model_name_path = config['model_name_path']
     checkpoint_path = config['checkpoint_path']
     trainer = config['trainer']
+
+    if logger:
+        wandb.login()  
+        wandb.tensorboard.patch(root_logdir=".tb_logs/")  # save=False?, tensorboard_x=True?
+        wandb.init(project="basic_flant5", sync_tensorboard=True)
 
     model_tok = training(trainer, dataloaders, tokenizer, target_len, model_name_path, checkpoint_path)
     model = model_tok["model"]
