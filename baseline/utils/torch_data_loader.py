@@ -25,20 +25,34 @@ class DialogueRDFData:
         self.num_workers = num_workers  # no multiprocessing for now
 
 
-    def load_hf_data(self, method):
+    def load_hf_data(self, method, baseline=False):
         """
         """
-        if method == "local":
-            path = self.dataset + "_rdf_data"
-            dialogue_data = load_from_disk(path).with_format("torch")
-            # https://huggingface.co/docs/datasets/cache
-            dialogue_data.cleanup_cache_files()
+        if not baseline:
+            if method == "local":
+                path = self.dataset + "_rdf_data"
+                dialogue_data = load_from_disk(path).with_format("torch")
+                # https://huggingface.co/docs/datasets/cache
+                dialogue_data.cleanup_cache_files()
+            else:
+                dialogue_data = load_dataset("rdfdial", self.dataset).with_format("torch")
+                all_data = concatenate_datasets([dialogue_data['validation'], dialogue_data['train'], dialogue_data['test']])  # splits are weird
+                train_val = all_data.train_test_split(test_size=0.2)
+                test_val = train_val['test'].train_test_split(test_size=0.5)
+                dialogue_data.update({'train': train_val['train'], 'validation': test_val['train'], 'test': test_val['test']})
         else:
-            dialogue_data = load_dataset("rdfdial", self.dataset).with_format("torch")
-            all_data = concatenate_datasets([dialogue_data['validation'], dialogue_data['train'], dialogue_data['test']])  # splits are weird
-            train_val = all_data.train_test_split(test_size=0.2)
-            test_val = train_val['test'].train_test_split(test_size=0.5)
-            dialogue_data.update({'train': train_val['train'], 'validation': test_val['train'], 'test': test_val['test']})
+                dialogue_rdf = load_dataset("rdfdial", self.dataset).with_format("torch")
+                all_rdf = concatenate_datasets([dialogue_rdf['validation'], dialogue_rdf['train'], dialogue_rdf['test']])  # splits are weird
+                rdf_ids = set(all_rdf['dialogue_id'])
+
+                dialogue_data = load_dataset(self.dataset, "2.3").with_format("torch")
+                all_data = concatenate_datasets([dialogue_data['validation'], dialogue_data['train'], dialogue_data['test']])  # splits are weird
+
+                all_data = all_data.filter(lambda x: x['dialogue_id'] in rdf_ids)
+
+                train_val = all_data.train_test_split(test_size=0.2)
+                test_val = train_val['test'].train_test_split(test_size=0.5)
+                dialogue_data.update({'train': train_val['train'], 'validation': test_val['train'], 'test': test_val['test']})
 
 
         # shuffling dialogues
