@@ -1,15 +1,16 @@
 from dataclasses import dataclass
+from utils.postprocessing import clean_slot_val
 import random
 
 
 @dataclass
 class BaselinePreDataCollator:
     
-    def __init__(self, tokenizer, exp_setup):
+    def __init__(self, tokenizer, source_len, target_len, exp_setup):
 
         self.exp_setup = exp_setup
-        self.source_len = 512
-        self.target_len = 128
+        self.source_len = source_len
+        self.target_len = target_len
         self.user_tkn = '<user_tkn>'
         self.sys_tkn = '<sys_tkn>'
         self.slot_tkn = '<slot_tkn>'
@@ -43,40 +44,50 @@ class BaselinePreDataCollator:
                 turn_number.append(turn_id)
 
 
-        return {'input_ids': input_ids, 'attention_mask': attention_mask, #'states': all_states, 'txt': all_txt,
+        return {'input_ids': input_ids, 'attention_mask': attention_mask,
                 'labels': labels, 'dialogue_id': dialogue_ids, 'turn_number': turn_number}
 
     
     def create_inputs_outputs(self, dialogue_data):
 
-        dialogue = dialogue_data['turns']
         states = []
         txt_input = []
         turn_ids = []
         context = ''
-        for i in dialogue['turn_id']:
+        for i in dialogue_data['turn_id']:
             idx = int(i)
             turn_ids.append(idx)
-            state = dialogue['belief_state'][idx]
-            seq_states = ''
+            state = dialogue_data['belief_state'][idx]
+            seq_states = []
             for slot, val in zip(state['slot'], state['value']):
-                seq_states += self.slot_tkn + slot + self.val_tkn + val
-            states.append(seq_states)
+                slot = clean_slot_val(slot)
+                val = clean_slot_val(val)
+                seq_states.append(self.slot_tkn + slot + '=' + self.val_tkn + val)
+
+            # augmentation
+            seq_states = random.sample(seq_states, len(seq_states))
+            
+            states.append('|'.join(seq_states))
 
             if self.exp_setup in [1, 2]:
-                system = dialogue['sys_utterance'][idx]
-                user = dialogue['usr_utterance'][idx]
+                system = dialogue_data['sys_utterance'][idx]
+                user = dialogue_data['usr_utterance'][idx]
                 convo = self.sys_tkn + system + self.user_tkn + user
                 context += convo
                 txt_input.append(context)
         
-        if self.exp_setup == 3:
+        if self.exp_setup == 1:
+            first_turn = txt_input[0]
+            txt_input = [txt + states[i] for i, txt in enumerate(txt_input[1:])]
+            txt_input.insert(0, first_turn)
+            #txt_input.insert(0, [first_turn] )
+            pass
+        elif self.exp_setup == 3:
             #txt_input = [' '] + states[:-1]
             txt_input.insert(0, [states[:-1], ' '])
             
             
         return txt_input, states, turn_ids
-
 
 
     def tokenize(self, dialogue : str, slot_value : str):

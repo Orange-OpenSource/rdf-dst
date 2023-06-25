@@ -8,11 +8,11 @@ import os
 import glob
 # longt5 needs special module to avoid errors
 from transformers import AutoTokenizer, T5ForConditionalGeneration, LongT5ForConditionalGeneration
-from utils.torch_data_loader import DialogueRDFData
+from utils.data_loader import DialogueData
 from utils.args import create_arg_parser
 from utils.metric_tools import DSTMetrics
-from torch_trainer import MyTrainer, MyEvaluation
-from utils.predata_collate import PreDataCollator
+from trainer import MyTrainer, MyEvaluation
+from utils.predata_collate import BaselinePreDataCollator
 from torch.utils.tensorboard import SummaryWriter
 
 import logging
@@ -22,7 +22,7 @@ SEED = 42  # for replication purposes
 
 def preprocessing(collator, dataset, num_workers, batch_size, method):
 
-    data = DialogueRDFData(collator, num_workers=num_workers,
+    data = DialogueData(collator, num_workers=num_workers,
                            dataset=dataset,
                            batch_size=batch_size)
     data.load_hf_data(method)
@@ -92,8 +92,6 @@ def create_version_num(base_path):
     if not os.path.exists(base_path):
         os.makedirs(base_path)
 
-    print(base_path)
-    raise SystemExit
 
     dirs = [d for d in os.listdir(base_path) if d.startswith("version_")]
     if dirs:
@@ -168,9 +166,9 @@ def main():
         #model_name = "Stancld/longt5-tglobal-large-16384-pubmed-3k_steps"  # self attention layer swapped with transient-global (tglobal) attention
 
     bool_4_args = {"no": False, "yes": True}
-    length_exp_setup = {1: {"source_len": 1024, "target_len": 1024, "setup": "context and states"},
-                        2: {"source_len": 512,  "target_len": 1024, "setup": "only context"},
-                        3: {"source_len": 768,  "target_len": 1024, "setup": "only states"}}
+    length_exp_setup = {1: {"source_len": 512, "target_len": 256, "setup": "context and states"},  # 1024?
+                        2: {"source_len": 512,  "target_len": 256, "setup": "only context"},
+                        3: {"source_len": 256,  "target_len": 256, "setup": "only states"}}
     
 
     experimental_setup = args.experimental_setup
@@ -194,7 +192,7 @@ def main():
     subsetting = bool_4_args[args.subsetting]
     store = bool_4_args[args.store_output]
 
-    cut_context = True if ((model_name[:2] == 't5') and (experimental_setup == 1)) else False
+    #cut_context = True if ((model_name[:2] == 't5') and (experimental_setup == 1)) else False
 
     dataset = args.dataset
     batch_size = args.batch
@@ -205,9 +203,9 @@ def main():
     grad_acc_steps = args.gradient_accumulation_steps
     accelerator = args.accelerator
     method = args.method
-    model_checkpoint_name = f"{model_name}_experiment_{experimental_setup}"
+    model_checkpoint_name = f"baseline_{model_name}_experiment_{experimental_setup}"
 
-    collator = PreDataCollator(tokenizer, source_len, target_len, experimental_setup, cut_context=cut_context)
+    collator = BaselinePreDataCollator(tokenizer, source_len, target_len, experimental_setup)
     dataloaders = preprocessing(collator, dataset, num_workers, batch_size, method)
 
     num_train_optimization_steps = epochs * len(dataloaders['train'])
@@ -237,10 +235,6 @@ def main():
     model = model_tok["model"]
     #tokenizer = model_tok["tokenizer"]
 
-    stored_locally = False
-    if stored_locally:
-        model = load_model(model_checkpoint_name)
-
     evaluate(model, tokenizer, dataloaders['test'], accelerator, 
              target_len, dst_metrics)
     if logger:
@@ -248,13 +242,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-# https://lukesalamone.github.io/posts/what-are-attention-masks/
-# https://colab.research.google.com/drive/17CtsJtGCjp4YkykIpIoY0Kdb9nCadeFT?usp=sharing
-# https://towardsdatascience.com/awesome-pytorch-lightning-template-485a75c2f47e
-
-# https://towardsdatascience.com/a-visual-guide-to-learning-rate-schedulers-in-pytorch-24bbb262c863?source=read_next_recirc---two_column_layout_sidebar------1---------------------b1b02d55_82c1_4db6_9c17_af186403e94b-------
-
-# https://pub.towardsai.net/i-fine-tuned-gpt-2-on-110k-scientific-papers-heres-the-result-9933fe7c3c26?source=read_next_recirc---two_column_layout_sidebar------2---------------------b1b02d55_82c1_4db6_9c17_af186403e94b-------
-
-
-

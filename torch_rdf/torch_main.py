@@ -237,10 +237,6 @@ def main():
     model = model_tok["model"]
     #tokenizer = model_tok["tokenizer"]
 
-    stored_locally = False
-    if stored_locally:
-        model = load_model(model_checkpoint_name)
-
     evaluate(model, tokenizer, dataloaders['test'], accelerator, 
              target_len, dst_metrics)
     if logger:

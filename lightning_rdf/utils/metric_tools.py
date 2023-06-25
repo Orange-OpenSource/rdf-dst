@@ -42,7 +42,7 @@ class DSTMetrics:
 
     
     def joint_goal_accuracy(self, preds, labels):
-        joint_goal_accuracy = []
+        joint_goal_accuracy_score = []
         for p, l in zip(preds, labels):
             score = []
             #print(f"References:\n{l}\nSize:{len(l)}")
@@ -52,9 +52,9 @@ class DSTMetrics:
                 score.append(1 if rdf in p else 0)
                 #TODO: Consider an exact match and hallucinations match, exact will yield a really low score!
 
-            joint_goal_accuracy.append(1 if 0 not in score else 0)
+            joint_goal_accuracy_score.append(1 if 0 not in score else 0)
 
-        return {"jga": round(np.mean(joint_goal_accuracy), 2) * 100}
+        return {"jga": round(np.mean(joint_goal_accuracy_score), 2) * 100}
     
 
     def f1_smatch(self, newcandlist, newreflist):

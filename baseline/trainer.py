@@ -2,7 +2,7 @@ import pandas as pd
 import torch
 import os
 from utils.metric_tools import DSTMetrics
-from utils.postprocessing import postprocess_rdfs
+from utils.postprocessing import postprocess_states
 from utils.custom_schedulers import LinearWarmupScheduler
 from torch.optim import AdamW
 from tqdm import tqdm
@@ -93,11 +93,10 @@ class MyTrainer:
             if self.verbose:
                 self.pretty_print(epoch=epoch, train_loss=train_loss, val_loss=val_loss, results=my_evaluation.results)
 
-        # SAVE TOKENIZER !  need DPR_JOB method to better save this
         self.writer.flush()
         self.writer.close()
-        #AttributeError: 'T5TokenizerFast' object has no attribute 'save'
 
+        # don't need tokenizer during inference so not saving it
         #tokenizer.save("web_dial_dst_en_tokenizer.json")  # or is it save_pretrained? or does save_pretrained already saves the tokenizer?
         return {"model": self.model, "tokenizer": tokenizer}
 
@@ -105,20 +104,6 @@ class MyTrainer:
         print(f"Epoch {epoch+1}: train loss is {train_loss:.3f} | val loss is {val_loss:.3f}")
         for metric, value in results.items():
             print(f"{metric}: {value}")
-
-
-    # rewrite when bored to improve how we use optimizer and lr
-    #def configure_optimizers(self):
-    #    lr = self.lr
-    #    optimizer = AdamW(self.parameters(), lr=lr)
-    #    lr_scheduler = {'scheduler': get_linear_schedule_with_warmup(optimizer,
-    #                                                                 num_training_steps=self.num_training_steps,
-    #                                                                 num_warmup_steps=self.num_warmup_steps),
-    #                    'name': 'learning_rate',
-    #                    'interval': 'step',
-    #                    'frequency': 1}
-    #    return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
-
 
 
 class MyEvaluation:
@@ -138,8 +123,6 @@ class MyEvaluation:
     
         self.model.eval()
     
-        print("TITO WAS HERE")
-        raise SystemExit
         total_loss = 0
         outputs = []
         disable = not verbose
@@ -156,11 +139,15 @@ class MyEvaluation:
                 total_loss += loss.item()
     
                 if not validation:
-                    step_output = self.generate_rdfs(batch)
+                    step_output = self.generate_states(batch)
                     outputs.append(step_output)
                 elif validation and step == len(eval_data) - 1:  # just generate at the end of steps before epoch
-                    step_output = self.generate_rdfs(batch)
+                    step_output = self.generate_states(batch)
                     outputs.append(step_output)
+
+                # slower implementation
+                #step_output = self.generate_states(batch)
+                #outputs.append(step_output)
                     
     
         total_loss /= len(eval_data)
@@ -172,8 +159,6 @@ class MyEvaluation:
         return total_loss
 
     def evaluate_outputs(self, outputs):
-        #dst_metrics = DSTMetrics(outputs)
-    #def __call__(self, outputs, from_file: bool=False):
         return self.dst_metrics(outputs)
 
     @staticmethod
@@ -190,17 +175,20 @@ class MyEvaluation:
     
 
 
-    def generate_rdfs(self, batch):
-        generated_tokens = self.model.generate(batch["input_ids"], attention_mask=batch["attention_mask"], **self.gen_kwargs)
+    def generate_states(self, batch):
+        input_ids = batch['input_ids'].to(self.device)
+        attention_mask = batch['attention_mask'].to(self.device)
+        labels = batch["labels"].to(self.device).detach()#.cpu().numpy()
+
+        generated_tokens = self.model.generate(input_ids, attention_mask=attention_mask, **self.gen_kwargs)
         decoded_preds = self.tokenizer.batch_decode(generated_tokens.detach(), skip_special_tokens=True)
     
-        decoded_inputs = self.tokenizer.batch_decode(batch['input_ids'].detach(), skip_special_tokens=True)
-        labels = batch["labels"].detach()#.cpu().numpy()
+        decoded_inputs = self.tokenizer.batch_decode(input_ids.detach(), skip_special_tokens=True)
         labels = torch.where(labels != -100, labels, 0)
         decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
-    
-        decoded_labels = postprocess_rdfs(decoded_labels)
-        decoded_preds = postprocess_rdfs(decoded_preds)
+
+        decoded_labels = postprocess_states(decoded_labels)
+        decoded_preds = postprocess_states(decoded_preds)
         if isinstance(batch["dialogue_id"], list):
             dialogue_ids = batch["dialogue_id"]
         elif torch.tensor(batch["dialogue_id"]):
