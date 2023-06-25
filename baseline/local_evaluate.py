@@ -11,9 +11,9 @@ def prepare_data(path, file):
     labels = [eval(label) for label in df['labels'].array]
     ids = [eval(id) for id in df['ids'].array]
 
-    preds = [all_rdfs for pred in preds for all_rdfs in pred]
-    labels = [all_rdfs for label in labels for all_rdfs in label]
-    ids = [all_rdfs for i in ids for all_rdfs in i]
+    #preds = [all_rdfs for pred in preds for all_rdfs in pred]
+    #labels = [all_rdfs for label in labels for all_rdfs in label]
+    #ids = [all_rdfs for i in ids for all_rdfs in i]
 
     return {"preds": preds, "labels": labels, "ids": ids}
 

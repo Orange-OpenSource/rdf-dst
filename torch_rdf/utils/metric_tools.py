@@ -38,6 +38,10 @@ class DSTMetrics:
         labels = [','.join(p) for p in labels]
         meteor_score = self.meteor.compute(predictions=preds, references=labels)['meteor']  # getting the dumb value from dict object
         gleu_score = self.gleu.compute(predictions=preds, references=labels)['google_bleu']
+
+        #span_score = np.mean([1 if p == l else 0 for p, l in zip(preds, labels)])
+        #return {"meteor": round(meteor_score, 2) * 100, "gleu": round(gleu_score, 2) * 100, "span_accuracy": round(span_score, 2) * 100}
+
         return {"meteor": round(meteor_score, 2) * 100, "gleu": round(gleu_score, 2) * 100}
 
     
@@ -48,9 +52,15 @@ class DSTMetrics:
             #print(f"References:\n{l}\nSize:{len(l)}")
             #print()
             #print(f"Predictions:\n{p}\nSize:{len(p)}")
+
+            # more generous
             for rdf in l:
                 score.append(1 if rdf in p else 0)
-                #TODO: Consider an exact match and hallucinations match, exact will yield a really low score!
+
+            # all hallucinations drop score to 0, that is why we use the more generous approach
+            #for rdf in p:
+            #    score.append(1 if rdf in l else 0)
+
 
             joint_goal_accuracy_score.append(1 if 0 not in score else 0)
 
@@ -62,20 +72,32 @@ class DSTMetrics:
         closer LAS, smatch
         """
 
+
         intersections = [
-            set(c) & set(r) for c, r in zip(newcandlist, newreflist)
+            len(set(c) & set(r)) for c, r in zip(newcandlist, newreflist)
+        ]
+
+        #false positives
+        false_pos = [
+            len(set(c) - set(r)) for c, r in zip(newcandlist, newreflist)
+        ]
+
+        #false negatives
+        false_negs = [
+            len(set(r) - set(c)) for r, c in zip(newreflist, newcandlist)
         ]
 
 
-        # which one is which?
+
         precisions = [
-            len(i) / len(c) if len(c) > 0 else 1
-            for i,c in zip(intersections, newcandlist)
+            i / (i + fp) if (i + fp) > 0 else 0
+            for i, fp in zip(intersections, false_pos)
         ]
+
 
         recalls = [
-            len(i) /len(r) if len(r) > 0 else 1
-            for i,r in zip(intersections, newreflist)
+            i / (i + fn) if (i + fn) > 0 else 0
+            for i, fn in zip(intersections, false_negs)
         ]
 
         p = sum(precisions) / len(precisions)
