@@ -43,32 +43,36 @@ class DSTMetrics:
 
     
     def joint_goal_accuracy(self, preds, labels):
-        score = []
-        for l in labels:
-            score.append(1 if l in preds else 0)
 
-        return {"jga": round(np.mean(score), 2) * 100}
+        # too generous? rethink ours?
+        #score = []
+        #for l in labels:
+        #    score.append(1 if l in preds else 0)
 
-        #scores = []
-        #for p, l in zip(preds, labels):
-        #    if len(l) != 0:
-        #        #if p == l:
-        #        if l in preds:
-        #            print(f"This is pred:\n{p}\nthis is label:\n{l}")
-        #            print('\n'*2)
-        #            print(preds[preds.index(l)])
-        #            print()
-        #            scores.append(1)
-        #        else:
-        #            scores.append(0)
-        #    else:
-        #        if len(p) == 0:
-        #            scores.append(1)
-        #        else:
-        #            scores.append(0)
+        #return {"jga": round(np.mean(score), 2) * 100}
 
-        #result =  sum(scores) / len(scores) if len(scores) != 0 else 0
-        #return {"jga": round(result, 2) * 100}
+        # leo's is stricter
+        scores = []
+        for p, l in zip(preds, labels):
+            if len(l) != 0:
+                #if p == l:
+                #if l in preds and (len(preds) == len(labels)):
+                if l in preds:
+                    #print(f"This is pred:\n{p}\nthis is label:\n{l}")
+                    #print('\n'*2)
+                    #print(preds[preds.index(l)])
+                    #print()
+                    scores.append(1)
+                else:
+                    scores.append(0)
+            else:
+                if len(p) == 0:
+                    scores.append(1)
+                else:
+                    scores.append(0)
+
+        result =  sum(scores) / len(scores) if len(scores) != 0 else 0
+        return {"jga": round(result, 2) * 100}
 
     
 
