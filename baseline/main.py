@@ -75,7 +75,7 @@ def config_train_eval(model,
 
     trainer = MyTrainer(model, tb_logger, accelerator, dst_metrics, warmup_steps=num_warmup_steps,
                         total_steps=total_iterations, lr=lr, epochs=epochs, accumulation_steps=2,
-                        verbosity=True)
+                        verbosity=False)
 
 
     return {'trainer': trainer, 'model_name_path': model_name_path, 'checkpoint_path': checkpoint_path}

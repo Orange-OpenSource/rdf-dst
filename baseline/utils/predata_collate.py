@@ -80,12 +80,9 @@ class BaselinePreDataCollator:
             first_turn = txt_input[0]
             txt_input = [txt + states[i] for i, txt in enumerate(txt_input[1:])]
             txt_input.insert(0, first_turn)
-            #txt_input.insert(0, [first_turn] )
-            pass
         elif self.exp_setup == 3:
-            #txt_input = [' '] + states[:-1]
-            txt_input.insert(0, [states[:-1], ' '])
-            
+            txt_input = [' ']
+            txt_input.extend(states[:-1])
             
         return txt_input, states, turn_ids
 
