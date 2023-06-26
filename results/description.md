@@ -3,7 +3,7 @@
 Storing CSVs with results from relevant results
 
 MULTIWOZ RDF (2.3?)
-| Model          | JGA | JGA F1 | GLEU | METEOR | JGA RECALL | JGA PRECISION |
+| Model          | JGA | JG-F1 | GLEU | METEOR | JGA RECALL | JGA PRECISION |
 |----------------|-----|--------|------|--------|------------|---------------|
 | Baseline Exp 1 | 74% | 49%    | 31%  | 57%    | 98%        | 33%           |
 | Baseline Exp 2 | 45% | 47%    | 30%  | 55%    | 94%        | 32%           |
