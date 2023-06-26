@@ -3,15 +3,15 @@
 Storing CSVs with results from relevant results
 
 MULTIWOZ RDF (2.3?)
-| Model          | JGA | JG-F1 | GLEU | METEOR | JGA RECALL | JGA PRECISION |
-|----------------|-----|--------|------|--------|------------|---------------|
-| Baseline Exp 1 | 74% | 49%    | 31%  | 57%    | 98%        | 33%           |
-| Baseline Exp 2 | 45% | 47%    | 30%  | 55%    | 94%        | 32%           |
-| Baseline Exp 3 | 37% | 41%    | 23%  | 50%    | 92%        | 26%           |
-| T5-base. Exp 1 | 70% | 84%    | 80%  | 75%    | 96%        | 75%           |
-| T5-base. Exp 2 | 38% | 72%    | 65%  | 67%    | 90%        | 60%           |
-| T5-base. Exp 3 | 17% | 61%    | 59%  | 57%    | 74%        | 52%           |
-
+| Model          | JGA | JG-F1 | GLEU | METEOR | JG-RECALL | JG-PRECISION | Batch size |
+|----------------|-----|-------|------|--------|-----------|--------------|------------|
+| Baseline Exp 1 | 74% | 49%   | 31%  | 57%    | 98%       | 33%          | 8          |
+| Baseline Exp 2 | 45% | 47%   | 30%  | 55%    | 94%       | 32%          | 8          |
+| Baseline Exp 3 | 37% | 41%   | 23%  | 50%    | 92%       | 26%          | 8          |
+| T5-base. Exp 1 | 70% | 84%   | 80%  | 75%    | 96%       | 75%          | 2          |
+| T5-base. Exp 2 | 38% | 72%   | 65%  | 67%    | 90%       | 60%          | 4          |
+| T5-base. Exp 3 | 17% | 61%   | 59%  | 57%    | 74%       | 52%          | 4          |
+           
 
 Experiment 1 with T5 base has a slide window to remove older context, as the whole input does not fit into current T5. Experiments will be carried out with flanT5 and longT5 to gauge performance with the whole input
 
