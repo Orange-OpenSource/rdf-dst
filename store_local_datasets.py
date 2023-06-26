@@ -27,32 +27,3 @@ non_rdf_dataset.update({'train': train_val_non_rdf['train'], 'validation': test_
 print()
 print()
 print(non_rdf_dataset)
-
-# PREPROCESSING EXAMPLE FOR BASELINE
-test = non_rdf_dataset['test']
-
-for i in test:
-    print(i.keys())
-    for j in i['turns']['turn_id']:
-        j = int(j)
-        system = i['turns']['sys_utterance'][j]
-        user = i['turns']['usr_utterance'][j]
-        state = i['turns']['belief_state'][j]
-        print(system)
-        print(user)
-        print(state)
-        print()
-        for slot, val in zip(state['slot'], state['value']):
-            print(f"slot {slot} is value {val}")
-        print()
-    raise SystemExit
-
-print()
-print(test['dialogue_id'][5])
-print(test['turns'][5].keys())
-print()
-state_sample = test['turns'][5]['belief_state']
-print(len(state_sample))
-print(state_sample)
-print()
-print(test['turns'][5]['turn_id'])
