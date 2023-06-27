@@ -1,4 +1,5 @@
 import torch
+import os
 
 # Check if GPU is available
 if torch.cuda.is_available():
@@ -20,3 +21,12 @@ print("Result tensor on", device, ":", z)
 if device.type == "cuda":
     z_cpu = z.to("cpu")
     print("Result tensor on CPU:", z_cpu)
+
+if os.getenv('DPR_JOB'):
+    print(os.getenv('DPR_JOB'))
+    #dpr_path = os.path.join("/userstorage/", os.getenv('DPR_JOB'))
+    #print(dpr_path)
+    #dpr_path = os.path.join(dpr_path, self.path)  # created path as well, just to see if we can create nested dirs
+    #storage_path = os.path.join(dpr_path, curr_model_path)
+#else:
+#    storage_path = os.path.join(self.path, curr_model_path)

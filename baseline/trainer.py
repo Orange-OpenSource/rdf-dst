@@ -1,7 +1,6 @@
 import pandas as pd
 import torch
 import os
-from utils.metric_tools import DSTMetrics
 from utils.postprocessing import postprocess_states
 from utils.custom_schedulers import LinearWarmupScheduler
 from torch.optim import AdamW
@@ -22,6 +21,7 @@ class MyTrainer:
                  warmup_steps, total_steps,
                  lr=1e-6,
                  epochs: int=5,
+                 weight_decay: float=0.0,
                  accumulation_steps: int=2,  # careful, this increases size of graph
                  verbosity: bool=False
                  ):
@@ -33,7 +33,20 @@ class MyTrainer:
         # no batch norm in T5? https://discuss.pytorch.org/t/accumulating-gradients/30020/3
         self.accumulation_steps = accumulation_steps
         lr = 1e-3  # 1e-4 best so far?. 1e-3
-        self.optimizer = AdamW(self.model.parameters(), lr=lr)
+        
+        no_decay = ["bias", "LayerNorm.weight"]
+        optimizer_grouped_parameters = [
+            {
+                "params": [p for n, p in model.parameters() if not any(nd in n for nd in no_decay)],
+                "weight_decay": weight_decay,
+            },
+            {
+                "params": [p for n, p in model.parameters() if any(nd in n for nd in no_decay)],
+                "weight_decay": 0.0,
+            },
+        ]
+
+        self.optimizer = AdamW(optimizer_grouped_parameters, lr=lr)
         self.scheduler = LinearWarmupScheduler(self.optimizer, warmup_steps, total_steps)
 
         self.dst_metrics = dst_metrics
@@ -50,6 +63,7 @@ class MyTrainer:
         self.model.to(self.device)
 
         early_stop_value = None
+        results_logging = {}
         for epoch in tqdm(range(self.epochs), disable=self.disable):
             loss_curr_epoch = 0
             self.model.train()
@@ -74,16 +88,25 @@ class MyTrainer:
                 loss_curr_epoch += loss.item()
 
             train_loss = loss_curr_epoch / len(train_data)
-            self.writer.add_scalar("Loss/train", train_loss, epoch)
 
             # VALIDATION
             my_evaluation = MyEvaluation(self.model, tokenizer, self.device, target_length, self.dst_metrics)
-            val_loss = my_evaluation(val_data, validation=True, verbose=self.verbose)
-            self.writer.add_scalar("Loss/val", val_loss, epoch)
-            for metric, value in my_evaluation.results.items():
-                self.writer.add_scalar(f"{metric}/val", value, epoch)
-
-            save_ckp(val_loss, epoch, self.model)
+            val_loss = my_evaluation(val_data, validation=True, verbose=self.verbose)            
+            log_dict = my_evaluation.results
+            log_dict.setdefault('train_loss', train_loss)
+            log_dict.setdefault('val_loss', val_loss)
+            results_logging[f'epoch_{epoch}'] = log_dict
+            for metric, value in log_dict.items():
+                if 'loss' in metric:
+                    name_metric = metric.split('_')
+                    name_metric = name_metric[1].capitalize() + '/' + name_metric[0]
+                    self.writer.add_scalar(name_metric, value, epoch)
+                else:
+                    self.writer.add_scalar(f"{metric}/val", value, epoch)
+     
+            
+            save_ckp(val_loss, self.model, tokenizer, epoch, results_logging, log_dict)
+            
             early_stopping(val_loss)
 
             if early_stopping.early_stop:
@@ -91,14 +114,12 @@ class MyTrainer:
                 print(f"Early stopping at epoch {early_stop_value}")
 
             if self.verbose:
-                self.pretty_print(epoch=epoch, train_loss=train_loss, val_loss=val_loss, results=my_evaluation.results)
+                self.pretty_print(epoch=epoch, train_loss=train_loss, val_loss=val_loss, results=log_dict)
 
         self.writer.flush()
         self.writer.close()
 
-        # don't need tokenizer during inference so not saving it
-        #tokenizer.save("web_dial_dst_en_tokenizer.json")  # or is it save_pretrained? or does save_pretrained already saves the tokenizer?
-        return {"model": self.model, "tokenizer": tokenizer}
+        return {"model": self.model, "tokenizer": tokenizer, "results": results_logging}
 
     def pretty_print(self, epoch, train_loss, val_loss, results):
         print(f"Epoch {epoch+1}: train loss is {train_loss:.3f} | val loss is {val_loss:.3f}")

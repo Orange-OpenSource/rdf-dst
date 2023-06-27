@@ -42,7 +42,7 @@ class DSTMetrics:
         #span_score = np.mean([1 if p == l else 0 for p, l in zip(preds, labels)])
         #return {"meteor": round(meteor_score, 2) * 100, "gleu": round(gleu_score, 2) * 100, "span_accuracy": round(span_score, 2) * 100}
 
-        return {"meteor": round(meteor_score, 2) * 100, "gleu": round(gleu_score, 2) * 100}
+        return {"meteor": round(meteor_score, 5) * 100, "gleu": round(gleu_score, 5) * 100}
 
     
     def joint_goal_accuracy(self, preds, labels):
@@ -64,7 +64,7 @@ class DSTMetrics:
 
             joint_goal_accuracy_score.append(1 if 0 not in score else 0)
 
-        return {"jga": round(np.mean(joint_goal_accuracy_score), 2) * 100}
+        return {"jga": round(np.mean(joint_goal_accuracy_score), 5) * 100}
     
 
     def f1_smatch(self, newcandlist, newreflist):
@@ -107,8 +107,8 @@ class DSTMetrics:
         except ZeroDivisionError:
             f1 = 0
 
-        f1 = round(f1, 2) * 100
-        p = round(p, 2) * 100
-        r = round(r, 2) * 100
+        f1 = round(f1, 5) * 100
+        p = round(p, 5) * 100
+        r = round(r, 5) * 100
         return {'precision': p, 'recall': r, 'f1' : f1}
 

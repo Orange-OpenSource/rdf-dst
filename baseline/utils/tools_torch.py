@@ -12,11 +12,18 @@ class SaveBestModel:
         self.best_valid_loss = best_valid_loss
         self.path = path
         self.model_name_path = model_name_path
+        # custom eval vals to be more rigorous of what model we'll be storing
+        self.best_jga = 0
 
-    def __call__(self, current_valid_loss, epoch, model):
-        if current_valid_loss < self.best_valid_loss:
+    def __call__(self, model, tokenizer, epoch, results_logging, log_dict):
+        # more rigorous saving method with jga as well
+        curr_jga = log_dict['jga']
+        curr_jga = log_dict['val_loss']
+        if (current_valid_loss < self.best_valid_loss) and (curr_jga > self.best_jga):
             self.best_valid_loss = current_valid_loss
-            curr_model_path = self.model_name_path + f'-v{epoch+1}'
+            self.best_jga = curr_jga
+            results_logging['best_epoch'] = dict(log_dict, **{'epoch': epoch})   
+            curr_model_path = self.model_name_path
             if os.getenv('DPR_JOB'):
                 dpr_path = os.path.join("/userstorage/", os.getenv('DPR_JOB'))
                 dpr_path = os.path.join(dpr_path, self.path)
@@ -24,6 +31,8 @@ class SaveBestModel:
             else:
                 storage_path = os.path.join(self.path, curr_model_path)
             model.save_pretrained(storage_path)
+            tokenizer.save_pretrained(storage_path)
+
 
 
 class EarlyStopping:

@@ -3,9 +3,8 @@ load_dotenv()  # load keys and especially w and biases to see visualizations. Lo
 
 import wandb
 import math
-import re
 import os
-import glob
+import json
 # longt5 needs special module to avoid errors
 from transformers import AutoTokenizer, T5ForConditionalGeneration, LongT5ForConditionalGeneration
 from utils.data_loader import DialogueData
@@ -60,21 +59,11 @@ def config_train_eval(model,
     # Optimizer
     # Split weights in two groups, one with weight decay and the other not.
     total_iterations = num_train_optimization_steps
-    no_decay = ["bias", "LayerNorm.weight"]
-    optimizer_grouped_parameters = [
-        {
-            "params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
-            "weight_decay": weight_decay,
-        },
-        {
-            "params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)],
-            "weight_decay": 0.0,
-        },
-    ]
 
 
     trainer = MyTrainer(model, tb_logger, accelerator, dst_metrics, warmup_steps=num_warmup_steps,
-                        total_steps=total_iterations, lr=lr, epochs=epochs, accumulation_steps=2,
+                        total_steps=total_iterations, lr=lr, epochs=epochs,
+                        weight_decay=weight_decay, accumulation_steps=2,
                         verbosity=False)
 
 
@@ -123,34 +112,19 @@ def evaluate(model, tokenizer, test_dataloader, device,
 
     logging.info("Inference stage")
 
-
     my_evaluation = MyEvaluation(model, tokenizer, device, target_len, dst_metrics)
     my_evaluation(test_dataloader, validation=False, verbose=True)
     print(my_evaluation.results)
 
-def load_model(name):
-    file_path = f'./tb_logs/{name}/'
-    ckpt_path = find_version_num(file_path)
-    model = T5ForConditionalGeneration.from_pretrained(ckpt_path)
-    #tokenizer = AutoTokenizer.from_pretrained(model_name, extra_ids=0) 
-    return model
+
+def manual_log_experiments(results, summary, path):
+    # Save experiment logs
+    with open(os.path.join(path, 'train_log.json', 'w')) as ostr:
+        json.dump(results, ostr, indent=4)
+    with open(os.path.join('exp_summary.json', 'w')) as ostr:
+        json.dump(summary, ostr, indent=4)
 
 
-def find_version_num(path):
-
-
-    dirs = [d for d in os.listdir(path) if 'checkpoints' in os.listdir(path + d)]
-    assert dirs, "No version has any checkpoints. Did you train the model?"
-    newest_version = max(map(regex_match, dirs))
-    parent_dir = f"{path}version_{newest_version}/checkpoints"
-    pattern = parent_dir + "/best_dst_ckpt-*"
-    checkpoints = [dir_path for dir_path in glob.glob(pattern) if os.path.isdir(dir_path)]
-    return max(checkpoints, key=os.path.getctime)
-
-def regex_match(dir_name):
-    versionRegex = re.compile(r"^version_(\d+)$")
-    res_match = versionRegex.search(dir_name)
-    return int(res_match.group(1))
 
 def main():
 
@@ -229,11 +203,35 @@ def main():
     if logger:
         wandb.login()  
         wandb.tensorboard.patch(root_logdir=".tb_logs/")  # save=False?, tensorboard_x=True?
-        wandb.init(project="basic_flant5", sync_tensorboard=True)
+        https://github.com/wandb/wandb/issues/1782
+        #wandb.init(project="basic_flant5", sync_tensorboard=True)
 
     model_tok = training(trainer, dataloaders, tokenizer, target_len, model_name_path, checkpoint_path)
     model = model_tok["model"]
-    #tokenizer = model_tok["tokenizer"]
+    tokenizer = model_tok["tokenizer"]
+    results = model_tok["results"]
+
+    summary = {
+        "dataset": dataset,
+        "max_source_length": source_len,
+        "max_target_length": target_len,
+        "epochs": epochs,
+        "num_optimization_steps": num_train_optimization_steps,
+        "num_warmup_steps": num_warmup_steps,
+        "weight_decay": weight_decay,
+        "learning_rate": lr,
+        "training size": train_set_size,
+        "jga": results['best_epoch']['jga'],
+        "f1": results['best_epoch']['f1'],
+        "recall": results['best_epoch']['recall'],
+        "precision": results['best_epoch']['precision'],
+        "meteor": results['best_epoch']['meteor'],
+        "gleu": results['best_epoch']['gleu'],
+        "train_loss": results['best_epoch']['train_loss'],
+        "val_loss": results['best_epoch']['val_loss'],
+        'git_hash': subprocess.check_output(["git", "describe", "--always"]).strip().decode()
+    }
+    manual_log_experiments(results, summary, checkpoint_path)
 
     evaluate(model, tokenizer, dataloaders['test'], accelerator, 
              target_len, dst_metrics)
