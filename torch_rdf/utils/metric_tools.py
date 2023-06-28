@@ -46,26 +46,23 @@ class DSTMetrics:
 
     
     def joint_goal_accuracy(self, preds, labels):
+
         joint_goal_accuracy_score = []
+        aga_score = []
         for p, l in zip(preds, labels):
             score = []
-            #print(f"References:\n{l}\nSize:{len(l)}")
-            #print()
-            #print(f"Predictions:\n{p}\nSize:{len(p)}")
 
             # more generous
             for rdf in l:
                 score.append(1 if rdf in p else 0)
+            
+            # stricter
+            joint_goal_accuracy_score.append(1 if p == l else 0)
 
-            # all hallucinations drop score to 0, that is why we use the more generous approach
-            #for rdf in p:
-            #    score.append(1 if rdf in l else 0)
 
+            aga_score.append(1 if 0 not in score else 0)
 
-            joint_goal_accuracy_score.append(1 if 0 not in score else 0)
-
-        return {"jga": round(np.mean(joint_goal_accuracy_score), 5) * 100}
-    
+        return {"jga": round(np.mean(joint_goal_accuracy_score), 5) * 100, "aga": round(np.mean(aga_score), 5) * 100}
 
     def f1_smatch(self, newcandlist, newreflist):
         """

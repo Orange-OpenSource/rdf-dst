@@ -5,7 +5,6 @@ from utils.postprocessing import postprocess_states
 from utils.custom_schedulers import LinearWarmupScheduler
 from torch.optim import AdamW
 from tqdm import tqdm
-from utils.tools_torch import EarlyStopping, SaveBestModel
 
 import logging
 
@@ -17,7 +16,6 @@ class MyTrainer:
 
     def __init__(self, 
                  model, logger, accelerator,
-                 dst_metrics,
                  warmup_steps, total_steps,
                  lr=1e-6,
                  epochs: int=5,
@@ -49,16 +47,20 @@ class MyTrainer:
         self.optimizer = AdamW(optimizer_grouped_parameters, lr=lr)
         self.scheduler = LinearWarmupScheduler(self.optimizer, warmup_steps, total_steps)
 
-        self.dst_metrics = dst_metrics
         self.verbose = verbosity
         self.disable = not verbosity
 
-    #optimizer = Adafactor(optimizer_grouped_parameters, lr=args.learning_rate, scale_parameter=False, relative_step=False)
 
-    def train_loop(self, train_data, val_data, tokenizer, target_length, path, model_name_path):
+    def callbacks(self, dst_callbacks):
+        self.dst_metrics = dst_callbacks['metrics']
+        self.save_ckp = dst_callbacks['save']
+        self.early_stopping = dst_callbacks['early_stop']
+        if dst_callbacks['wandb']:
+            pass
 
-        early_stopping = EarlyStopping()
-        save_ckp = SaveBestModel(path, model_name_path)
+
+    def train_loop(self, train_data, val_data, tokenizer, target_length):
+
 
         self.model.to(self.device)
 
@@ -95,6 +97,10 @@ class MyTrainer:
             log_dict = my_evaluation.results
             log_dict.setdefault('train_loss', train_loss)
             log_dict.setdefault('val_loss', val_loss)
+
+            BAHBA
+            wandb.log(log_dict, step=epoch)
+
             results_logging[f'epoch_{epoch}'] = log_dict
             for metric, value in log_dict.items():
                 if 'loss' in metric:
@@ -105,11 +111,11 @@ class MyTrainer:
                     self.writer.add_scalar(f"{metric}/val", value, epoch)
      
             
-            save_ckp(self.model, tokenizer, epoch, results_logging, log_dict)
+            self.save_ckp(self.model, tokenizer, epoch, results_logging, log_dict)
             
-            early_stopping(val_loss)
+            self.early_stopping(val_loss)
 
-            if early_stopping.early_stop:
+            if self.early_stopping.early_stop:
                 early_stop_value = epoch+1
                 print(f"Early stopping at epoch {early_stop_value}")
 

@@ -7,7 +7,7 @@ sentencepiece==0.1.97
 evaluate==0.4.0
 scikit-learn==1.2.2
 boto3==1.26.124
-wandb==0.15.1
+wandb==0.15.4
 lightning==2.0.2
 python-dotenv==1.0.0
 tensorboard==2.13.0

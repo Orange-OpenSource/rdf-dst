@@ -42,62 +42,22 @@ class DSTMetrics:
     def joint_goal_accuracy(self, preds, labels):
 
         joint_goal_accuracy_score = []
+        aga_score = []
         for p, l in zip(preds, labels):
             score = []
 
             # more generous
             for state in l:
                 score.append(1 if state in p else 0)
+            
+            # stricter
+            joint_goal_accuracy_score.append(1 if p == l else 0)
 
-            # all hallucinations drop score to 0, that is why we use the more generous approach
-            #for state in p:
-            #    score.append(1 if state in l else 0)
 
+            aga_score.append(1 if 0 not in score else 0)
 
-            joint_goal_accuracy_score.append(1 if 0 not in score else 0)
+        return {"jga": round(np.mean(joint_goal_accuracy_score), 5) * 100, "aga": round(np.mean(aga_score), 5) * 100}
 
-        return {"jga": round(np.mean(joint_goal_accuracy_score), 5) * 100}
-
-        #score = []
-        #for p, l in zip(preds, labels):
-        #    # more generous, otherwise we punish hallucinations even if all states were accurate predicted
-        #    score.append(1 if l in preds else 0)
-        #    #score.append(1 if p == l else 0)
-        #    #if p not in labels:
-        #    #    score.append(0)
-        #    #else:
-        #    #    score.append(1 if l in preds else 0)
-
-        #return {"jga": round(np.mean(score), 2) * 100}
-
-        # leo's is stricter
-        #scores = []
-        #for p, l in zip(preds, labels):
-        #    if len(l) != 0:
-        #        #if p == l:
-        #        #if l in preds and (len(preds) == len(labels)):
-        #        if l in preds:
-        #            #print(f"This is pred:\n{p}\nthis is label:\n{l}")
-        #            #print('\n'*2)
-        #            #print(preds[preds.index(l)])
-        #            #print()
-        #            scores.append(1)
-        #        elif l not in preds:
-        #            scores.append(0)
-        #        
-        #        if p not in labels:
-        #            scores.append(0)
-
-        #    else:
-        #        if len(p) == 0:
-        #            scores.append(1)
-        #        else:
-        #            scores.append(0)
-
-        #result =  sum(scores) / len(scores) if len(scores) != 0 else 0
-        #return {"jga": round(result, 2) * 100}
-
-    
 
     def f1_states(self, preds, labels):
 

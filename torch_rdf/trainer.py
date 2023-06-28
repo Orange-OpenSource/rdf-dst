@@ -5,7 +5,6 @@ from utils.postprocessing import postprocess_rdfs
 from utils.custom_schedulers import LinearWarmupScheduler
 from torch.optim import AdamW
 from tqdm import tqdm
-from utils.train_tools import EarlyStopping, SaveBestModel
 
 import logging
 
@@ -17,7 +16,6 @@ class MyTrainer:
 
     def __init__(self, 
                  model, logger, accelerator,
-                 dst_metrics,
                  warmup_steps, total_steps,
                  lr=1e-6,
                  epochs: int=5,
@@ -54,15 +52,16 @@ class MyTrainer:
         self.optimizer = AdamW(optimizer_grouped_parameters, lr=lr)
         self.scheduler = LinearWarmupScheduler(self.optimizer, warmup_steps, total_steps)
 
-        self.dst_metrics = dst_metrics
         self.verbose = verbosity
         self.disable = not verbosity
 
 
-    def train_loop(self, train_data, val_data, tokenizer, target_length, path, model_name_path):
+    def callbacks(self, dst_callbacks):
+        self.dst_metrics = dst_callbacks['metrics']
+        self.save_ckp = dst_callbacks['save']
+        self.early_stopping = dst_callbacks['early_stop']
 
-        early_stopping = EarlyStopping()
-        save_ckp = SaveBestModel(path, model_name_path)
+    def train_loop(self, train_data, val_data, tokenizer, target_length):
 
         self.model.to(self.device)
 
@@ -109,10 +108,10 @@ class MyTrainer:
                 else:
                     self.writer.add_scalar(f"{metric}/val", value, epoch)
 
-            save_ckp(self.model, tokenizer, epoch, results_logging, log_dict)
-            early_stopping(val_loss)
+            self.save_ckp(self.model, tokenizer, epoch, results_logging, log_dict)
+            self.early_stopping(val_loss)
 
-            if early_stopping.early_stop:
+            if self.early_stopping.early_stop:
                 early_stop_value = epoch+1
                 print(f"Early stopping at epoch {early_stop_value}")
 
@@ -128,20 +127,6 @@ class MyTrainer:
         print(f"Epoch {epoch+1}: train loss is {train_loss:.3f} | val loss is {val_loss:.3f}")
         for metric, value in results.items():
             print(f"{metric}: {value}")
-
-
-    # rewrite when bored to improve how we use optimizer and lr
-    #def configure_optimizers(self):
-    #    lr = self.lr
-    #    optimizer = AdamW(self.parameters(), lr=lr)
-    #    lr_scheduler = {'scheduler': get_linear_schedule_with_warmup(optimizer,
-    #                                                                 num_training_steps=self.num_training_steps,
-    #                                                                 num_warmup_steps=self.num_warmup_steps),
-    #                    'name': 'learning_rate',
-    #                    'interval': 'step',
-    #                    'frequency': 1}
-    #    return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
-
 
 
 class MyEvaluation:
@@ -195,8 +180,6 @@ class MyEvaluation:
         return total_loss
 
     def evaluate_outputs(self, outputs):
-        #dst_metrics = DSTMetrics(outputs)
-    #def __call__(self, outputs, from_file: bool=False):
         return self.dst_metrics(outputs)
 
     @staticmethod

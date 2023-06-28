@@ -3,7 +3,6 @@ load_dotenv()  # load keys and especially w and biases to see visualizations. Lo
 
 import wandb
 import math
-import subprocess
 import json
 import os
 # longt5 needs special module to avoid errors
@@ -11,6 +10,7 @@ from transformers import AutoTokenizer, T5ForConditionalGeneration, LongT5ForCon
 from utils.data_loader import DialogueRDFData
 # an idea, maybe?
 #from baseline.utils.data_loader import DialogueRDFData
+from utils.train_tools import EarlyStopping, SaveBestModel
 from utils.args import create_arg_parser
 from utils.metric_tools import DSTMetrics
 from trainer import MyTrainer, MyEvaluation
@@ -41,35 +41,25 @@ def config_train_eval(model,
                       lr,
                       weight_decay,
                       epochs,
-                      dst_metrics,
                       num_train_optimization_steps, num_warmup_steps,
-                      accelerator, name):
+                      accelerator, version_dir):
     """
     returns trainer to use for finetuning and inference
     """
 
-    parent_dir = 'tb_logs'
-    # other way to log with writer?
-    # https://stackoverflow.com/questions/66945431/how-to-log-metrics-eg-validation-loss-to-tensorboard-when-using-pytorch-light
-    base_path = os.path.join(parent_dir, name)
-    version_dir = create_version_num(base_path)
-    checkpoint_path = os.path.join(version_dir, 'checkpoints')
-    model_name_path = 'best_dst_ckpt'
 
     tb_logger = SummaryWriter(version_dir)
     # flush and close happens at the end of the training loop in the other class. may not be a clean way to do this.
 
-    # Optimizer
-    # Split weights in two groups, one with weight decay and the other not.
     total_iterations = num_train_optimization_steps
 
-    trainer = MyTrainer(model, tb_logger, accelerator, dst_metrics, warmup_steps=num_warmup_steps,
-                        total_steps=total_iterations, lr=lr, epochs=epochs,
-                        weight_decay=weight_decay, accumulation_steps=2,
-                        verbosity=True)
+
+    return MyTrainer(model, tb_logger, accelerator,
+                     warmup_steps=num_warmup_steps, total_steps=total_iterations,
+                     lr=lr, epochs=epochs, weight_decay=weight_decay, accumulation_steps=2,
+                     verbosity=True)
 
 
-    return {'trainer': trainer, 'model_name_path': model_name_path, 'checkpoint_path': checkpoint_path}
 
 def create_version_num(base_path):
 
@@ -97,7 +87,7 @@ def create_version_num(base_path):
     os.makedirs(new_dir)
     return new_dir
 
-def training(trainer, dataloaders, tokenizer, target_length, model_name_path, checkpoint_path):
+def training(trainer, dataloaders, tokenizer, target_length):
     """
     returns model and tokenizer
 
@@ -106,8 +96,7 @@ def training(trainer, dataloaders, tokenizer, target_length, model_name_path, ch
 
     logging.info("Training stage")
     return trainer.train_loop(dataloaders['train'], dataloaders['validation'], tokenizer,
-                              target_length=target_length,
-                              path=checkpoint_path, model_name_path=model_name_path)
+                              target_length=target_length)
     
 
 def evaluate(model, tokenizer, test_dataloader, device, 
@@ -189,53 +178,62 @@ def main():
     train_set_size = len(dataloaders['train'])
     num_train_optimization_steps = epochs * train_set_size
     num_warmup_steps = math.ceil(len(dataloaders['train']) / grad_acc_steps)
-    dst_metrics = DSTMetrics()  # this is loading the metrics now so we don't have to do this again
 
-    config = config_train_eval(model,
+    parent_dir = 'tb_logs'
+    base_path = os.path.join(parent_dir, model_checkpoint_name)
+    version_dir = create_version_num(base_path)
+
+    checkpoint_path = os.path.join(version_dir, 'checkpoints')
+    model_name_path = 'best_dst_ckpt'
+
+    dst_metrics = DSTMetrics()  # this is loading the metrics now so we don't have to do this again
+    early_stopping = EarlyStopping()
+    save_ckp = SaveBestModel(checkpoint_path, model_name_path)
+
+    trainer = config_train_eval(model,
                           lr,
                           weight_decay,
                           epochs,
-                          dst_metrics,
                           num_train_optimization_steps,
                           num_warmup_steps,
                           accelerator,
-                          model_checkpoint_name)
+                          version_dir)
 
-    model_name_path = config['model_name_path']
-    checkpoint_path = config['checkpoint_path']
-    trainer = config['trainer']
-
-    if logger:
-        wandb.login()  
-        wandb.tensorboard.patch(root_logdir=".tb_logs/")  # save=False?, tensorboard_x=True?
-        #wandb.init(project="basic_flant5", sync_tensorboard=True)
-
-    model_tok = training(trainer, dataloaders, tokenizer, target_len, model_name_path, checkpoint_path)
-    model = model_tok["model"]
-    # i mean the tok does not change but whatevs
-    tokenizer = model_tok["tokenizer"]
-    results = model_tok["results"]
+    trainer.callbacks({"save": save_ckp, "early_stop": early_stopping,
+                       "metrics": dst_metrics, "wandb": logger})
 
     summary = {
         "dataset": dataset,
         "max_source_length": source_len,
         "max_target_length": target_len,
         "epochs": epochs,
+        "batch_size": batch_size,
         "num_optimization_steps": num_train_optimization_steps,
         "num_warmup_steps": num_warmup_steps,
         "weight_decay": weight_decay,
         "learning_rate": lr,
-        "training size": train_set_size,
-        "jga": results['best_epoch']['jga'],
-        "f1": results['best_epoch']['f1'],
-        "recall": results['best_epoch']['recall'],
-        "precision": results['best_epoch']['precision'],
-        "meteor": results['best_epoch']['meteor'],
-        "gleu": results['best_epoch']['gleu'],
-        "train_loss": results['best_epoch']['train_loss'],
-        "val_loss": results['best_epoch']['val_loss'],
-        'git_hash': subprocess.check_output(["git", "describe", "--always"]).strip().decode()
+        "training size": train_set_size
     }
+
+    if logger:
+        wandb.login()  
+        wandb.init(project="basic_flant5", config=summary)
+
+    model_tok = training(trainer, dataloaders, tokenizer, target_len, logger)
+    model = model_tok["model"]
+    tokenizer = model_tok["tokenizer"]
+    results = model_tok["results"]
+
+    summary = dict(summary, **{"jga": results['best_epoch']['jga'],
+                               "f1": results['best_epoch']['f1'],
+                               "recall": results['best_epoch']['recall'],
+                               "precision": results['best_epoch']['precision'],
+                               "meteor": results['best_epoch']['meteor'],
+                               "gleu": results['best_epoch']['gleu'],
+                               "train_loss": results['best_epoch']['train_loss'],
+                               "val_loss": results['best_epoch']['val_loss']
+                              })
+
     manual_log_experiments(results, summary, checkpoint_path)
 
     evaluate(model, tokenizer, dataloaders['test'], accelerator, 
