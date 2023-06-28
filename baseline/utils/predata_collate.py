@@ -59,7 +59,7 @@ class BaselinePreDataCollator:
             slot_values = list(frozenset(clean_slot_val(s_v['name']) + '=' + clean_slot_val(s_v['value']) for s_v in user_slot_vals + sys_slot_vals))
             # augmentation: does it make eval more complicated?
             #slot_values = random.sample(slot_values, len(slot_values))
-            states.append('|'.join([s_v for s_v in slot_values if s_v]))
+            states.append('|'.join([s_v for s_v in slot_values if s_v != '']))
             turn_ids.append(t['turn-index'])
 
             if self.exp_setup in [1, 2]:
@@ -68,7 +68,6 @@ class BaselinePreDataCollator:
                 convo = self.sys_tkn + system + self.user_tkn + user
                 context += convo
                 txt_input.append(context.strip().lower())
-        
         if self.exp_setup == 1:
             first_turn = txt_input[0]
             txt_input = [txt + states[i] for i, txt in enumerate(txt_input[1:])]

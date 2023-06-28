@@ -1,4 +1,5 @@
 import pandas as pd
+import wandb
 import torch
 import os
 from utils.postprocessing import postprocess_states
@@ -55,8 +56,12 @@ class MyTrainer:
         self.dst_metrics = dst_callbacks['metrics']
         self.save_ckp = dst_callbacks['save']
         self.early_stopping = dst_callbacks['early_stop']
-        if dst_callbacks['wandb']:
-            pass
+        self.logger = dst_callbacks['wandb']
+        if self.logger['active_logger']:
+            project = self.logger["project"]
+            config = self.logger["config"]
+            wandb.login()  
+            wandb.init(project=project, config=config)
 
 
     def train_loop(self, train_data, val_data, tokenizer, target_length):
@@ -66,6 +71,10 @@ class MyTrainer:
 
         early_stop_value = None
         results_logging = {}
+        # too much
+        #if self.logger['active_logger']:
+        #    wandb.watch(self.model, log='all', log_freq=1, log_graph=False)  # change to 1000 or even more during real training
+
         for epoch in tqdm(range(self.epochs), disable=self.disable):
             loss_curr_epoch = 0
             self.model.train()
@@ -98,8 +107,8 @@ class MyTrainer:
             log_dict.setdefault('train_loss', train_loss)
             log_dict.setdefault('val_loss', val_loss)
 
-            BAHBA
-            wandb.log(log_dict, step=epoch)
+            if self.logger['active_logger']:
+                wandb.log(log_dict, step=epoch)
 
             results_logging[f'epoch_{epoch}'] = log_dict
             for metric, value in log_dict.items():
@@ -124,6 +133,8 @@ class MyTrainer:
 
         self.writer.flush()
         self.writer.close()
+        if self.logger['active_logger']:
+            wandb.finish()
 
         return {"model": self.model, "tokenizer": tokenizer, "results": results_logging}
 

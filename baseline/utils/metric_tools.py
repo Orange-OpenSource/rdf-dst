@@ -20,12 +20,13 @@ class DSTMetrics:
 
         preds = self.data["preds"]
         labels = self.data["labels"]
-        scores = self.f1_states(preds, labels)
         span_scores = self.span_evaluation(preds, labels)
-        jga = self.joint_goal_accuracy(preds, labels)
-        scores.update(jga)
-        scores.update(span_scores)
-        return scores
+        # turning into sets to faciliate operations
+        preds = [set(p) for p in preds]
+        labels = [set(l) for l in labels]
+        f1_scores = self.f1_states(preds, labels)
+        ga = self.goal_accuracy(preds, labels)
+        return {**span_scores, **ga, **f1_scores}
 
 
     def span_evaluation(self, preds, labels):
@@ -34,27 +35,22 @@ class DSTMetrics:
         meteor_score = self.meteor.compute(predictions=preds, references=labels)['meteor']  # getting the dumb value from dict object
         gleu_score = self.gleu.compute(predictions=preds, references=labels)['google_bleu']
 
-        #span_score = np.mean([1 if p == l else 0 for p, l in zip(preds, labels)])
-        return {"meteor": round(meteor_score, 5) * 100, "gleu": round(gleu_score, 5) * 100}
-        #return {"meteor": round(meteor_score, 2) * 100, "gleu": round(gleu_score, 2) * 100, "span_accuracy": round(span_score, 2) * 100}
+        sga = np.mean([1 if p == l else 0 for p, l in zip(preds, labels)])
+        return {"meteor": round(meteor_score, 5) * 100, "gleu": round(gleu_score, 5) * 100, "sga": sga * 100}
 
     
-    def joint_goal_accuracy(self, preds, labels):
+    def goal_accuracy(self, preds, labels):
 
         joint_goal_accuracy_score = []
         aga_score = []
         for p, l in zip(preds, labels):
-            score = []
-
-            # more generous
-            for state in l:
-                score.append(1 if state in p else 0)
+            # more generous: is l a subset of p
+            flexible_match = l <= p
             
-            # stricter
-            joint_goal_accuracy_score.append(1 if p == l else 0)
-
-
-            aga_score.append(1 if 0 not in score else 0)
+            aga_score.append(1 if flexible_match else 0)
+            # stricter, using symmetric difference
+            exact_match = p ^ l
+            joint_goal_accuracy_score.append(1 if len(exact_match) == 0 else 0)
 
         return {"jga": round(np.mean(joint_goal_accuracy_score), 5) * 100, "aga": round(np.mean(aga_score), 5) * 100}
 
@@ -62,17 +58,17 @@ class DSTMetrics:
     def f1_states(self, preds, labels):
 
         intersections = [
-             len(set(c) & set(r)) for c, r in zip(preds, labels)
+             len(c & r) for c, r in zip(preds, labels)
          ]
 
         #false positives
         false_pos = [
-            len(set(c) - set(r)) for c, r in zip(preds, labels)
+            len(c - r) for c, r in zip(preds, labels)
         ]
 
         #false negatives
         false_negs = [
-            len(set(r) - set(c)) for r, c in zip(labels, preds)
+            len(r - c) for r, c in zip(labels, preds)
         ]
 
 

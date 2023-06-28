@@ -1,4 +1,5 @@
 import pandas as pd
+import wandb
 import torch
 import os
 from utils.postprocessing import postprocess_rdfs
@@ -55,11 +56,20 @@ class MyTrainer:
         self.verbose = verbosity
         self.disable = not verbosity
 
+        self.config = None
+
 
     def callbacks(self, dst_callbacks):
         self.dst_metrics = dst_callbacks['metrics']
         self.save_ckp = dst_callbacks['save']
         self.early_stopping = dst_callbacks['early_stop']
+        self.logger = dst_callbacks['wandb']
+
+        if self.logger['active_logger']:
+            project = self.logger["project"]
+            config = self.logger["config"]
+            wandb.login()  
+            wandb.init(project=project, config=config)
 
     def train_loop(self, train_data, val_data, tokenizer, target_length):
 
@@ -99,6 +109,10 @@ class MyTrainer:
             log_dict = my_evaluation.results
             log_dict.setdefault('train_loss', train_loss)
             log_dict.setdefault('val_loss', train_loss)
+
+            if self.logger['active_logger']:
+                wandb.log(log_dict, step=epoch)
+
             results_logging[f'epoch_{epoch}'] = log_dict
             for metric, value in log_dict.items():
                 if 'loss' in metric:
@@ -120,6 +134,8 @@ class MyTrainer:
 
         self.writer.flush()
         self.writer.close()
+        if self.logger['active_logger']:
+            wandb.finish()
 
         return {"model": self.model, "tokenizer": tokenizer, "results": results_logging}
 
@@ -146,8 +162,6 @@ class MyEvaluation:
     
         self.model.eval()
     
-        print("TITO WAS HERE")
-        raise SystemExit
         total_loss = 0
         outputs = []
         disable = not verbose

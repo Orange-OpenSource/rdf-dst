@@ -1,7 +1,6 @@
 from dotenv import load_dotenv
 load_dotenv()  # load keys and especially w and biases to see visualizations. Looking in curr dir
 
-import wandb
 import math
 import os
 import json
@@ -176,6 +175,19 @@ def main():
     num_train_optimization_steps = epochs * train_set_size
     num_warmup_steps = math.ceil(len(dataloaders['train']) / grad_acc_steps)
 
+    summary = {
+        "dataset": dataset,
+        "max_source_length": source_len,
+        "max_target_length": target_len,
+        "epochs": epochs,
+        "batch_size": batch_size,
+        "num_optimization_steps": num_train_optimization_steps,
+        "num_warmup_steps": num_warmup_steps,
+        "weight_decay": weight_decay,
+        "learning_rate": lr,
+        "training size": train_set_size
+    }
+
     parent_dir = 'tb_logs'
     base_path = os.path.join(parent_dir, model_checkpoint_name)
     version_dir = create_version_num(base_path)
@@ -196,38 +208,21 @@ def main():
                           accelerator,
                           version_dir)
 
+    weights_biases_logger = {"active_logger": logger, "project": "basic_flant5", "config": summary}
     trainer.callbacks({"save": save_ckp, "early_stop": early_stopping,
-                       "metrics": dst_metrics, "wandb": logger})
+                       "metrics": dst_metrics, "wandb": weights_biases_logger})
 
-    summary = {
-        "dataset": dataset,
-        "max_source_length": source_len,
-        "max_target_length": target_len,
-        "epochs": epochs,
-        "batch_size": batch_size,
-        "num_optimization_steps": num_train_optimization_steps,
-        "num_warmup_steps": num_warmup_steps,
-        "weight_decay": weight_decay,
-        "learning_rate": lr,
-        "training size": train_set_size
-    }
-
-    if logger:
-        wandb.login()  
-        #wandb.tensorboard.patch(root_logdir="./tb_logs/", pytorch=True)  # save=False?, tensorboard_x=True?
-        #wandb.tensorboard.patch(root_logdir=version_dir, pytorch=True)  # save=False?, tensorboard_x=True?
-        #https://github.com/wandb/wandb/issues/1782
-        #wandb.init(project="basic_flant5", sync_tensorboard=True)
-        wandb.init(project="basic_flant5", config=summary)
 
     #TODO: ADD WEIGHT AND BIASES BOOLEAN
-    model_tok = training(trainer, dataloaders, tokenizer, target_len, logger)
+    model_tok = training(trainer, dataloaders, tokenizer, target_len)
     model = model_tok["model"]
     tokenizer = model_tok["tokenizer"]
     results = model_tok["results"]
 
     # add other METRIC
     summary = dict(summary, **{"jga": results['best_epoch']['jga'],
+                               "aga": results['best_epoch']['aga'],
+                               "sga": results['best_epoch']['sga'],
                                "f1": results['best_epoch']['f1'],
                                "recall": results['best_epoch']['recall'],
                                "precision": results['best_epoch']['precision'],
@@ -243,8 +238,6 @@ def main():
 
     evaluate(model, tokenizer, dataloaders['test'], accelerator, 
              target_len, dst_metrics)
-    if logger:
-        wandb.finish()
 
 if __name__ == '__main__':
     main()

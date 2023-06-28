@@ -19,10 +19,3 @@ def postprocess_states(decoded_batch):
     """
     decoded_batch = [clean_state(state) for row in decoded_batch for state in row.split('|')]
     return list(frozenset(decoded_batch))
-
-    #raise SystemExit
-    #decoded_batch = [row.split('|') for row in decoded_batch]  # why is there only one row?
-    #decoded_batch = [frozenset(clean_state(states) for states in row) for row in decoded_batch]
-    
-    #return decoded_batch[0] if len(decoded_batch) == 1 else decoded_batch
-

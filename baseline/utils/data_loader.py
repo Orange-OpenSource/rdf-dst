@@ -35,9 +35,14 @@ class DialogueData:
             dialogue_data.cleanup_cache_files()
         else:
             dialogue_rdf = load_dataset("rdfdial", self.dataset).with_format("torch")
+
+            #dialogue_rdf.cleanup_cache_files()
+
             dialogue_rdf_data = concatenate_datasets([dialogue_rdf['validation'], dialogue_rdf['train'], dialogue_rdf['test']])  # splits are weird
             rdf_ids = set(dialogue_rdf_data['dialogue_id'])
             dialogue_data = load_dataset(self.dataset + '-convlab2', "v2.3").with_format("torch")
+
+            #dialogue_data.cleanup_cache_files()
 
             if ('validation' not in dialogue_data.keys()) and ('test' not in dialogue_data.keys()):  
                 all_data = dialogue_data['train']
