@@ -37,11 +37,11 @@ class MyTrainer:
         no_decay = ["bias", "LayerNorm.weight"]
         optimizer_grouped_parameters = [
             {
-                "params": [p for n, p in model.parameters() if not any(nd in n for nd in no_decay)],
+                "params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
                 "weight_decay": weight_decay,
             },
             {
-                "params": [p for n, p in model.parameters() if any(nd in n for nd in no_decay)],
+                "params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)],
                 "weight_decay": 0.0,
             },
         ]
@@ -105,7 +105,7 @@ class MyTrainer:
                     self.writer.add_scalar(f"{metric}/val", value, epoch)
      
             
-            save_ckp(val_loss, self.model, tokenizer, epoch, results_logging, log_dict)
+            save_ckp(self.model, tokenizer, epoch, results_logging, log_dict)
             
             early_stopping(val_loss)
 

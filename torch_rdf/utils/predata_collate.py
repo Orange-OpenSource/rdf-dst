@@ -74,10 +74,11 @@ class PreDataCollator:
 
 
         states = map(lambda state: [[self.explicit_info_injection(val, i) for i, val in enumerate(triple)] for triple in state['triples']], states)
-        # shuffling for augmentation
+        # shuffling for augmentation: maybe triggers issues with eval?
         
-        states = map(lambda state: random.sample(state, len(state)), states)
-        states = list(states)
+        #states = map(lambda state: random.sample(state, len(state)), states)
+        #states = list(states)
+
         states = [[node for rdf in state for node in rdf] for state in states]
 
         context = ''

@@ -124,9 +124,9 @@ def evaluate(model, tokenizer, test_dataloader, device,
 
 def manual_log_experiments(results, summary, path):
     # Save experiment logs
-    with open(os.path.join(path, 'train_log.json', 'w')) as ostr:
+    with open(os.path.join(path, 'train_log.json'), 'w') as ostr:
         json.dump(results, ostr, indent=4)
-    with open(os.path.join('exp_summary.json', 'w')) as ostr:
+    with open(os.path.join(path, 'exp_summary.json'), 'w') as ostr:
         json.dump(summary, ostr, indent=4)
 
 

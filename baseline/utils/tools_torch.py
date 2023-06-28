@@ -13,12 +13,12 @@ class SaveBestModel:
         self.path = path
         self.model_name_path = model_name_path
         # custom eval vals to be more rigorous of what model we'll be storing
-        self.best_jga = 0
+        self.best_jga = -1
 
     def __call__(self, model, tokenizer, epoch, results_logging, log_dict):
         # more rigorous saving method with jga as well
         curr_jga = log_dict['jga']
-        curr_jga = log_dict['val_loss']
+        current_valid_loss = log_dict['val_loss']
         if (current_valid_loss < self.best_valid_loss) and (curr_jga > self.best_jga):
             self.best_valid_loss = current_valid_loss
             self.best_jga = curr_jga

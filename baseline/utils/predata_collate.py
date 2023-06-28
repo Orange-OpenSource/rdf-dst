@@ -33,15 +33,14 @@ class BaselinePreDataCollator:
         for diag_id, dialogue_data in zip(batch['dialogue_id'], batch['turns']):  # dict, history is a str that is the key
             txt_input, slot_value, turn_ids = self.create_inputs_outputs(dialogue_data)
 
-            for txt, s_v, turn_id in zip(txt_input, slot_value, turn_ids):
+            turn_number.extend(turn_ids)
+            dialogue_ids.extend([diag_id] * len(turn_ids))
+            for txt, s_v in zip(txt_input, slot_value):
                 tokenized = self.tokenize(txt, s_v)
 
                 input_ids.append(tokenized['input_ids'])
                 attention_mask.append(tokenized['attention_mask'])
                 labels.append(tokenized['labels'])
-
-                dialogue_ids.append(diag_id)
-                turn_number.append(turn_id)
 
 
         return {'input_ids': input_ids, 'attention_mask': attention_mask,
@@ -54,27 +53,21 @@ class BaselinePreDataCollator:
         txt_input = []
         turn_ids = []
         context = ''
-        for i in dialogue_data['turn_id']:
-            idx = int(i)
-            turn_ids.append(idx)
-            state = dialogue_data['belief_state'][idx]
-            seq_states = []
-            for slot, val in zip(state['slot'], state['value']):
-                slot = clean_slot_val(slot)
-                val = clean_slot_val(val)
-                seq_states.append(self.slot_tkn + slot + '=' + self.val_tkn + val)
-
-            # augmentation
-            seq_states = random.sample(seq_states, len(seq_states))
-            
-            states.append('|'.join(seq_states))
+        for t in dialogue_data:
+            user_slot_vals = [s_v for slot_val in t['user']['dialog-acts'] for s_v in slot_val['slots']] 
+            sys_slot_vals = [s_v for slot_val in t['system']['dialog-acts'] for s_v in slot_val['slots']] 
+            slot_values = list(frozenset(clean_slot_val(s_v['name']) + '=' + clean_slot_val(s_v['value']) for s_v in user_slot_vals + sys_slot_vals))
+            # augmentation: does it make eval more complicated?
+            #slot_values = random.sample(slot_values, len(slot_values))
+            states.append('|'.join(slot_values))
+            turn_ids.append(t['turn-index'])
 
             if self.exp_setup in [1, 2]:
-                system = dialogue_data['sys_utterance'][idx]
-                user = dialogue_data['usr_utterance'][idx]
+                system = t['system']['text']
+                user = t['user']['text']
                 convo = self.sys_tkn + system + self.user_tkn + user
                 context += convo
-                txt_input.append(context)
+                txt_input.append(context.strip().lower())
         
         if self.exp_setup == 1:
             first_turn = txt_input[0]

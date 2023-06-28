@@ -1,4 +1,3 @@
-import re
 
 def clean_slot_val(node):
 
@@ -6,6 +5,8 @@ def clean_slot_val(node):
     node = node.replace(',', '')  # removing commas to facilitate state creation and splitting
     node = node.replace('=', '')  # removing commas to facilitate state creation and splitting
     return node.lower().strip()
+    # masking random values given after search, result, etc.
+    #mask = "****"  # Replace with your desired mask
 
 def clean_state(state):
     # using = for eval purposes
@@ -17,7 +18,7 @@ def postprocess_states(decoded_batch):
     returns several states per batch
     """
     decoded_batch = [clean_state(state) for row in decoded_batch for state in row.split('|')]
-    return frozenset(decoded_batch)
+    return list(frozenset(decoded_batch))
 
     #raise SystemExit
     #decoded_batch = [row.split('|') for row in decoded_batch]  # why is there only one row?

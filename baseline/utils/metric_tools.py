@@ -102,17 +102,17 @@ class DSTMetrics:
     def f1_states(self, preds, labels):
 
         intersections = [
-             len(c & r) for c, r in zip(preds, labels)
+             len(set(c) & set(r)) for c, r in zip(preds, labels)
          ]
 
         #false positives
         false_pos = [
-            len(c - r) for c, r in zip(preds, labels)
+            len(set(c) - set(r)) for c, r in zip(preds, labels)
         ]
 
         #false negatives
         false_negs = [
-            len(r - c) for r, c in zip(labels, preds)
+            len(set(r) - set(c)) for r, c in zip(labels, preds)
         ]
 
 

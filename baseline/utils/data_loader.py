@@ -37,15 +37,23 @@ class DialogueData:
             dialogue_rdf = load_dataset("rdfdial", self.dataset).with_format("torch")
             dialogue_rdf_data = concatenate_datasets([dialogue_rdf['validation'], dialogue_rdf['train'], dialogue_rdf['test']])  # splits are weird
             rdf_ids = set(dialogue_rdf_data['dialogue_id'])
+            dialogue_data = load_dataset(self.dataset + '-convlab2', "v2.3").with_format("torch")
 
-            dialogue_data = load_dataset(self.dataset, "2.3").with_format("torch")
-            all_data = concatenate_datasets([dialogue_data['validation'], dialogue_data['train'], dialogue_data['test']])  # splits are weird
+            if ('validation' not in dialogue_data.keys()) and ('test' not in dialogue_data.keys()):  
+                all_data = dialogue_data['train']
+                all_data = all_data.filter(lambda x: x['dialogue_id'] in rdf_ids)
+                train_val = all_data.train_test_split(test_size=0.2)
+                test_val = train_val['test'].train_test_split(test_size=0.5)
+                dialogue_data.update({'train': train_val['train'], 'validation': test_val['train'], 'test': test_val['test']})
 
-            all_data = all_data.filter(lambda x: x['dialogue_id'] in rdf_ids)
+            else:
+                all_data = concatenate_datasets([dialogue_data['validation'], dialogue_data['train'], dialogue_data['test']])  # splits are weird
+                all_data = all_data.filter(lambda x: x['dialogue_id'] in rdf_ids)
 
-            train_val = all_data.train_test_split(test_size=0.2)
-            test_val = train_val['test'].train_test_split(test_size=0.5)
-            dialogue_data.update({'train': train_val['train'], 'validation': test_val['train'], 'test': test_val['test']})
+                train_val = all_data.train_test_split(test_size=0.2)
+                test_val = train_val['test'].train_test_split(test_size=0.5)
+                dialogue_data.update({'train': train_val['train'], 'validation': test_val['train'], 'test': test_val['test']})
+            
 
 
         # shuffling dialogues

@@ -95,7 +95,7 @@ handle_option(){
 
 		"torch")
 			cd torch_rdf/
-			script="torch_main.py"
+			script="main.py"
 			#script="assess_marcel_torch.py"
 			;;
 	esac

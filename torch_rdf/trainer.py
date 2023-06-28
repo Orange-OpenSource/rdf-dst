@@ -39,11 +39,11 @@ class MyTrainer:
         # using parameters instead of named_parameters
         optimizer_grouped_parameters = [
             {
-                "params": [p for n, p in model.parameters() if not any(nd in n for nd in no_decay)],
+                "params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
                 "weight_decay": weight_decay,
             },
             {
-                "params": [p for n, p in model.parameters() if any(nd in n for nd in no_decay)],
+                "params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)],
                 "weight_decay": 0.0,
             },
         ]

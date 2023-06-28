@@ -4,6 +4,7 @@ load_dotenv()  # load keys and especially w and biases to see visualizations. Lo
 import wandb
 import math
 import os
+import subprocess
 import json
 # longt5 needs special module to avoid errors
 from transformers import AutoTokenizer, T5ForConditionalGeneration, LongT5ForConditionalGeneration
@@ -119,9 +120,9 @@ def evaluate(model, tokenizer, test_dataloader, device,
 
 def manual_log_experiments(results, summary, path):
     # Save experiment logs
-    with open(os.path.join(path, 'train_log.json', 'w')) as ostr:
+    with open(os.path.join(path, 'train_log.json'), 'w') as ostr:
         json.dump(results, ostr, indent=4)
-    with open(os.path.join('exp_summary.json', 'w')) as ostr:
+    with open(os.path.join(path, 'exp_summary.json'), 'w') as ostr:
         json.dump(summary, ostr, indent=4)
 
 
@@ -182,7 +183,8 @@ def main():
     collator = BaselinePreDataCollator(tokenizer, source_len, target_len, experimental_setup)
     dataloaders = preprocessing(collator, dataset, num_workers, batch_size, method)
 
-    num_train_optimization_steps = epochs * len(dataloaders['train'])
+    train_set_size = len(dataloaders['train'])
+    num_train_optimization_steps = epochs * train_set_size
     num_warmup_steps = math.ceil(len(dataloaders['train']) / grad_acc_steps)
     dst_metrics = DSTMetrics()  # this is loading the metrics now so we don't have to do this again
 
@@ -203,8 +205,8 @@ def main():
     if logger:
         wandb.login()  
         wandb.tensorboard.patch(root_logdir=".tb_logs/")  # save=False?, tensorboard_x=True?
-        https://github.com/wandb/wandb/issues/1782
-        #wandb.init(project="basic_flant5", sync_tensorboard=True)
+        #https://github.com/wandb/wandb/issues/1782
+        wandb.init(project="basic_flant5", sync_tensorboard=True)
 
     model_tok = training(trainer, dataloaders, tokenizer, target_len, model_name_path, checkpoint_path)
     model = model_tok["model"]
