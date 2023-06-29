@@ -49,8 +49,8 @@ class MyTrainer:
 
 
 
-        #self.optimizer = AdamW(self.model.parameters(), lr=lr)
-        self.optimizer = AdamW(optimizer_grouped_parameters, lr=lr)
+        self.optimizer = AdamW(self.model.parameters(), lr=lr)
+        #self.optimizer = AdamW(optimizer_grouped_parameters, lr=lr)
         self.scheduler = LinearWarmupScheduler(self.optimizer, warmup_steps, total_steps)
 
         self.verbose = verbosity
@@ -171,6 +171,7 @@ class MyEvaluation:
                 inputs = batch['input_ids'].to(self.device)
                 labels = batch['labels'].to(self.device)
                 attention_mask = batch['attention_mask'].to(self.device)
+                dialogue_ids = batch['dialogue_id']
     
                 model_outputs = self.model(input_ids=inputs, attention_mask=attention_mask, labels=labels)
                 # loss, logits, encoder_last_hidden_state, past_key_values
@@ -178,10 +179,10 @@ class MyEvaluation:
                 total_loss += loss.item()
     
                 if not validation:
-                    step_output = self.generate_rdfs(batch)
+                    step_output = self.generate_rdfs(inputs, attention_mask, labels, dialogue_ids)
                     outputs.append(step_output)
                 elif validation and step == len(eval_data) - 1:  # just generate at the end of steps before epoch
-                    step_output = self.generate_rdfs(batch)
+                    step_output = self.generate_rdfs(inputs, attention_mask, labels, dialogue_ids)
                     outputs.append(step_output)
                     
     
@@ -210,22 +211,23 @@ class MyEvaluation:
     
 
 
-    def generate_rdfs(self, batch):
-        generated_tokens = self.model.generate(batch["input_ids"], attention_mask=batch["attention_mask"], **self.gen_kwargs)
+    def generate_rdfs(self, input_ids, attention_mask, labels, dialogue_ids):
+        generated_tokens = self.model.generate(input_ids, attention_mask=attention_mask, **self.gen_kwargs)
         decoded_preds = self.tokenizer.batch_decode(generated_tokens.detach(), skip_special_tokens=True)
     
-        decoded_inputs = self.tokenizer.batch_decode(batch['input_ids'].detach(), skip_special_tokens=True)
-        labels = batch["labels"].detach()#.cpu().numpy()
+        decoded_inputs = self.tokenizer.batch_decode(input_ids.detach(), skip_special_tokens=True)
+        labels = labels.detach()#.cpu().numpy()
         labels = torch.where(labels != -100, labels, 0)
         decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
     
         decoded_labels = postprocess_rdfs(decoded_labels)
         decoded_preds = postprocess_rdfs(decoded_preds)
-        if isinstance(batch["dialogue_id"], list):
-            dialogue_ids = batch["dialogue_id"]
-        elif torch.tensor(batch["dialogue_id"]):
-            dialogue_ids = batch["dialogue_id"].detach()#.cpu().numpy()
+        if isinstance(dialogue_ids, list):
+            dialogue_ids = dialogue_ids
+        elif torch.tensor(dialogue_ids):
+            dialogue_ids = dialogue_ids.detach()#.cpu().numpy()
     
+
         return {"preds": decoded_preds, "labels": decoded_labels,
                 "inputs": decoded_inputs, "ids": dialogue_ids}
 

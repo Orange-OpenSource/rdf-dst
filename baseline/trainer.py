@@ -45,7 +45,8 @@ class MyTrainer:
             },
         ]
 
-        self.optimizer = AdamW(optimizer_grouped_parameters, lr=lr)
+        #self.optimizer = AdamW(optimizer_grouped_parameters, lr=lr)
+        self.optimizer = AdamW(self.model.parameters(), lr=lr)
         self.scheduler = LinearWarmupScheduler(self.optimizer, warmup_steps, total_steps)
 
         self.verbose = verbosity

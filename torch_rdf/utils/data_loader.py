@@ -34,7 +34,7 @@ class DialogueRDFData:
             # https://huggingface.co/docs/datasets/cache
             dialogue_data.cleanup_cache_files()
         else:
-            dialogue_data = load_dataset("rdfdial", self.dataset).with_format("torch")
+            dialogue_data = load_dataset("rdfdial", self.dataset, download_mode='force_redownload').with_format("torch")
             all_data = concatenate_datasets([dialogue_data['validation'], dialogue_data['train'], dialogue_data['test']])  # splits are weird
             train_val = all_data.train_test_split(test_size=0.2)
             test_val = train_val['test'].train_test_split(test_size=0.5)

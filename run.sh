@@ -104,7 +104,7 @@ handle_option(){
 handle_option "$framework"
 
 if [[ $debug == "yes" ]]; then
-    python "$script" -epochs 3 -d multiwoz -store yes -logger yes -experiment "$experiment" -workers "$workers" -model "$model" -model_size small -subset yes -acc cpu -method online
+    python "$script" -epochs 3 -d multiwoz -store yes -logger no -experiment "$experiment" -workers "$workers" -model "$model" -model_size small -subset yes -acc cuda -method online
 else
-    python "$script" -epochs 5 --batch 8 -d multiwoz -workers "$workers" -store yes -experiment "$experiment" -model "$model" -model_size base -logger yes -subset no
+    python "$script" -epochs 5 --batch 2 -d multiwoz -workers "$workers" -store yes -experiment "$experiment" -model "$model" -model_size base -logger yes -subset no
 fi

@@ -34,13 +34,13 @@ class DialogueData:
             dialogue_data = load_from_disk(path).with_format("torch")  # path should be just multiwoz
             dialogue_data.cleanup_cache_files()
         else:
-            dialogue_rdf = load_dataset("rdfdial", self.dataset).with_format("torch")
+            dialogue_rdf = load_dataset("rdfdial", self.dataset, download_mode='force_redownload').with_format("torch")
 
             #dialogue_rdf.cleanup_cache_files()
 
             dialogue_rdf_data = concatenate_datasets([dialogue_rdf['validation'], dialogue_rdf['train'], dialogue_rdf['test']])  # splits are weird
             rdf_ids = set(dialogue_rdf_data['dialogue_id'])
-            dialogue_data = load_dataset(self.dataset + '-convlab2', "v2.3").with_format("torch")
+            dialogue_data = load_dataset(self.dataset + '-convlab2', "v2.3", download_mode='force_redownload').with_format("torch")
 
             #dialogue_data.cleanup_cache_files()
 
