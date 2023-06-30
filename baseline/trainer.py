@@ -58,11 +58,11 @@ class MyTrainer:
         self.save_ckp = dst_callbacks['save']
         self.early_stopping = dst_callbacks['early_stop']
         self.logger = dst_callbacks['wandb']
+        self.config = self.logger["config"]
         if self.logger['active_logger']:
             project = self.logger["project"]
-            config = self.logger["config"]
             wandb.login()  
-            wandb.init(project=project, config=config)
+            wandb.init(project=project, config=self.config)
 
 
     def train_loop(self, train_data, val_data, tokenizer, target_length):
@@ -180,13 +180,11 @@ class MyEvaluation:
                 if not validation:
                     step_output = self.generate_states(batch)
                     outputs.append(step_output)
-                elif validation and step == len(eval_data) - 1:  # just generate at the end of steps before epoch
+                #elif validation:  # just generate at the end of steps before epoch
+                elif validation and (step == len(eval_data) - 1):  # just generate at the end of steps before epoch
                     step_output = self.generate_states(batch)
                     outputs.append(step_output)
 
-                # slower implementation
-                #step_output = self.generate_states(batch)
-                #outputs.append(step_output)
                     
     
         total_loss /= len(eval_data)
@@ -226,12 +224,19 @@ class MyEvaluation:
         labels = torch.where(labels != -100, labels, 0)
         decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
 
-        decoded_labels = postprocess_states(decoded_labels)
-        decoded_preds = postprocess_states(decoded_preds)
+
+        decoded_labels = [postprocess_states(label) for label in decoded_labels]
+        decoded_preds = [postprocess_states(pred) for pred in decoded_preds]
+
         if isinstance(batch["dialogue_id"], list):
             dialogue_ids = batch["dialogue_id"]
         elif torch.tensor(batch["dialogue_id"]):
             dialogue_ids = batch["dialogue_id"].detach()#.cpu().numpy()
+
+        decoded_labels = decoded_labels[0] if len(decoded_labels) == 1 else decoded_labels
+        decoded_preds = decoded_preds[0] if len(decoded_preds) == 1 else decoded_preds
+        decoded_inputs = decoded_inputs[0] if len(decoded_inputs) == 1 else decoded_inputs
+        dialogue_ids = dialogue_ids[0] if len(dialogue_ids) == 1 else dialogue_ids
     
         return {"preds": decoded_preds, "labels": decoded_labels,
                 "inputs": decoded_inputs, "ids": dialogue_ids}

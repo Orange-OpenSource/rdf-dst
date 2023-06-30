@@ -195,7 +195,9 @@ def main():
 
 
     parent_dir = 'tb_logs'
+    model_checkpoint_name = model_checkpoint_name.replace('google/', '')
     base_path = os.path.join(parent_dir, model_checkpoint_name)
+
     version_dir = create_version_num(base_path)
 
     checkpoint_path = os.path.join(version_dir, 'checkpoints')
@@ -242,13 +244,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-# https://lukesalamone.github.io/posts/what-are-attention-masks/
-# https://colab.research.google.com/drive/17CtsJtGCjp4YkykIpIoY0Kdb9nCadeFT?usp=sharing
-# https://towardsdatascience.com/awesome-pytorch-lightning-template-485a75c2f47e
-
-# https://towardsdatascience.com/a-visual-guide-to-learning-rate-schedulers-in-pytorch-24bbb262c863?source=read_next_recirc---two_column_layout_sidebar------1---------------------b1b02d55_82c1_4db6_9c17_af186403e94b-------
-
-# https://pub.towardsai.net/i-fine-tuned-gpt-2-on-110k-scientific-papers-heres-the-result-9933fe7c3c26?source=read_next_recirc---two_column_layout_sidebar------2---------------------b1b02d55_82c1_4db6_9c17_af186403e94b-------
-
-
-

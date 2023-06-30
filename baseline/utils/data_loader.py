@@ -30,8 +30,9 @@ class DialogueData:
         """
 
         if method == "local":
-            path = self.dataset 
+            path = self.dataset + '_data'
             dialogue_data = load_from_disk(path).with_format("torch")  # path should be just multiwoz
+
             dialogue_data.cleanup_cache_files()
         else:
             dialogue_rdf = load_dataset("rdfdial", self.dataset, download_mode='force_redownload').with_format("torch")

@@ -13,10 +13,11 @@ class BaselinePreDataCollator:
         self.target_len = target_len
         self.user_tkn = '<user_tkn>'
         self.sys_tkn = '<sys_tkn>'
-        self.slot_tkn = '<slot_tkn>'
-        self.val_tkn = '<val_tkn>'
+        #self.slot_tkn = '<slot_tkn>'
+        #self.val_tkn = '<val_tkn>'
 
-        sentinel_tkns = {"additional_special_tokens": [self.user_tkn, self.sys_tkn, self.slot_tkn, self.val_tkn]}
+        #sentinel_tkns = {"additional_special_tokens": [self.user_tkn, self.sys_tkn, self.slot_tkn, self.val_tkn]}
+        sentinel_tkns = {"additional_special_tokens": [self.user_tkn, self.sys_tkn]}
 
         tokenizer.add_special_tokens(sentinel_tkns)
         self.tokenizer = tokenizer
@@ -59,7 +60,7 @@ class BaselinePreDataCollator:
             slot_values = list(frozenset(clean_slot_val(s_v['name']) + '=' + clean_slot_val(s_v['value']) for s_v in user_slot_vals + sys_slot_vals))
             # augmentation: does it make eval more complicated?
             #slot_values = random.sample(slot_values, len(slot_values))
-            states.append('|'.join([s_v for s_v in slot_values if s_v != '']))
+            states.append(' | '.join(slot_values))
             turn_ids.append(t['turn-index'])
 
             if self.exp_setup in [1, 2]:

@@ -6,7 +6,7 @@ DIR=./dst-snake
 # default values, workers must be 1 with marcel... 6 with nadia?
 experiment="${experiment:-3}"
 workers=6
-framework="torch"
+framework="baseline"
 script="empty"
 model="t5"  # t5, flant-t5, long-t5-local, long-t5-tglobal
 
@@ -21,8 +21,7 @@ function usage {
     echo "                              (example: pl, torch, hf)"
     echo "  --debug string   		 yes or no"
     echo "                              (example: no)"
-    echo "  --experiment integer        which experiment to run. 1, 2, or 3"
-    echo "                              (example and default val: 1)"
+    echo "  --experiment integer        which experiment to run. 1, 2, or 3" echo "                              (example and default val: 1)"
     echo ""
 }
 function die {
@@ -104,7 +103,7 @@ handle_option(){
 handle_option "$framework"
 
 if [[ $debug == "yes" ]]; then
-    python "$script" -epochs 3 -d multiwoz -store yes -logger no -experiment "$experiment" -workers "$workers" -model "$model" -model_size small -subset yes -acc cuda -method online
+    python "$script" -epochs 3 -d multiwoz -store yes -logger no -experiment "$experiment" -workers "$workers" -model "$model" -model_size small -subset yes -acc cpu -method online
 else
     python "$script" -epochs 5 --batch 2 -d multiwoz -workers "$workers" -store yes -experiment "$experiment" -model "$model" -model_size base -logger yes -subset no
 fi

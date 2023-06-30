@@ -146,7 +146,8 @@ def main():
     else:
         model = LongT5ForConditionalGeneration.from_pretrained(model_name)
 
-    tokenizer = AutoTokenizer.from_pretrained(model_name, extra_ids=0, truncation=True, model_max_length=max([target_len, source_len])) 
+    tokenizer = AutoTokenizer.from_pretrained(model_name, extra_ids=0, truncation_side='left',
+                                              truncation=True, model_max_length=max([target_len, source_len])) 
 
     message_setup = length_exp_setup[experimental_setup]["setup"]
     logging.info(f"{message_setup} with...\nInput_Length: {source_len}\nOutput_Length: {target_len}")
@@ -169,6 +170,8 @@ def main():
     model_checkpoint_name = f"baseline_{model_name}_experiment_{experimental_setup}"
 
     collator = BaselinePreDataCollator(tokenizer, source_len, target_len, experimental_setup)
+    logging.info("Size of the tokenizer changed in the data collator. Special tokens added, resizing token embeddings")
+    model.resize_token_embeddings(len(tokenizer))
     dataloaders = preprocessing(collator, dataset, num_workers, batch_size, method)
 
     train_set_size = len(dataloaders['train'])
@@ -189,6 +192,7 @@ def main():
     }
 
     parent_dir = 'tb_logs'
+    model_checkpoint_name = model_checkpoint_name.replace('google/', '')
     base_path = os.path.join(parent_dir, model_checkpoint_name)
     version_dir = create_version_num(base_path)
 
@@ -221,8 +225,8 @@ def main():
 
     # add other METRIC
     summary = dict(summary, **{"jga": results['best_epoch']['jga'],
-                               "aga": results['best_epoch']['aga'],
-                               "sga": results['best_epoch']['sga'],
+                               "fga_exact_recall": results['best_epoch']['aga'],
+                               "fuzzy_jga": results['best_epoch']['aga'],
                                "f1": results['best_epoch']['f1'],
                                "recall": results['best_epoch']['recall'],
                                "precision": results['best_epoch']['precision'],

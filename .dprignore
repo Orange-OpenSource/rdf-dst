@@ -7,6 +7,7 @@ dst-snake/
 poc-rdf/
 dstc2_rdf_data/
 multiwoz_rdf_data/
+multiwoz_data/
 sfx_rdf_data/
 # dpr package?
 .dpr/

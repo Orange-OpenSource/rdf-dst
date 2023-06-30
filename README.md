@@ -42,6 +42,15 @@ To make it easy for you to get started with GitLab, here's a list of recommended
 
 Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
 
+## Evaluation
+
+Based on this 
+
+[evaluation](https://github.com/Tomiinek/MultiWOZ_Evaluation/blob/master/mwzeval/metrics.py)
+
+Why is the most recent slot value that matters? See this:
+
+[2015 paper](https://static.googleusercontent.com/media/research.google.com/fr//pubs/archive/44018.pdf)
 ## Tensorboard
 
 Line to visualize results:

@@ -1,5 +1,6 @@
 import numpy as np
 import evaluate
+from fuzzywuzzy import fuzz
 
 class DSTMetrics:
 
@@ -20,12 +21,9 @@ class DSTMetrics:
 
         preds = self.data["preds"]
         labels = self.data["labels"]
-        span_scores = self.span_evaluation(preds, labels)
-        # turning into sets to faciliate operations
-        preds = [set(p) for p in preds]
-        labels = [set(l) for l in labels]
-        f1_scores = self.f1_states(preds, labels)
         ga = self.goal_accuracy(preds, labels)
+        f1_scores = self.f1_states(preds, labels)
+        span_scores = self.span_evaluation(preds, labels)
         return {**span_scores, **ga, **f1_scores}
 
 
@@ -35,24 +33,35 @@ class DSTMetrics:
         meteor_score = self.meteor.compute(predictions=preds, references=labels)['meteor']  # getting the dumb value from dict object
         gleu_score = self.gleu.compute(predictions=preds, references=labels)['google_bleu']
 
-        sga = np.mean([1 if p == l else 0 for p, l in zip(preds, labels)])
-        return {"meteor": round(meteor_score, 5) * 100, "gleu": round(gleu_score, 5) * 100, "sga": sga * 100}
+        return {"meteor": round(meteor_score, 5) * 100, "gleu": round(gleu_score, 5) * 100}
 
     
     def goal_accuracy(self, preds, labels):
 
         joint_goal_accuracy_score = []
-        aga_score = []
+        fga_score = []
+        fuzz_jga = []
+        # fuzzy is some sort of levensthein
+        # TODO remove fuzzy ratio condition to see general fuzz 
+        fuzzy_ratio = 95
         for p, l in zip(preds, labels):
             # more generous: is l a subset of p
             flexible_match = l <= p
             
-            aga_score.append(1 if flexible_match else 0)
+            fga_score.append(1 if flexible_match else 0)
             # stricter, using symmetric difference
             exact_match = p ^ l
             joint_goal_accuracy_score.append(1 if len(exact_match) == 0 else 0)
 
-        return {"jga": round(np.mean(joint_goal_accuracy_score), 5) * 100, "aga": round(np.mean(aga_score), 5) * 100}
+        # no need to convert to string...
+        #p = {key: value for slot_val in p for key, value in [slot_val.split('=')]}
+        #l = {key: value for slot_val in l for key, value in [slot_val.split('=')]}
+            fuzz_jga.append(1 if fuzz.partial_ratio(p, l) >= fuzzy_ratio else 0)
+
+        return {"jga": round(np.mean(joint_goal_accuracy_score), 5) * 100,
+                "fga_exact_recall": round(np.mean(fga_score), 5) * 100,
+                "fuzzy_jga": round(np.mean(fuzz_jga), 5) * 100,
+                }
 
 
     def f1_states(self, preds, labels):

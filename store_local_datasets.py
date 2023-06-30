@@ -14,7 +14,7 @@ print(rdf_dataset)
 #rdf_dataset.save_to_disk("multiwoz_rdf_data")
 #raise SystemExit
 
-non_rdf_dataset = load_dataset('multiwoz-convlab2', 'v2.3')
+non_rdf_dataset = load_dataset('multiwoz-convlab2', 'v2.3', download_mode='force_redownload')
 
 if ('validation' not in non_rdf_dataset.keys()) and ('test' not in non_rdf_dataset.keys()):
     all_data = non_rdf_dataset['train']
@@ -32,6 +32,4 @@ concat_non_rdf_dataset = concat_non_rdf_dataset.filter(lambda x: x['dialogue_id'
 train_val_non_rdf = concat_non_rdf_dataset.train_test_split(test_size=0.2)
 test_val_non_rdf = train_val_non_rdf['test'].train_test_split(test_size=0.5)
 non_rdf_dataset.update({'train': train_val_non_rdf['train'], 'validation': test_val_non_rdf['train'], 'test': test_val_non_rdf['test']})
-print()
-print()
-print(non_rdf_dataset)
+non_rdf_dataset.save_to_disk("multiwoz_data")
