@@ -225,8 +225,8 @@ def main():
 
     # add other METRIC
     summary = dict(summary, **{"jga": results['best_epoch']['jga'],
-                               "fga_exact_recall": results['best_epoch']['aga'],
-                               "fuzzy_jga": results['best_epoch']['aga'],
+                               "fga_exact_recall": results['best_epoch']['fga_exact_recall'],
+                               "fuzzy_jga": results['best_epoch']['fuzzy_jga'],
                                "f1": results['best_epoch']['f1'],
                                "recall": results['best_epoch']['recall'],
                                "precision": results['best_epoch']['precision'],

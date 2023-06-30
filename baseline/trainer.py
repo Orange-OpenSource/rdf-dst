@@ -187,10 +187,11 @@ class MyEvaluation:
 
                     
     
-        total_loss /= len(eval_data)
-        self.results = self.evaluate_outputs(outputs)
         if not validation:
             self.store_outputs(outputs)
+
+        total_loss /= len(eval_data)
+        self.results = self.evaluate_outputs(outputs)
         outputs.clear()
 
         return total_loss

@@ -29,12 +29,12 @@ def postprocess_states(decoded):
         clean_states = clean_state(decoded)
     if clean_states:
     # swap for OrderedDict?  there are repeated keys but most recent state is what matters. See https://static.googleusercontent.com/media/research.google.com/fr//pubs/archive/44018.pdf
-    #clean_states = {slot_val[0]: slot_val[1] for slot_val in clean_states if slot_val}
-        clean_states = OrderedDict((slot_val[0], slot_val[1]) for slot_val in clean_states if slot_val)
+    #clean_states = {slot_val[0]: slot_val[1] for slot_val in clean_states if slot_val and (len(slot_val) == 2)}
+        clean_states = OrderedDict((slot_val[0], slot_val[1]) for slot_val in clean_states if slot_val and (len(slot_val) == 2))
 
-        return frozenset(slot + '=' + val for slot, val in clean_states.items())  # we turn them into sets because it is easier to evaluate
+        if clean_states:
+            return frozenset(slot + '=' + val for slot, val in clean_states.items())  # we turn them into sets because it is easier to evaluate
     # super strict match with old states, but unneeded atm...
     #return set([s[0]+ '=' + s[1] for s in clean_states])
-    else:
-        # returning fake _NONE_ to enable evaluation...
-        return {'_NONE_'}
+    # returning fake _NONE_ to enable evaluation...
+    return {'_NONE_'}

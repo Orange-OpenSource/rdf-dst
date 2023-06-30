@@ -17,15 +17,22 @@ class DSTMetrics:
             self.decoded_labels = [out['labels'] for out in outputs]
             self.decoded_preds = [out['preds'] for out in outputs]
             self.dialogue_ids = [out['ids'] for out in outputs]
+
             self.data = {"preds": self.decoded_preds, "labels": self.decoded_labels}
 
-        preds = self.data["preds"]
-        labels = self.data["labels"]
+        preds = self.flatten(self.data["preds"])
+        labels = self.flatten(self.data["labels"])
+
         ga = self.goal_accuracy(preds, labels)
         f1_scores = self.f1_states(preds, labels)
         span_scores = self.span_evaluation(preds, labels)
         return {**span_scores, **ga, **f1_scores}
 
+
+    def flatten(self, batch_slot_vals):
+        if isinstance(batch_slot_vals[0], list):
+            return [slot_vals for s_v in batch_slot_vals for slot_vals in s_v]
+        return batch_slot_vals
 
     def span_evaluation(self, preds, labels):
         preds = [';'.join(p) for p in preds]
