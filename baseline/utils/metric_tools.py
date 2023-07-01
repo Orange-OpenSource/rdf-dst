@@ -59,11 +59,13 @@ class DSTMetrics:
             # stricter, using symmetric difference
             exact_match = p ^ l
             joint_goal_accuracy_score.append(1 if len(exact_match) == 0 else 0)
+            print(exact_match)
 
         # no need to convert to string...
         #p = {key: value for slot_val in p for key, value in [slot_val.split('=')]}
         #l = {key: value for slot_val in l for key, value in [slot_val.split('=')]}
             fuzz_jga.append(1 if fuzz.partial_ratio(p, l) >= fuzzy_ratio else 0)
+        
 
         return {"jga": round(np.mean(joint_goal_accuracy_score), 5) * 100,
                 "fga_exact_recall": round(np.mean(fga_score), 5) * 100,
