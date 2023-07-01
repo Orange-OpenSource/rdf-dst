@@ -74,10 +74,10 @@ class PreDataCollator:
 
 
         states = map(lambda state: [[self.explicit_info_injection(val, i) for i, val in enumerate(triple)] for triple in state['triples']], states)
-        # shuffling for augmentation: maybe triggers issues with eval?
+        # shuffling for augmentation: maybe triggers issues with eval? IT DOES HELP OUR CASE BECAUSE THE TRIPLES ARE NOT IN THE RIGHT ORDER?
         
-        #states = map(lambda state: random.sample(state, len(state)), states)
-        #states = list(states)
+        states = map(lambda state: random.sample(state, len(state)), states)
+        states = list(states)
 
         states = [[node for rdf in state for node in rdf] for state in states]
 
@@ -106,7 +106,7 @@ class PreDataCollator:
             if self.cut_context:
                 model_input = list(map(self.reduce_context, model_input))
 
-        labels = map(lambda state: ','.join(['|'.join(state[i:i+3]) for i in range(0, len(state), 3)]), states)
+        labels = map(lambda state: ','.join([';'.join(state[i:i+3]) for i in range(0, len(state), 3)]), states)
         labels = list(labels)
 
         return model_input, labels

@@ -17,7 +17,9 @@ class MyTrainer:
 
     def __init__(self, 
                  model, logger, accelerator,
-                 warmup_steps, total_steps,
+                 warmup_steps,
+                 eval_steps,
+                 total_steps,
                  lr=1e-6,
                  epochs: int=5,
                  weight_decay: float=0.0,
@@ -48,6 +50,7 @@ class MyTrainer:
         #self.optimizer = AdamW(optimizer_grouped_parameters, lr=lr)
         self.optimizer = AdamW(self.model.parameters(), lr=lr)
         self.scheduler = LinearWarmupScheduler(self.optimizer, warmup_steps, total_steps)
+        self.eval_steps = eval_steps
 
         self.verbose = verbosity
         self.disable = not verbosity
@@ -72,9 +75,6 @@ class MyTrainer:
 
         early_stop_value = None
         results_logging = {}
-        # too much
-        #if self.logger['active_logger']:
-        #    wandb.watch(self.model, log='all', log_freq=1, log_graph=False)  # change to 1000 or even more during real training
 
         for epoch in tqdm(range(self.epochs), disable=self.disable):
             loss_curr_epoch = 0
@@ -103,7 +103,7 @@ class MyTrainer:
 
             # VALIDATION
             my_evaluation = MyEvaluation(self.model, tokenizer, self.device, target_length, self.dst_metrics)
-            val_loss = my_evaluation(val_data, validation=True, verbose=self.verbose)            
+            val_loss = my_evaluation(val_data, eval_steps=self.eval_steps, validation=True, verbose=self.verbose)            
             log_dict = my_evaluation.results
             log_dict.setdefault('train_loss', train_loss)
             log_dict.setdefault('val_loss', val_loss)
@@ -158,7 +158,7 @@ class MyEvaluation:
                           }
     
 
-    def __call__(self, eval_data, validation=False, verbose=False):
+    def __call__(self, eval_data, eval_steps=None, validation=False, verbose=False):
     
         self.model.eval()
     
@@ -181,7 +181,8 @@ class MyEvaluation:
                     step_output = self.generate_states(batch)
                     outputs.append(step_output)
                 #elif validation:  # just generate at the end of steps before epoch
-                elif validation and (step == len(eval_data) - 1):  # just generate at the end of steps before epoch
+                # check that step % eval_steps is not division by 0
+                elif validation and ((step != 0) and (step % eval_steps == 0)):  # just generate at the end of steps before epoch
                     step_output = self.generate_states(batch)
                     outputs.append(step_output)
 
@@ -234,11 +235,6 @@ class MyEvaluation:
         elif torch.tensor(batch["dialogue_id"]):
             dialogue_ids = batch["dialogue_id"].detach()#.cpu().numpy()
 
-        decoded_labels = decoded_labels[0] if len(decoded_labels) == 1 else decoded_labels
-        decoded_preds = decoded_preds[0] if len(decoded_preds) == 1 else decoded_preds
-        decoded_inputs = decoded_inputs[0] if len(decoded_inputs) == 1 else decoded_inputs
-        dialogue_ids = dialogue_ids[0] if len(dialogue_ids) == 1 else dialogue_ids
-    
         return {"preds": decoded_preds, "labels": decoded_labels,
                 "inputs": decoded_inputs, "ids": dialogue_ids}
 

@@ -72,8 +72,8 @@ def create_arg_parser():
     )
 
     parser.add_argument(
-        "-model", "--model", default='base', type=str,
-        choices=['t5', 'flan-t5', 'long-t5-local', 'long-t5-tglobal'],  # adapter model
+        "-model", "--model", default='t5', type=str,
+        choices=['t5'],  # adapter model
         help="Select transformer"
     )
 

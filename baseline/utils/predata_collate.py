@@ -57,10 +57,13 @@ class BaselinePreDataCollator:
         for t in dialogue_data:
             user_slot_vals = [s_v for slot_val in t['user']['dialog-acts'] for s_v in slot_val['slots']] 
             sys_slot_vals = [s_v for slot_val in t['system']['dialog-acts'] for s_v in slot_val['slots']] 
-            slot_values = list(frozenset(clean_slot_val(s_v['name']) + '=' + clean_slot_val(s_v['value']) for s_v in user_slot_vals + sys_slot_vals))
+            # Leo replaces old slots when they have a new value. This makes sense.
+            #slot_values = list(frozenset(clean_slot_val(s_v['name']) + '=' + clean_slot_val(s_v['value']) for s_v in user_slot_vals + sys_slot_vals))
+            slot_values = {clean_slot_val(s_v['name']): clean_slot_val(s_v['value']) for s_v in user_slot_vals + sys_slot_vals}
+            slot_values = [slot + '=' + value for slot, value in slot_values.items()]
             # augmentation: does it make eval more complicated?
             #slot_values = random.sample(slot_values, len(slot_values))
-            states.append(' | '.join(slot_values))
+            states.append(' ; '.join(slot_values))
             turn_ids.append(t['turn-index'])
 
             if self.exp_setup in [1, 2]:

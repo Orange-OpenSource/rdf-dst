@@ -41,6 +41,7 @@ def config_train_eval(model,
                       weight_decay,
                       epochs,
                       num_train_optimization_steps, num_warmup_steps,
+                      num_eval_steps,
                       accelerator, version_dir):
     """
     returns trainer to use for finetuning and inference
@@ -54,7 +55,8 @@ def config_train_eval(model,
 
 
     return MyTrainer(model, tb_logger, accelerator,
-                     warmup_steps=num_warmup_steps, total_steps=total_iterations,
+                     warmup_steps=num_warmup_steps, eval_steps=num_eval_steps,
+                     total_steps=total_iterations,
                      lr=lr, epochs=epochs, weight_decay=weight_decay, accumulation_steps=2,
                      verbosity=True)
 
@@ -174,11 +176,31 @@ def main():
     model_checkpoint_name = f"{model_name}_experiment_{experimental_setup}"
 
     collator = PreDataCollator(tokenizer, source_len, target_len, experimental_setup, cut_context=cut_context)
+    logging.info("Size of the tokenizer changed in the data collator. Special tokens added, resizing token embeddings")
+    model.resize_token_embeddings(len(tokenizer))
     dataloaders = preprocessing(collator, dataset, num_workers, batch_size, method)
 
     train_set_size = len(dataloaders['train'])
+    validation_set_size = len(dataloaders['validation'])
     num_train_optimization_steps = epochs * train_set_size
-    num_warmup_steps = math.ceil(len(dataloaders['train']) / grad_acc_steps)
+    num_warmup_steps = math.ceil(train_set_size / grad_acc_steps)
+    total_val_steps = validation_set_size // batch_size * epochs
+    total_train_steps =  num_train_optimization_steps // batch_size
+
+    # for batch of 2, then compute the rest.... Funky, it doesn't work well 
+    default_eval_steps = {2: 2000}
+    options_eval_steps = {k*2: v //2 for k, v in default_eval_steps.items()}
+    options_eval_steps.update(default_eval_steps)
+    num_eval_steps = options_eval_steps[batch_size]
+
+    factor = 10
+    num_eval_steps = total_val_steps // factor
+    while num_eval_steps == 0 and factor > 0:
+        factor -= 1
+        num_eval_steps = total_val_steps // factor
+    if num_eval_steps >= validation_set_size:
+        num_eval_steps //= 2 
+    #assert (num_eval_steps > 0) and (num_eval_steps < val_set_size), "Number of eval steps must be more than 0"
 
     summary = {
         "dataset": dataset,
@@ -186,8 +208,11 @@ def main():
         "max_target_length": target_len,
         "epochs": epochs,
         "batch_size": batch_size,
+        "total_val_steps": total_val_steps,
+        "total_train_steps": total_train_steps,
         "num_optimization_steps": num_train_optimization_steps,
         "num_warmup_steps": num_warmup_steps,
+        "num_eval_steps": num_eval_steps,
         "weight_decay": weight_decay,
         "learning_rate": lr,
         "training size": train_set_size
@@ -213,6 +238,7 @@ def main():
                           epochs,
                           num_train_optimization_steps,
                           num_warmup_steps,
+                          num_eval_steps,
                           accelerator,
                           version_dir)
 
@@ -226,8 +252,8 @@ def main():
     results = model_tok["results"]
 
     summary = dict(summary, **{"jga": results['best_epoch']['jga'],
-                               "aga": results['best_epoch']['aga'],
-                               "sga": results['best_epoch']['sga'],
+                               "fga_exact_recall": results['best_epoch']['fga_exact_recall'],
+                               "fuzzy_jga": results['best_epoch']['fuzzy_jga'],
                                "f1": results['best_epoch']['f1'],
                                "recall": results['best_epoch']['recall'],
                                "precision": results['best_epoch']['precision'],

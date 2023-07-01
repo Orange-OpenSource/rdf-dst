@@ -1,5 +1,6 @@
 import numpy as np
 import evaluate
+from fuzzywuzzy import fuzz
 
 class DSTMetrics:
 
@@ -39,24 +40,30 @@ class DSTMetrics:
         meteor_score = self.meteor.compute(predictions=preds, references=labels)['meteor']  # getting the dumb value from dict object
         gleu_score = self.gleu.compute(predictions=preds, references=labels)['google_bleu']
 
-        sga = np.mean([1 if p == l else 0 for p, l in zip(preds, labels)])
-        return {"meteor": round(meteor_score, 5) * 100, "gleu": round(gleu_score, 5) * 100, "sga": sga * 100}
+        return {"meteor": round(meteor_score, 5) * 100, "gleu": round(gleu_score, 5) * 100}
 
     
     def goal_accuracy(self, preds, labels):
 
-        joint_goal_accuracy_score = []
-        aga_score = []
+        # fuzzy is some sort of levensthein
+        fuzzy_ratio = 95
+        jga = []
+        fga = []
+        fuzzy_jga = []
         for p, l in zip(preds, labels):
             # more generous: is l a subset of p
             flexible_match = l <= p
             
-            aga_score.append(1 if flexible_match else 0)
+            fga.append(1 if flexible_match else 0)
             # stricter, using symmetric difference
             exact_match = p ^ l
-            joint_goal_accuracy_score.append(1 if len(exact_match) == 0 else 0)
+            jga.append(1 if len(exact_match) == 0 else 0)
+            fuzzy_jga.append(1 if fuzz.partial_ratio(p, l) >= fuzzy_ratio else 0)
 
-        return {"jga": round(np.mean(joint_goal_accuracy_score), 5) * 100, "aga": round(np.mean(aga_score), 5) * 100}
+        return {"jga": round(np.mean(jga), 5) * 100,
+                "fga_exact_recall": round(np.mean(fga), 5) * 100,
+                "fuzzy_jga": round(np.mean(fuzzy_jga), 5) * 100,
+                }
 
     def f1_smatch(self, newcandlist, newreflist):
         """

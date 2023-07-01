@@ -5,7 +5,7 @@ import math
 import os
 import json
 # longt5 needs special module to avoid errors
-from transformers import AutoTokenizer, T5ForConditionalGeneration, LongT5ForConditionalGeneration
+from transformers import AutoTokenizer, T5ForConditionalGeneration
 from utils.tools_torch import EarlyStopping, SaveBestModel
 from utils.data_loader import DialogueData
 from utils.args import create_arg_parser
@@ -39,6 +39,7 @@ def config_train_eval(model,
                       weight_decay,
                       epochs,
                       num_train_optimization_steps, num_warmup_steps,
+                      num_eval_steps,
                       accelerator, version_dir):
     """
     returns trainer to use for finetuning and inference
@@ -52,7 +53,8 @@ def config_train_eval(model,
 
 
     return MyTrainer(model, tb_logger, accelerator,
-                     warmup_steps=num_warmup_steps, total_steps=total_iterations,
+                     warmup_steps=num_warmup_steps, eval_steps=num_eval_steps,
+                     total_steps=total_iterations,
                      lr=lr, epochs=epochs, weight_decay=weight_decay, accumulation_steps=2,
                      verbosity=True)
 
@@ -121,12 +123,8 @@ def main():
     global store
 
     args = create_arg_parser()
-    # self attention layer swapped with local attention or transient-global (tglobal) attention
-    #TODO: Missing adapter version for each model. Future question, what about a pure GCN?
-    models = {'t5': 't5', 'flan-t5': 'google/flan-t5', 'long-t5-local': 'google/long-t5-local', 'long-t5-tglobal': 'google/long-t5-tglobal'}
-    model_name = models[args.model]
+    model_name = args.model
     model_name +=  ('-' + args.model_size)
-        #model_name = "Stancld/longt5-tglobal-large-16384-pubmed-3k_steps"  # self attention layer swapped with transient-global (tglobal) attention
 
     bool_4_args = {"no": False, "yes": True}
     length_exp_setup = {1: {"source_len": 512, "target_len": 256, "setup": "context and states"},  # 1024?
@@ -136,17 +134,12 @@ def main():
 
     experimental_setup = args.experimental_setup
     source_len = length_exp_setup[experimental_setup]["source_len"]
-    if ("google" in model_name) and (experimental_setup == 1):  # longer sequence than 2048 may not be needed...
-        source_len *= 2
 
     target_len = length_exp_setup[experimental_setup]["target_len"]
 
-    if 'long' not in model_name:
-        model = T5ForConditionalGeneration.from_pretrained(model_name)
-    else:
-        model = LongT5ForConditionalGeneration.from_pretrained(model_name)
+    model = T5ForConditionalGeneration.from_pretrained(model_name)
 
-    tokenizer = AutoTokenizer.from_pretrained(model_name, extra_ids=0, truncation_side='left',
+    tokenizer = AutoTokenizer.from_pretrained(model_name, extra_ids=0, #truncation_side='left',
                                               truncation=True, model_max_length=max([target_len, source_len])) 
 
     message_setup = length_exp_setup[experimental_setup]["setup"]
@@ -155,8 +148,6 @@ def main():
 
     subsetting = bool_4_args[args.subsetting]
     store = bool_4_args[args.store_output]
-
-    #cut_context = True if ((model_name[:2] == 't5') and (experimental_setup == 1)) else False
 
     dataset = args.dataset
     batch_size = args.batch
@@ -170,13 +161,33 @@ def main():
     model_checkpoint_name = f"baseline_{model_name}_experiment_{experimental_setup}"
 
     collator = BaselinePreDataCollator(tokenizer, source_len, target_len, experimental_setup)
+
     logging.info("Size of the tokenizer changed in the data collator. Special tokens added, resizing token embeddings")
     model.resize_token_embeddings(len(tokenizer))
     dataloaders = preprocessing(collator, dataset, num_workers, batch_size, method)
 
     train_set_size = len(dataloaders['train'])
+    validation_set_size = len(dataloaders['validation'])
     num_train_optimization_steps = epochs * train_set_size
-    num_warmup_steps = math.ceil(len(dataloaders['train']) / grad_acc_steps)
+    num_warmup_steps = math.ceil(train_set_size / grad_acc_steps)
+    total_val_steps = validation_set_size // batch_size * epochs
+    total_train_steps =  num_train_optimization_steps // batch_size
+
+    # for batch of 2, then compute the rest.... Funky, it doesn't work well 
+    default_eval_steps = {2: 2000}
+    options_eval_steps = {k*2: v //2 for k, v in default_eval_steps.items()}
+    options_eval_steps.update(default_eval_steps)
+    num_eval_steps = options_eval_steps[batch_size]
+
+    factor = 10
+    num_eval_steps = total_val_steps // factor
+    while num_eval_steps == 0 and factor > 0:
+        factor -= 1
+        num_eval_steps = total_val_steps // factor
+    if num_eval_steps >= validation_set_size:
+        num_eval_steps //= 2 
+    #assert (num_eval_steps > 0) and (num_eval_steps < val_set_size), "Number of eval steps must be more than 0"
+    #assert (num_eval_steps > 0) and (num_eval_steps < val_set_size), "Number of eval steps must be more than 0"
 
     summary = {
         "dataset": dataset,
@@ -184,15 +195,17 @@ def main():
         "max_target_length": target_len,
         "epochs": epochs,
         "batch_size": batch_size,
+        "total_val_steps": total_val_steps,
+        "total_train_steps": total_train_steps,
         "num_optimization_steps": num_train_optimization_steps,
         "num_warmup_steps": num_warmup_steps,
+        "num_eval_steps": num_eval_steps,
         "weight_decay": weight_decay,
         "learning_rate": lr,
         "training size": train_set_size
     }
 
     parent_dir = 'tb_logs'
-    model_checkpoint_name = model_checkpoint_name.replace('google/', '')
     base_path = os.path.join(parent_dir, model_checkpoint_name)
     version_dir = create_version_num(base_path)
 
@@ -209,6 +222,7 @@ def main():
                           epochs,
                           num_train_optimization_steps,
                           num_warmup_steps,
+                          num_eval_steps,
                           accelerator,
                           version_dir)
 

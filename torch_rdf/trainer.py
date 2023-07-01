@@ -17,7 +17,8 @@ class MyTrainer:
 
     def __init__(self, 
                  model, logger, accelerator,
-                 warmup_steps, total_steps,
+                 warmup_steps, eval_steps,
+                 total_steps,
                  lr=1e-6,
                  epochs: int=5,
                  weight_decay: float=0.0,
@@ -52,6 +53,7 @@ class MyTrainer:
         self.optimizer = AdamW(self.model.parameters(), lr=lr)
         #self.optimizer = AdamW(optimizer_grouped_parameters, lr=lr)
         self.scheduler = LinearWarmupScheduler(self.optimizer, warmup_steps, total_steps)
+        self.eval_steps = eval_steps
 
         self.verbose = verbosity
         self.disable = not verbosity
@@ -105,7 +107,7 @@ class MyTrainer:
 
             # VALIDATION
             my_evaluation = MyEvaluation(self.model, tokenizer, self.device, target_length, self.dst_metrics)
-            val_loss = my_evaluation(val_data, validation=True, verbose=self.verbose)
+            val_loss = my_evaluation(val_data, eval_steps=self.eval_steps, validation=True, verbose=self.verbose)
             log_dict = my_evaluation.results
             log_dict.setdefault('train_loss', train_loss)
             log_dict.setdefault('val_loss', train_loss)
@@ -158,7 +160,7 @@ class MyEvaluation:
                           }
     
 
-    def __call__(self, eval_data, validation=False, verbose=False):
+    def __call__(self, eval_data, eval_steps=None, validation=False, verbose=False):
     
         self.model.eval()
     
@@ -181,15 +183,15 @@ class MyEvaluation:
                 if not validation:
                     step_output = self.generate_rdfs(inputs, attention_mask, labels, dialogue_ids)
                     outputs.append(step_output)
-                elif validation and step == len(eval_data) - 1:  # just generate at the end of steps before epoch
+                elif validation and ((step != 0) and (step % eval_steps == 0)):
                     step_output = self.generate_rdfs(inputs, attention_mask, labels, dialogue_ids)
                     outputs.append(step_output)
                     
     
-        total_loss /= len(eval_data)
-        self.results = self.evaluate_outputs(outputs)
         if not validation:
             self.store_outputs(outputs)
+        total_loss /= len(eval_data)
+        self.results = self.evaluate_outputs(outputs)
         outputs.clear()
 
         return total_loss
