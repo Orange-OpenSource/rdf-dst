@@ -1,7 +1,6 @@
-from datasets import load_dataset, concatenate_datasets, DatasetDict, load_from_disk
-import torch
+from datasets import load_dataset, concatenate_datasets, load_from_disk
 from torch.utils.data import DataLoader
-
+import os
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -28,8 +27,9 @@ class DialogueRDFData:
     def load_hf_data(self, method):
         """
         """
-        if method == "local":
+        if method == "offline":
             path = self.dataset + "_rdf_data"
+            path = os.path.join('..', path)
             dialogue_data = load_from_disk(path).with_format("torch")
             # https://huggingface.co/docs/datasets/cache
             dialogue_data.cleanup_cache_files()
@@ -73,34 +73,34 @@ class DialogueRDFData:
     def test_dataloader(self):
         return DataLoader(self.test_dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=False)
 
-    def debugging_lengths(self):
+    #def debugging_lengths(self):
 
-        max_input_size = set()
-        max_label_size = set()
-        count = 0
+    #    max_input_size = set()
+    #    max_label_size = set()
+    #    count = 0
 
-        tokenizer = self.collator.tokenizer
+    #    tokenizer = self.collator.tokenizer
 
-        for t in self.train_dataset:
+    #    for t in self.train_dataset:
 
-            if (len(t["states"]) > 50) and (len(t['txt']) > 600):
-                print(len(t['txt']))
-                input_ids = t["input_ids"]
-                input_amount = torch.sum(input_ids==0)
-                input_ids = tokenizer.decode(input_ids, skip_special_tokens=True)
-                print(input_ids)
-                print()
-                max_input_size.add(input_amount)
-                labels = t["labels"]
-                label_amount = torch.sum(labels==-100)
-                max_label_size.add(label_amount)
-                labels = torch.masked_fill(labels, labels == -100, 0)
-                labels = tokenizer.decode(labels, skip_special_tokens=True)
-                print(labels)
-                print()
-                print(t["states"])
-                print()
-                count += 1
-                if count == 16:
-                    break
-        raise SystemExit
+    #        if (len(t["states"]) > 50) and (len(t['txt']) > 600):
+    #            print(len(t['txt']))
+    #            input_ids = t["input_ids"]
+    #            input_amount = torch.sum(input_ids==0)
+    #            input_ids = tokenizer.decode(input_ids, skip_special_tokens=True)
+    #            print(input_ids)
+    #            print()
+    #            max_input_size.add(input_amount)
+    #            labels = t["labels"]
+    #            label_amount = torch.sum(labels==-100)
+    #            max_label_size.add(label_amount)
+    #            labels = torch.masked_fill(labels, labels == -100, 0)
+    #            labels = tokenizer.decode(labels, skip_special_tokens=True)
+    #            print(labels)
+    #            print()
+    #            print(t["states"])
+    #            print()
+    #            count += 1
+    #            if count == 16:
+    #                break
+    #    raise SystemExit

@@ -22,20 +22,13 @@ if device.type == "cuda":
     z_cpu = z.to("cpu")
     print("Result tensor on CPU:", z_cpu)
 
-if os.getenv('DPR_JOB'):
-    print(os.getenv('DPR_JOB'))
-    path = os.path.join("/userstorage/", os.getenv('DPR_JOB'))
-    if not os.path.exists(path):
-        os.makedirs(path)
-
-    file = os.path.join(path, 'tito_hi.txt')
-    with open(file, 'w') as f:
-        f.write("I was here with my cat testing marcel")
-        f.close()
-
-    #dpr_path = os.path.join("/userstorage/", os.getenv('DPR_JOB'))
-    #print(dpr_path)
-    #dpr_path = os.path.join(dpr_path, self.path)  # created path as well, just to see if we can create nested dirs
-    #storage_path = os.path.join(dpr_path, curr_model_path)
-#else:
-#    storage_path = os.path.join(self.path, curr_model_path)
+#if os.getenv('DPR_JOB'):
+#    print(os.getenv('DPR_JOB'))
+#    path = os.path.join("/userstorage/", os.getenv('DPR_JOB'))
+#    if not os.path.exists(path):
+#        os.makedirs(path)
+#
+#    file = os.path.join(path, 'tito_hi.txt')
+#    with open(file, 'w') as f:
+#        f.write("I was here with my cat testing marcel")
+#        f.close()

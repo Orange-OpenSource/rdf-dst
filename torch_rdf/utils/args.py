@@ -17,8 +17,8 @@ def create_arg_parser():
 
     parser.add_argument(
         "-method", "--method", default='online', type=str,
-        choices=['online', 'local'],
-        help="Select to load data locally or from HF. When running from colab or jean zay, using local."
+        choices=['online', 'offline'],
+        help="Select to load data locally or from HF. When running from colab or jean zay, using offline."
     )
 
     parser.add_argument(
@@ -41,7 +41,7 @@ def create_arg_parser():
     )
 
     parser.add_argument(
-        "-acc", "--accelerator", default='cuda', type=str,  # cuda or gpu?
+        "-device", "--device", default='cuda', type=str,  # cuda or gpu?
         choices=['hpu', 'cpu', 'tpu', 'cuda', 'ipu', 'auto', 'mps'], help="Provide the number of epochs"
     )
 

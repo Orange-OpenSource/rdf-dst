@@ -6,17 +6,19 @@ from utils.postprocessing import postprocess_states
 from utils.custom_schedulers import LinearWarmupScheduler
 from torch.optim import AdamW
 from tqdm import tqdm
+from accelerate import Accelerator
 
 import logging
 
 logging.basicConfig(level=logging.INFO)
 
 SEED = 42  # for replication purposes
+accelerator = Accelerator()
 
 class MyTrainer:
 
     def __init__(self, 
-                 model, logger, accelerator,
+                 model, logger, device,
                  warmup_steps,
                  eval_steps,
                  total_steps,
@@ -30,7 +32,7 @@ class MyTrainer:
         self.writer = logger
         self.model = model
         self.epochs = epochs
-        self.device = accelerator
+        self.device = device
         # no batch norm in T5? https://discuss.pytorch.org/t/accumulating-gradients/30020/3
         self.accumulation_steps = accumulation_steps
         lr = 1e-3  # 1e-4 best so far?. 1e-3
@@ -71,7 +73,9 @@ class MyTrainer:
     def train_loop(self, train_data, val_data, tokenizer, target_length):
 
 
-        self.model.to(self.device)
+        #self.model.to(self.device)
+        train_data, val_data, self.model, self.optimizer = accelerator.prepare(train_data, val_data, self.model, self.optimizer)
+        #self.model#.to(self.device)
 
         early_stop_value = None
         results_logging = {}
@@ -81,9 +85,9 @@ class MyTrainer:
             self.model.train()
             for step, batch in enumerate(train_data):
 
-                inputs = batch['input_ids'].to(self.device)
-                labels = batch['labels'].to(self.device)
-                attention_mask = batch['attention_mask'].to(self.device)
+                inputs = batch['input_ids']#.to(self.device)
+                labels = batch['labels']#.to(self.device)
+                attention_mask = batch['attention_mask']#.to(self.device)
 
                 model_outputs = self.model(input_ids=inputs, attention_mask=attention_mask, labels=labels)
                 # loss, logits, encoder_last_hidden_state, past_key_values
@@ -159,6 +163,8 @@ class MyEvaluation:
     
 
     def __call__(self, eval_data, eval_steps=None, validation=False, verbose=False):
+        if not validation:
+            eval_data, self.model = accelerator.prepare(eval_data, self.model)
     
         self.model.eval()
     
@@ -168,9 +174,9 @@ class MyEvaluation:
         with torch.no_grad():
             for step, batch in tqdm(enumerate(eval_data), disable=disable):
     
-                inputs = batch['input_ids'].to(self.device)
-                labels = batch['labels'].to(self.device)
-                attention_mask = batch['attention_mask'].to(self.device)
+                inputs = batch['input_ids']#.to(self.device)
+                labels = batch['labels']#.to(self.device)
+                attention_mask = batch['attention_mask']#.to(self.device)
     
                 model_outputs = self.model(input_ids=inputs, attention_mask=attention_mask, labels=labels)
                 # loss, logits, encoder_last_hidden_state, past_key_values
@@ -215,9 +221,10 @@ class MyEvaluation:
 
 
     def generate_states(self, batch):
-        input_ids = batch['input_ids'].to(self.device)
-        attention_mask = batch['attention_mask'].to(self.device)
-        labels = batch["labels"].to(self.device).detach()#.cpu().numpy()
+        input_ids = batch['input_ids']#.to(self.device)
+        attention_mask = batch['attention_mask']#.to(self.device)
+        labels = batch["labels"]#.to(self.device).detach()#.cpu().numpy()
+        labels = batch["labels"].detach()#.cpu().numpy()
 
         generated_tokens = self.model.generate(input_ids, attention_mask=attention_mask, **self.gen_kwargs)
         decoded_preds = self.tokenizer.batch_decode(generated_tokens.detach(), skip_special_tokens=True)

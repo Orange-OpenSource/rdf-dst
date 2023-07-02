@@ -1,7 +1,6 @@
-from datasets import load_dataset, concatenate_datasets, DatasetDict, load_from_disk
-import torch
+from datasets import load_dataset, concatenate_datasets, load_from_disk
 from torch.utils.data import DataLoader
-
+import os
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -29,8 +28,9 @@ class DialogueData:
         """
         """
 
-        if method == "local":
+        if method == "offline":
             path = self.dataset + '_data'
+            path = os.path.join('..', path)
             dialogue_data = load_from_disk(path).with_format("torch")  # path should be just multiwoz
 
             dialogue_data.cleanup_cache_files()

@@ -42,7 +42,7 @@ def config_train_eval(model,
                       epochs,
                       num_train_optimization_steps, num_warmup_steps,
                       num_eval_steps,
-                      accelerator, version_dir):
+                      device, version_dir):
     """
     returns trainer to use for finetuning and inference
     """
@@ -54,7 +54,7 @@ def config_train_eval(model,
     total_iterations = num_train_optimization_steps
 
 
-    return MyTrainer(model, tb_logger, accelerator,
+    return MyTrainer(model, tb_logger, device,
                      warmup_steps=num_warmup_steps, eval_steps=num_eval_steps,
                      total_steps=total_iterations,
                      lr=lr, epochs=epochs, weight_decay=weight_decay, accumulation_steps=2,
@@ -137,9 +137,9 @@ def main():
                         3: {"source_len": 768,  "target_len": 1024, "setup": "only states"}}
     
     # TO DEBUG
-    #length_exp_setup = {1: {"source_len": 256, "target_len": 256, "setup": "context and states"},
-    #                    2: {"source_len": 256,  "target_len": 256, "setup": "only context"},
-    #                    3: {"source_len": 256,  "target_len": 256, "setup": "only states"}}
+    length_exp_setup = {1: {"source_len": 256, "target_len": 256, "setup": "context and states"},
+                        2: {"source_len": 256,  "target_len": 256, "setup": "only context"},
+                        3: {"source_len": 256,  "target_len": 256, "setup": "only states"}}
 
     experimental_setup = args.experimental_setup
     source_len = length_exp_setup[experimental_setup]["source_len"]
@@ -171,7 +171,7 @@ def main():
     lr = args.learning_rate
     num_workers = args.num_workers
     grad_acc_steps = args.gradient_accumulation_steps
-    accelerator = args.accelerator
+    device = args.device
     method = args.method
     model_checkpoint_name = f"{model_name}_experiment_{experimental_setup}"
 
@@ -187,11 +187,11 @@ def main():
     total_val_steps = validation_set_size // batch_size * epochs
     total_train_steps =  num_train_optimization_steps // batch_size
 
-    # for batch of 2, then compute the rest.... Funky, it doesn't work well 
-    default_eval_steps = {2: 2000}
-    options_eval_steps = {k*2: v //2 for k, v in default_eval_steps.items()}
-    options_eval_steps.update(default_eval_steps)
-    num_eval_steps = options_eval_steps[batch_size]
+    # for batch of 2, then compute the rest.... Funky, it doesn't work well. Need to add other iterations for other steps
+    #default_eval_steps = {2: 2000}
+    #options_eval_steps = {k*2: v //2 for k, v in default_eval_steps.items()}
+    #options_eval_steps.update(default_eval_steps)
+    #num_eval_steps = options_eval_steps[batch_size]
 
     factor = 10
     num_eval_steps = total_val_steps // factor
@@ -239,7 +239,7 @@ def main():
                           num_train_optimization_steps,
                           num_warmup_steps,
                           num_eval_steps,
-                          accelerator,
+                          device,
                           version_dir)
 
     weights_biases_logger = {"active_logger": logger, "project": "basic_flant5", "config": summary}
@@ -265,7 +265,7 @@ def main():
 
     manual_log_experiments(results, summary, checkpoint_path)
 
-    evaluate(model, tokenizer, dataloaders['test'], accelerator, 
+    evaluate(model, tokenizer, dataloaders['test'], device, 
              target_len, dst_metrics)
 
 if __name__ == '__main__':
