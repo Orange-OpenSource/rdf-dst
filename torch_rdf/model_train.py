@@ -3,6 +3,7 @@ load_dotenv()  # load keys and especially w and biases to see visualizations. Lo
 
 import math
 import json
+import torch
 import os
 # longt5 needs special module to avoid errors
 from transformers import AutoTokenizer, T5ForConditionalGeneration, LongT5ForConditionalGeneration
@@ -31,9 +32,10 @@ def preprocessing(collator, dataset, num_workers, batch_size, method):
     dataloaders = data.create_loaders(subsetting=subsetting)
 
     train_dataloader = dataloaders["train"]
-    test_dataloader = dataloaders["test"]
+    #test_dataloader = dataloaders["test"]
     validation_dataloader = dataloaders["validation"]
-    return {'train': train_dataloader, 'test': test_dataloader, 'validation': validation_dataloader}
+    return {'train': train_dataloader, 'validation': validation_dataloader}
+    #return {'train': train_dataloader, 'test': test_dataloader, 'validation': validation_dataloader}
 
 
 def config_train_eval(model,
@@ -99,13 +101,13 @@ def training(trainer, dataloaders, tokenizer, target_length):
     
 
 def evaluate(model, tokenizer, test_dataloader, device, 
-             target_len, dst_metrics):
+             target_len, dst_metrics, checkpoint_path):
 
 
     logging.info("Inference stage")
 
 
-    my_evaluation = MyEvaluation(model, tokenizer, device, target_len, dst_metrics)
+    my_evaluation = MyEvaluation(model, tokenizer, device, target_len, dst_metrics, checkpoint_path)
     my_evaluation(test_dataloader, validation=False, verbose=True)
     print(my_evaluation.results)
 
@@ -128,8 +130,7 @@ def main():
     #TODO: Missing adapter version for each model. Future question, what about a pure GCN?
     models = {'t5': 't5', 'flan-t5': 'google/flan-t5', 'long-t5-local': 'google/long-t5-local', 'long-t5-tglobal': 'google/long-t5-tglobal'}
     model_name = models[args.model]
-    model_name +=  ('-' + args.model_size)
-        #model_name = "Stancld/longt5-tglobal-large-16384-pubmed-3k_steps"  # self attention layer swapped with transient-global (tglobal) attention
+    model_path =  model_name + '-' + args.model_size
 
     bool_4_args = {"no": False, "yes": True}
     length_exp_setup = {1: {"source_len": 1024, "target_len": 1024, "setup": "context and states"},
@@ -143,26 +144,10 @@ def main():
 
     experimental_setup = args.experimental_setup
     source_len = length_exp_setup[experimental_setup]["source_len"]
-    if ("google" in model_name) and (experimental_setup == 1):  # longer sequence than 2048 may not be needed...
+    if (model_name != 't5') and (experimental_setup == 1):  # longer sequence than 2048 may not be needed...
         source_len *= 2
 
     target_len = length_exp_setup[experimental_setup]["target_len"]
-
-    if 'long' not in model_name:
-        model = T5ForConditionalGeneration.from_pretrained(model_name)
-    else:
-        model = LongT5ForConditionalGeneration.from_pretrained(model_name)
-
-    tokenizer = AutoTokenizer.from_pretrained(model_name, extra_ids=0, truncation=True, model_max_length=max([target_len, source_len])) 
-
-    message_setup = length_exp_setup[experimental_setup]["setup"]
-    logging.info(f"{message_setup} with...\nInput_Length: {source_len}\nOutput_Length: {target_len}")
-    logger = bool_4_args[args.logger]
-
-    subsetting = bool_4_args[args.subsetting]
-    store = bool_4_args[args.store_output]
-
-    cut_context = True if ((model_name[:2] == 't5') and (experimental_setup == 1)) else False
 
     dataset = args.dataset
     batch_size = args.batch
@@ -173,11 +158,33 @@ def main():
     grad_acc_steps = args.gradient_accumulation_steps
     device = args.device
     method = args.method
-    model_checkpoint_name = f"{model_name}_experiment_{experimental_setup}"
+    model_checkpoint_name = f"{model_name}_{args.model_size}_experiment_{experimental_setup}"
+
+    if 'long' not in model_name:
+        model = T5ForConditionalGeneration.from_pretrained(model_path)
+    else:
+        model = LongT5ForConditionalGeneration.from_pretrained(model_path)
+
+    tokenizer = AutoTokenizer.from_pretrained(model_path, extra_ids=0, truncation=True, model_max_length=max([target_len, source_len])) 
+
+    message_setup = length_exp_setup[experimental_setup]["setup"]
+    logging.info(f"{message_setup} with...\nInput_Length: {source_len}\nOutput_Length: {target_len}")
+    logger = bool_4_args[args.logger]
+
+    subsetting = bool_4_args[args.subsetting]
+    store = bool_4_args[args.store_output]
+
+    cut_context = True if ((model_name[:2] == 't5') and (experimental_setup == 1)) else False
 
     collator = PreDataCollator(tokenizer, source_len, target_len, experimental_setup, cut_context=cut_context)
     logging.info("Size of the tokenizer changed in the data collator. Special tokens added, resizing token embeddings")
     model.resize_token_embeddings(len(tokenizer))
+
+    device_count = torch.cuda.device_count()
+
+    logging.info(f"There are {device_count} devices available")
+    device_count = range(torch.cuda.device_count())
+    
     dataloaders = preprocessing(collator, dataset, num_workers, batch_size, method)
 
     train_set_size = len(dataloaders['train'])
@@ -196,9 +203,13 @@ def main():
     factor = 10
     num_eval_steps = total_val_steps // factor
     while num_eval_steps == 0 and factor > 0:
-        factor -= 1
         num_eval_steps = total_val_steps // factor
-    if num_eval_steps >= validation_set_size:
+        factor -= 1
+    
+    if num_eval_steps == 0:
+        num_eval_steps += 1
+
+    elif num_eval_steps >= validation_set_size:
         num_eval_steps //= 2 
     #assert (num_eval_steps > 0) and (num_eval_steps < val_set_size), "Number of eval steps must be more than 0"
 
@@ -251,22 +262,27 @@ def main():
     tokenizer = model_tok["tokenizer"]
     results = model_tok["results"]
 
-    summary = dict(summary, **{"jga": results['best_epoch']['jga'],
-                               "fga_exact_recall": results['best_epoch']['fga_exact_recall'],
-                               "fuzzy_jga": results['best_epoch']['fuzzy_jga'],
-                               "f1": results['best_epoch']['f1'],
-                               "recall": results['best_epoch']['recall'],
-                               "precision": results['best_epoch']['precision'],
-                               "meteor": results['best_epoch']['meteor'],
-                               "gleu": results['best_epoch']['gleu'],
+    # remove validation metrics during training to speed up training
+    summary = dict(summary, **{#"jga": results['best_epoch']['jga'],
+                               #"fga_exact_recall": results['best_epoch']['fga_exact_recall'],
+                               #"fuzzy_jga": results['best_epoch']['fuzzy_jga'],
+                               #"f1": results['best_epoch']['f1'],
+                               #"recall": results['best_epoch']['recall'],
+                               #"precision": results['best_epoch']['precision'],
+                               #"meteor": results['best_epoch']['meteor'],
+                               #"gleu": results['best_epoch']['gleu'],
                                "train_loss": results['best_epoch']['train_loss'],
                                "val_loss": results['best_epoch']['val_loss']
                               })
 
     manual_log_experiments(results, summary, checkpoint_path)
 
-    evaluate(model, tokenizer, dataloaders['test'], device, 
-             target_len, dst_metrics)
+    print(summary)
+    logging.info(summary)
+    logging.info(checkpoint_path)
+
+    #evaluate(model, tokenizer, dataloaders['test'], device, 
+    #         target_len, dst_metrics, checkpoint_path)
 
 if __name__ == '__main__':
     main()

@@ -9,7 +9,7 @@ import random
 @dataclass
 class PreDataCollator:
     
-    def __init__(self, tokenizer, source_len, target_len, exp_setup, cut_context):
+    def __init__(self, tokenizer, source_len, target_len, exp_setup, cut_context, inference_time=False):
 
         self.cut_context = cut_context
         self.exp_setup = exp_setup
@@ -22,8 +22,9 @@ class PreDataCollator:
         self.subject_tkn = '<subject_tkn>'
         self.relation_tkn = '<relation_tkn>'
         self.object_tkn = '<object_tkn>'
-        sentinel_tkns = {"additional_special_tokens": [self.user_tkn, self.sys_tkn, self.state_tkn, self.subject_tkn, self.object_tkn, self.relation_tkn]}
-        tokenizer.add_special_tokens(sentinel_tkns)
+        if not inference_time:
+            sentinel_tkns = {"additional_special_tokens": [self.user_tkn, self.sys_tkn, self.state_tkn, self.subject_tkn, self.object_tkn, self.relation_tkn]}
+            tokenizer.add_special_tokens(sentinel_tkns)
         self.tokenizer = tokenizer
 
     def __call__(self, batch):
@@ -34,8 +35,6 @@ class PreDataCollator:
         dialogue_ids = []
         turn_number = []
 
-#        all_states = []
-#        all_txt = []
 
         for diag_id, dialogue, states in zip(batch['dialogue_id'], batch['turns'], batch['states']):  # dict, history is a str that is the key
             txt_input, label_rdf = self.create_inputs_outputs(dialogue, states)
@@ -48,12 +47,7 @@ class PreDataCollator:
                 labels.append(tokenized['labels'])
                 dialogue_ids.append(diag_id)
                 turn_number.append(turn)
-
-                #debug_states = [s for s in states[turn]['triples']]
-                #all_states.append(debug_states)
-                #all_txt.append(txt)
-
-        return {'input_ids': input_ids, 'attention_mask': attention_mask, #'states': all_states, 'txt': all_txt,
+        return {'input_ids': input_ids, 'attention_mask': attention_mask,
                 'labels': labels, 'dialogue_id': dialogue_ids, 'turn_number': turn_number}
 
 

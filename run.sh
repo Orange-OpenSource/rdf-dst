@@ -7,7 +7,6 @@ DIR=./dst-snake
 experiment="${experiment:-1}"
 workers=5
 framework="torch"
-script="empty"
 model="t5"  # t5, flant-t5, long-t5-local, long-t5-tglobal
 
 programname=$0
@@ -17,6 +16,8 @@ function usage {
     echo ""
     echo "usage: $programname --debug string --experiment integer --devices integer"
     echo ""
+    echo "  --setup          	        training or evaluating"
+    echo "                              (example: train, evaluate)"
     echo "  --framework string          using HF, torch, or lightning"
     echo "                              (example: pl, torch, hf)"
     echo "  --debug string   		 yes or no"
@@ -30,21 +31,6 @@ function die {
 }
 
 
-# NO NEED FOR VIRTUAL ENV WITH A CONTAINER!
-#if [ -d "$DIR" ];
-#then
-#    echo "$DIR directory exists."
-#else
-#    echo "$DIR directory does not exist. Setting up virtual environment..."
-#    ./setup.sh
-#fi
-#
-#if [ ! -d "$DIR" ]; then
-#    die "Virtual environment was not properly setup"
-#fi
-#
-#source ./dst-snake/bin/activate
-
 while [ $# -gt 0 ]; do
     if [[ $1 == "--help" ]]; then
         usage
@@ -57,9 +43,9 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-if [[ -z $debug ]]; then
+if [[ -z $debug || -z $setup ]]; then
     usage
-    die "Missing parameter --debug"
+    die "Missing parameter --debug or --setup"
 fi
 
 if [[ -z $framework ]]; then
@@ -79,31 +65,40 @@ handle_option(){
 	case $1 in
 		"pl")
 			cd lightning_rdf/
-			script="pl_main.py"
-			#script="assess_marcel_pl.py"
 			;;
 		"hf")
 			cd hf_rdf/
-			script="hf_main.py"
 			;;
 		 
 		"baseline")
 			cd baseline/
-			script="main.py"
 			;;
 
 		"torch")
 			cd torch_rdf/
-			script="main.py"
-			#script="assess_marcel_torch.py"
 			;;
 	esac
 }
 # shell doesn't return variables per se, but if previously defined, the function overwrites the global var
 handle_option "$framework"
 
-if [[ $debug == "yes" ]]; then
-    python "$script" -epochs 2 -d multiwoz -store yes -logger no -experiment "$experiment" -workers "$workers" -model "$model" -model_size small -subset yes -device cuda -method offline
+if [[ $setup == "train" ]]; then
+    script="model_train.py"
+
+elif [[ $setup == "evaluate" ]]; then
+    script="model_evaluate.py"
 else
-    python "$script" -epochs 5 --batch 8 -d multiwoz -workers "$workers" -store yes -experiment "$experiment" -model "$model" -model_size base -logger yes -subset no
+    usage
+    die "Invalid value for setup parameter"
 fi
+
+if [[ $debug == "yes" ]]; then
+    python "$script" -epochs 2 -d multiwoz -store yes -logger no -experiment "$experiment" -workers "$workers" -model "$model" -model_size small -subset yes -device cuda -method online
+elif [[ $debug == "no" ]]; then
+    python "$script" -epochs 5 --batch 8 -d multiwoz -workers "$workers" -store yes -experiment "$experiment" -model "$model" -model_size base -logger yes -subset no
+else
+    usage
+    die "Invalid value for debug parameter"
+fi
+
+#python model_evaluate.py -d multiwoz -store yes -logger no -experiment 1 -workers 5 -model t5 -model_size small -subset yes -device cuda -method online

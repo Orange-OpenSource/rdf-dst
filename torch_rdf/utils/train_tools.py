@@ -17,19 +17,19 @@ class SaveBestModel:
 
     def __call__(self, model, tokenizer, epoch, results_logging, log_dict):
         # more rigorous saving method with jga as well
-        curr_f1 = log_dict['f1']
         current_valid_loss = log_dict['val_loss']
-        if (current_valid_loss < self.best_valid_loss) and (curr_f1 > self.best_f1):
+        if (current_valid_loss < self.best_valid_loss):
             self.best_valid_loss = current_valid_loss
-            self.best_f1 = curr_f1
             results_logging['best_epoch'] = dict(log_dict, **{'epoch': epoch})   
             curr_model_path = self.model_name_path
-            if os.getenv('DPR_JOB'):
-                dpr_path = os.path.join("/userstorage/", os.getenv('DPR_JOB'))
-                dpr_path = os.path.join(dpr_path, self.path)
-                storage_path = os.path.join(dpr_path, curr_model_path)
-            else:
-                storage_path = os.path.join(self.path, curr_model_path)
+            #if os.getenv('DPR_JOB'):
+            #    dpr_path = os.path.join("/userstorage/", os.getenv('DPR_JOB'))
+            #    dpr_path = os.path.join(dpr_path, self.path)
+            #    storage_path = os.path.join(dpr_path, curr_model_path)
+            #else:
+            #    storage_path = os.path.join(self.path, curr_model_path)
+
+            storage_path = os.path.join(self.path, curr_model_path)
             model.save_pretrained(storage_path)
             tokenizer.save_pretrained(storage_path)
 

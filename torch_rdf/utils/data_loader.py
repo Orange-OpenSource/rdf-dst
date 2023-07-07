@@ -14,6 +14,7 @@ class DialogueRDFData:
 
     def __init__(self, collator, num_workers: int,
                  dataset: str, batch_size: int=8,
+                 inference_time: bool=False
                  ):
 
         self.dataset = dataset
@@ -22,6 +23,7 @@ class DialogueRDFData:
         #TODO: Review dataset and multiprocessing issues 
         # https://github.com/pytorch/pytorch/issues/8976
         self.num_workers = num_workers  # no multiprocessing for now
+        self.inference_time = inference_time
 
 
     def load_hf_data(self, method):
@@ -37,6 +39,7 @@ class DialogueRDFData:
             dialogue_data = load_dataset("rdfdial", self.dataset, download_mode='force_redownload').with_format("torch")
             all_data = concatenate_datasets([dialogue_data['validation'], dialogue_data['train'], dialogue_data['test']])  # splits are weird
             train_val = all_data.train_test_split(test_size=0.2)
+            # I need to split this, otherwise the model would see the data during validation!
             test_val = train_val['test'].train_test_split(test_size=0.5)
             dialogue_data.update({'train': train_val['train'], 'validation': test_val['train'], 'test': test_val['test']})
 
@@ -50,18 +53,25 @@ class DialogueRDFData:
 
         """
 
+        if self.inference_time:
+            self.test_dataset = self.dialogue_data['test'].map(self.collator, num_proc=8, remove_columns=self.dialogue_data['test'].column_names, batched=True) 
+            if subsetting:
+                self.test_dataset = self.test_dataset.select(range(10))
+            return {"test": self.test_dataloader()}
+
         self.train_dataset = self.dialogue_data['train'].map(self.collator, num_proc=8, remove_columns=self.dialogue_data['train'].column_names, batched=True)  
         self.validation_dataset = self.dialogue_data['validation'].map(self.collator, num_proc=8, remove_columns=self.dialogue_data['validation'].column_names, batched=True) 
-        self.test_dataset = self.dialogue_data['test'].map(self.collator, num_proc=8, remove_columns=self.dialogue_data['test'].column_names, batched=True) 
 
         #self.debugging_lengths()
 
         if subsetting:
             self.train_dataset = self.train_dataset.select(range(25))
-            self.test_dataset = self.train_dataset.select(range(10))
             self.validation_dataset = self.train_dataset.select(range(13))
 
-        return {"train": self.train_dataloader(), "validation": self.validation_dataloader(), "test": self.test_dataloader()}
+            #if not self.inference_time:
+            #    self.test_dataset = self.train_dataset.select(range(10))
+
+        return {"train": self.train_dataloader(), "validation": self.validation_dataloader()}
 
         
     def train_dataloader(self):
@@ -72,35 +82,3 @@ class DialogueRDFData:
 
     def test_dataloader(self):
         return DataLoader(self.test_dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=False)
-
-    #def debugging_lengths(self):
-
-    #    max_input_size = set()
-    #    max_label_size = set()
-    #    count = 0
-
-    #    tokenizer = self.collator.tokenizer
-
-    #    for t in self.train_dataset:
-
-    #        if (len(t["states"]) > 50) and (len(t['txt']) > 600):
-    #            print(len(t['txt']))
-    #            input_ids = t["input_ids"]
-    #            input_amount = torch.sum(input_ids==0)
-    #            input_ids = tokenizer.decode(input_ids, skip_special_tokens=True)
-    #            print(input_ids)
-    #            print()
-    #            max_input_size.add(input_amount)
-    #            labels = t["labels"]
-    #            label_amount = torch.sum(labels==-100)
-    #            max_label_size.add(label_amount)
-    #            labels = torch.masked_fill(labels, labels == -100, 0)
-    #            labels = tokenizer.decode(labels, skip_special_tokens=True)
-    #            print(labels)
-    #            print()
-    #            print(t["states"])
-    #            print()
-    #            count += 1
-    #            if count == 16:
-    #                break
-    #    raise SystemExit

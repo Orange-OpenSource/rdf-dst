@@ -1,8 +1,5 @@
-import pandas as pd
 import wandb
-import torch
-import os
-from utils.postprocessing import postprocess_rdfs
+from evaluator import MyEvaluation
 from utils.custom_schedulers import LinearWarmupScheduler
 from torch.optim import AdamW
 from tqdm import tqdm
@@ -78,7 +75,6 @@ class MyTrainer:
     def train_loop(self, train_data, val_data, tokenizer, target_length):
 
         train_data, val_data, self.model, self.optimizer = accelerator.prepare(train_data, val_data, self.model, self.optimizer)
-        self.model#.to(self.device)
 
         early_stop_value = None
         results_logging = {}
@@ -87,9 +83,9 @@ class MyTrainer:
             self.model.train()
             for step, batch in enumerate(train_data):
 
-                inputs = batch['input_ids'].to(self.device)
-                labels = batch['labels'].to(self.device)
-                attention_mask = batch['attention_mask'].to(self.device)
+                inputs = batch['input_ids']#.to(self.device)
+                labels = batch['labels']#.to(self.device)
+                attention_mask = batch['attention_mask']#.to(self.device)
 
                 model_outputs = self.model(input_ids=inputs, attention_mask=attention_mask, labels=labels)
                 # loss, logits, encoder_last_hidden_state, past_key_values
@@ -113,7 +109,7 @@ class MyTrainer:
             val_loss = my_evaluation(val_data, eval_steps=self.eval_steps, validation=True, verbose=self.verbose)
             log_dict = my_evaluation.results
             log_dict.setdefault('train_loss', train_loss)
-            log_dict.setdefault('val_loss', train_loss)
+            log_dict.setdefault('val_loss', val_loss)
 
             if self.logger['active_logger']:
                 wandb.log(log_dict, step=epoch)
@@ -132,7 +128,7 @@ class MyTrainer:
 
             if self.early_stopping.early_stop:
                 early_stop_value = epoch+1
-                print(f"Early stopping at epoch {early_stop_value}")
+                logging.info(f"Early stopping at epoch {early_stop_value}")
 
             if self.verbose:
                 self.pretty_print(epoch=epoch, train_loss=train_loss, val_loss=val_loss, results=log_dict)
@@ -145,96 +141,6 @@ class MyTrainer:
         return {"model": self.model, "tokenizer": tokenizer, "results": results_logging}
 
     def pretty_print(self, epoch, train_loss, val_loss, results):
-        print(f"Epoch {epoch+1}: train loss is {train_loss:.3f} | val loss is {val_loss:.3f}")
-        for metric, value in results.items():
-            print(f"{metric}: {value}")
-
-
-class MyEvaluation:
-
-    def __init__(self, model, tokenizer, device, target_length, dst_metrics):
-        self.model = model
-        self.tokenizer = tokenizer
-        self.device = device
-        self.dst_metrics = dst_metrics
-        self.gen_kwargs = {"max_length": target_length,
-                           "min_length": target_length,
-                           "early_stopping": True
-                          }
-    
-
-    def __call__(self, eval_data, eval_steps=None, validation=False, verbose=False):
-        if not validation:
-            eval_data, self.model = accelerator.prepare(eval_data, self.model)
-    
-        self.model.eval()
-    
-        total_loss = 0
-        outputs = []
-        disable = not verbose
-        with torch.no_grad():
-            for step, batch in tqdm(enumerate(eval_data), disable=disable):
-    
-                inputs = batch['input_ids']#.to(self.device)
-                labels = batch['labels']#.to(self.device)
-                attention_mask = batch['attention_mask']#.to(self.device)
-                dialogue_ids = batch['dialogue_id']
-    
-                model_outputs = self.model(input_ids=inputs, attention_mask=attention_mask, labels=labels)
-                # loss, logits, encoder_last_hidden_state, past_key_values
-                loss = model_outputs.loss
-                total_loss += loss.item()
-    
-                if not validation:
-                    step_output = self.generate_rdfs(inputs, attention_mask, labels, dialogue_ids)
-                    outputs.append(step_output)
-                elif validation and ((step != 0) and (step % eval_steps == 0)):
-                    step_output = self.generate_rdfs(inputs, attention_mask, labels, dialogue_ids)
-                    outputs.append(step_output)
-                    
-    
-        if not validation:
-            self.store_outputs(outputs)
-        total_loss /= len(eval_data)
-        self.results = self.evaluate_outputs(outputs)
-        outputs.clear()
-
-        return total_loss
-
-    def evaluate_outputs(self, outputs):
-        return self.dst_metrics(outputs)
-
-    @staticmethod
-    def store_outputs(outputs):
-        states_df = pd.DataFrame(outputs)
-        # 
-        if os.getenv('DPR_JOB'):
-            path = os.path.join("/userstorage/", os.getenv('DPR_JOB'))
-        else:
-            path = "."
-        if not os.path.exists(path):
-            os.makedirs(path)
-        states_df.to_csv(os.path.join(path, "outputs.csv"), index=False)
-    
-
-
-    def generate_rdfs(self, input_ids, attention_mask, labels, dialogue_ids):
-        generated_tokens = self.model.generate(input_ids, attention_mask=attention_mask, **self.gen_kwargs)
-        decoded_preds = self.tokenizer.batch_decode(generated_tokens.detach(), skip_special_tokens=True)
-    
-        decoded_inputs = self.tokenizer.batch_decode(input_ids.detach(), skip_special_tokens=True)
-        labels = labels.detach()#.cpu().numpy()
-        labels = torch.where(labels != -100, labels, 0)
-        decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
-    
-        decoded_labels = postprocess_rdfs(decoded_labels)
-        decoded_preds = postprocess_rdfs(decoded_preds)
-        if isinstance(dialogue_ids, list):
-            dialogue_ids = dialogue_ids
-        elif torch.tensor(dialogue_ids):
-            dialogue_ids = dialogue_ids.detach()#.cpu().numpy()
-    
-
-        return {"preds": decoded_preds, "labels": decoded_labels,
-                "inputs": decoded_inputs, "ids": dialogue_ids}
-
+        logging.info(f"Epoch {epoch+1}: train loss is {train_loss:.3f} | val loss is {val_loss:.3f}")
+        #for metric, value in results.items():
+        #    logging.info(f"{metric}: {value}")
