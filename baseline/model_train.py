@@ -4,13 +4,14 @@ load_dotenv()  # load keys and especially w and biases to see visualizations. Lo
 import math
 import os
 import json
-# longt5 needs special module to avoid errors
+import torch
+
 from transformers import AutoTokenizer, T5ForConditionalGeneration
 from utils.tools_torch import EarlyStopping, SaveBestModel
 from utils.data_loader import DialogueData
 from utils.args import create_arg_parser
 from utils.metric_tools import DSTMetrics
-from trainer import MyTrainer, MyEvaluation
+from trainer import MyTrainer
 from utils.predata_collate import BaselinePreDataCollator
 from torch.utils.tensorboard import SummaryWriter
 
@@ -29,9 +30,8 @@ def preprocessing(collator, dataset, num_workers, batch_size, method):
     dataloaders = data.create_loaders(subsetting=subsetting)
 
     train_dataloader = dataloaders["train"]
-    test_dataloader = dataloaders["test"]
     validation_dataloader = dataloaders["validation"]
-    return {'train': train_dataloader, 'test': test_dataloader, 'validation': validation_dataloader}
+    return {'train': train_dataloader, 'validation': validation_dataloader}
 
 
 def config_train_eval(model,
@@ -97,15 +97,6 @@ def training(trainer, dataloaders, tokenizer, target_length):
                               target_length=target_length)
     
 
-def evaluate(model, tokenizer, test_dataloader, device, 
-             target_len, dst_metrics):
-
-
-    logging.info("Inference stage")
-
-    my_evaluation = MyEvaluation(model, tokenizer, device, target_len, dst_metrics)
-    my_evaluation(test_dataloader, validation=False, verbose=True)
-    print(my_evaluation.results)
 
 
 def manual_log_experiments(results, summary, path):
@@ -124,7 +115,8 @@ def main():
 
     args = create_arg_parser()
     model_name = args.model
-    model_name +=  ('-' + args.model_size)
+    model_name = args.model
+    model_path =  model_name + '-' + args.model_size
 
     bool_4_args = {"no": False, "yes": True}
     length_exp_setup = {1: {"source_len": 512, "target_len": 256, "setup": "context and states"},  # 1024?
@@ -136,15 +128,6 @@ def main():
     source_len = length_exp_setup[experimental_setup]["source_len"]
 
     target_len = length_exp_setup[experimental_setup]["target_len"]
-
-    model = T5ForConditionalGeneration.from_pretrained(model_name)
-
-    tokenizer = AutoTokenizer.from_pretrained(model_name, extra_ids=0, #truncation_side='left',
-                                              truncation=True, model_max_length=max([target_len, source_len])) 
-
-    message_setup = length_exp_setup[experimental_setup]["setup"]
-    logging.info(f"{message_setup} with...\nInput_Length: {source_len}\nOutput_Length: {target_len}")
-    logger = bool_4_args[args.logger]
 
     subsetting = bool_4_args[args.subsetting]
     store = bool_4_args[args.store_output]
@@ -158,12 +141,27 @@ def main():
     grad_acc_steps = args.gradient_accumulation_steps
     device = args.device
     method = args.method
-    model_checkpoint_name = f"baseline_{model_name}_experiment_{experimental_setup}"
+
+    model = T5ForConditionalGeneration.from_pretrained(model_path)
+    tokenizer = AutoTokenizer.from_pretrained(model_path, extra_ids=0, #truncation_side='left',
+                                              truncation=True, model_max_length=max([target_len, source_len])) 
+
+    message_setup = length_exp_setup[experimental_setup]["setup"]
+    logging.info(f"{message_setup} with...\nInput_Length: {source_len}\nOutput_Length: {target_len}")
+    logger = bool_4_args[args.logger]
+
+
+    model_checkpoint_name = f"baseline_{model_name}_{args.model_size}_experiment_{experimental_setup}"
 
     collator = BaselinePreDataCollator(tokenizer, source_len, target_len, experimental_setup)
 
     logging.info("Size of the tokenizer changed in the data collator. Special tokens added, resizing token embeddings")
     model.resize_token_embeddings(len(tokenizer))
+
+    device_count = torch.cuda.device_count()
+    logging.info(f"There are {device_count} devices available")
+    device_count = range(torch.cuda.device_count())
+
     dataloaders = preprocessing(collator, dataset, num_workers, batch_size, method)
 
     train_set_size = len(dataloaders['train'])
@@ -182,12 +180,13 @@ def main():
     factor = 10
     num_eval_steps = total_val_steps // factor
     while num_eval_steps == 0 and factor > 0:
-        factor -= 1
         num_eval_steps = total_val_steps // factor
-    if num_eval_steps >= validation_set_size:
+        factor -= 1
+    if num_eval_steps == 0:
+        num_eval_steps += 1
+    elif num_eval_steps >= validation_set_size:
         num_eval_steps //= 2 
-    #assert (num_eval_steps > 0) and (num_eval_steps < val_set_size), "Number of eval steps must be more than 0"
-    #assert (num_eval_steps > 0) and (num_eval_steps < val_set_size), "Number of eval steps must be more than 0"
+
 
     summary = {
         "dataset": dataset,
@@ -238,14 +237,14 @@ def main():
     results = model_tok["results"]
 
     # add other METRIC
-    summary = dict(summary, **{"jga": results['best_epoch']['jga'],
-                               "fga_exact_recall": results['best_epoch']['fga_exact_recall'],
-                               "fuzzy_jga": results['best_epoch']['fuzzy_jga'],
-                               "f1": results['best_epoch']['f1'],
-                               "recall": results['best_epoch']['recall'],
-                               "precision": results['best_epoch']['precision'],
-                               "meteor": results['best_epoch']['meteor'],
-                               "gleu": results['best_epoch']['gleu'],
+    summary = dict(summary, **{#"jga": results['best_epoch']['jga'],
+                               #"fga_exact_recall": results['best_epoch']['fga_exact_recall'],
+                               #"fuzzy_jga": results['best_epoch']['fuzzy_jga'],
+                               #"f1": results['best_epoch']['f1'],
+                               #"recall": results['best_epoch']['recall'],
+                               #"precision": results['best_epoch']['precision'],
+                               #"meteor": results['best_epoch']['meteor'],
+                               #"gleu": results['best_epoch']['gleu'],
                                "train_loss": results['best_epoch']['train_loss'],
                                "val_loss": results['best_epoch']['val_loss']
                               })
@@ -254,8 +253,9 @@ def main():
     # tensorboard --logdir=./baseline/tb_logs/baseline_t5-small_experiment_3/version_0
     manual_log_experiments(results, summary, checkpoint_path)
 
-    evaluate(model, tokenizer, dataloaders['test'], device, 
-             target_len, dst_metrics)
+    print(summary)
+    logging.info(summary)
+    logging.info(checkpoint_path)
 
 if __name__ == '__main__':
     main()

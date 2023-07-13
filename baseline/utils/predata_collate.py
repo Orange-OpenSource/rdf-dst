@@ -6,7 +6,7 @@ import random
 @dataclass
 class BaselinePreDataCollator:
     
-    def __init__(self, tokenizer, source_len, target_len, exp_setup):
+    def __init__(self, tokenizer, source_len, target_len, exp_setup, inference_time=False):
 
         self.exp_setup = exp_setup
         self.source_len = source_len
@@ -16,7 +16,9 @@ class BaselinePreDataCollator:
         #self.sys_tkn = '<sys_tkn>'
         #sentinel_tkns = {"additional_special_tokens": [self.user_tkn, self.sys_tkn]}
 
-        #tokenizer.add_special_tokens(sentinel_tkns)
+        #if not inference_time:
+            #pass
+            #tokenizer.add_special_tokens(sentinel_tkns)
         self.tokenizer = tokenizer
 
     def __call__(self, batch):

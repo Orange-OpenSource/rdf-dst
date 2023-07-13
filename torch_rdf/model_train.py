@@ -32,10 +32,8 @@ def preprocessing(collator, dataset, num_workers, batch_size, method):
     dataloaders = data.create_loaders(subsetting=subsetting)
 
     train_dataloader = dataloaders["train"]
-    #test_dataloader = dataloaders["test"]
     validation_dataloader = dataloaders["validation"]
     return {'train': train_dataloader, 'validation': validation_dataloader}
-    #return {'train': train_dataloader, 'test': test_dataloader, 'validation': validation_dataloader}
 
 
 def config_train_eval(model,
@@ -194,13 +192,10 @@ def main():
     while num_eval_steps == 0 and factor > 0:
         num_eval_steps = total_val_steps // factor
         factor -= 1
-    
     if num_eval_steps == 0:
         num_eval_steps += 1
-
     elif num_eval_steps >= validation_set_size:
         num_eval_steps //= 2 
-    #assert (num_eval_steps > 0) and (num_eval_steps < val_set_size), "Number of eval steps must be more than 0"
 
     summary = {
         "dataset": dataset,

@@ -14,6 +14,7 @@ class DialogueData:
 
     def __init__(self, collator, num_workers: int,
                  dataset: str, batch_size: int=8,
+                 inference_time: bool=False
                  ):
 
         self.dataset = dataset
@@ -22,6 +23,7 @@ class DialogueData:
         #TODO: Review dataset and multiprocessing issues 
         # https://github.com/pytorch/pytorch/issues/8976
         self.num_workers = num_workers  # no multiprocessing for now
+        self.inference_time = inference_time
 
 
     def load_hf_data(self, method):
@@ -71,16 +73,20 @@ class DialogueData:
 
         """
 
+        if self.inference_time:
+            self.test_dataset = self.dialogue_data['test'].map(self.collator, num_proc=8, remove_columns=self.dialogue_data['test'].column_names, batched=True) 
+            if subsetting:
+                self.test_dataset = self.test_dataset.select(range(10))
+            return {"test": self.test_dataloader()}
+
         self.train_dataset = self.dialogue_data['train'].map(self.collator, num_proc=8, remove_columns=self.dialogue_data['train'].column_names, batched=True)  
         self.validation_dataset = self.dialogue_data['validation'].map(self.collator, num_proc=8, remove_columns=self.dialogue_data['validation'].column_names, batched=True) 
-        self.test_dataset = self.dialogue_data['test'].map(self.collator, num_proc=8, remove_columns=self.dialogue_data['test'].column_names, batched=True) 
 
         if subsetting:
             self.train_dataset = self.train_dataset.select(range(45))
-            self.test_dataset = self.train_dataset.select(range(30))
             self.validation_dataset = self.train_dataset.select(range(33))
 
-        return {"train": self.train_dataloader(), "validation": self.validation_dataloader(), "test": self.test_dataloader()}
+        return {"train": self.train_dataloader(), "validation": self.validation_dataloader()}
 
         
     def train_dataloader(self):

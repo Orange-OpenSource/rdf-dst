@@ -4,9 +4,9 @@
 DIR=./dst-snake
 
 # default values, workers must be 1 with marcel... 6 with nadia?
-experiment="${experiment:-1}"
+experiment="${experiment:-3}"
 workers=5
-framework="torch"
+framework="baseline"
 model="t5"  # t5, flant-t5, long-t5-local, long-t5-tglobal
 
 programname=$0

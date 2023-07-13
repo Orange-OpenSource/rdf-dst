@@ -2,10 +2,16 @@ from collections import OrderedDict
 
 def clean_slot_val(node):
 
+    node = node.strip()
     node = node.replace('_', '')
     node = node.replace(',', '')  # removing commas to facilitate state creation and splitting
     node = node.replace(';', '')  # removing commas to facilitate state creation and splitting
     node = node.replace('=', '')  # removing commas to facilitate state creation and splitting
+
+    node = node.replace(':', '')
+    node = node.replace('USER', '') 
+    node = node.replace('SYSTEM', '') 
+    node = node.replace('STATE', '') 
     return node.lower().strip()
 
 def clean_state(state):

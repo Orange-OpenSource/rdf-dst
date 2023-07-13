@@ -1,8 +1,7 @@
 import numpy as np
-#import pandas as pd
-#df = pd.DataFrame.from_dict(self.dialogues_to_store)
 import evaluate
 from fuzzywuzzy import fuzz
+
 
 class DSTMetrics:
 

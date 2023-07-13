@@ -17,3 +17,4 @@ fuzzywuzzy==0.18.0
 python-Levenshtein==0.21.1
 accelerate==0.20.3
 pandas==2.0.3
+peft==0.3.0
