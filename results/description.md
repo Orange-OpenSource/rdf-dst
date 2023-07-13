@@ -10,9 +10,9 @@ MULTIWOZ RDF (convlab 2.3)
 | Baseline Exp 1 review        | 74% | 49%   | 31%  | 57%    | 98%       | 33%          | 8          |
 | Baseline Exp 2 review        | 45% | 47%   | 30%  | 55%    | 94%       | 32%          | 8          |
 | Baseline Exp 3 review        | 37% | 41%   | 23%  | 50%    | 92%       | 26%          | 8          |
-| T5-base. Exp 1 none          | 70% | 84%   | 80%  | 75%    | 96%       | 75%          | 2          |
-| T5-base. Exp 2 none          | 38% | 72%   | 65%  | 67%    | 90%       | 60%          | 4          |
-| T5-base. Exp 3 none          | 17% | 61%   | 59%  | 57%    | 74%       | 52%          | 4          |
+| T5-base. Exp 1           | 70% | 84%   | 80%  | 75%    | 96%       | 75%          | 2          |
+| T5-base. Exp 2           | 38% | 72%   | 65%  | 67%    | 90%       | 60%          | 4          |
+| T5-base. Exp 3           | 17% | 61%   | 59%  | 57%    | 74%       | 52%          | 4          |
 | flanT5-base. Exp 1 none      | 77% | 72%   | %    | %      | 98%       | 57%          |            |
 | flanT5-base. Exp 2 none      | 52% | 69%   | %    | %      | 95%       | 54%          |            |
 | flanT5-base. Exp 3 none      | 10% | 59%   | %    | %      | 66%       | 53%          |            |
