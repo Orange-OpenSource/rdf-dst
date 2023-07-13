@@ -11,15 +11,12 @@ class BaselinePreDataCollator:
         self.exp_setup = exp_setup
         self.source_len = source_len
         self.target_len = target_len
-        self.user_tkn = '<user_tkn>'
-        self.sys_tkn = '<sys_tkn>'
-        #self.slot_tkn = '<slot_tkn>'
-        #self.val_tkn = '<val_tkn>'
 
-        #sentinel_tkns = {"additional_special_tokens": [self.user_tkn, self.sys_tkn, self.slot_tkn, self.val_tkn]}
-        sentinel_tkns = {"additional_special_tokens": [self.user_tkn, self.sys_tkn]}
+        #self.user_tkn = '<user_tkn>'
+        #self.sys_tkn = '<sys_tkn>'
+        #sentinel_tkns = {"additional_special_tokens": [self.user_tkn, self.sys_tkn]}
 
-        tokenizer.add_special_tokens(sentinel_tkns)
+        #tokenizer.add_special_tokens(sentinel_tkns)
         self.tokenizer = tokenizer
 
     def __call__(self, batch):
@@ -69,12 +66,14 @@ class BaselinePreDataCollator:
             if self.exp_setup in [1, 2]:
                 system = t['system']['text']
                 user = t['user']['text']
-                convo = self.sys_tkn + system + self.user_tkn + user
+                #convo = self.sys_tkn + system + self.user_tkn + user
+                convo = 'SYSTEM: ' + system + 'USER: ' + user
                 context += convo
                 txt_input.append(context.strip().lower())
         if self.exp_setup == 1:
             first_turn = txt_input[0]
-            txt_input = [txt + states[i] for i, txt in enumerate(txt_input[1:])]
+            #txt_input = [txt + states[i] for i, txt in enumerate(txt_input[1:])]
+            txt_input = [txt + 'STATE: ' + states[i] for i, txt in enumerate(txt_input[1:])]
             txt_input.insert(0, first_turn)
         elif self.exp_setup == 3:
             txt_input = [' ']

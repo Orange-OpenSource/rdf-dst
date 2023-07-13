@@ -3,9 +3,15 @@ import re
 def clean_node(node):
 
 # _:booking/0699e989  BEFORE ALL OF THIS FIND PATTERNS LIKE THIS IN A GIVEN NODE, REPLACE FORWARD AND CODE WITH PAD TOKEN
+    node = node.strip()
     node = node.replace('_:', '')
     node = node.replace(',', '')  # removing commas to facilitate RDF creation and splitting
     node = node.replace(';', '')  # removing semicolons to facilitate RDF creation and splitting
+
+    node = node.replace(':', '')
+    node = node.replace('USER', '') 
+    node = node.replace('SYSTEM', '') 
+    node = node.replace('STATE', '') 
     underscoreRegex = re.compile(r"_")
     node = underscoreRegex.sub(' ', node).lower().strip()
     mask = ""  # Replace with empty mask to make it closer to NL

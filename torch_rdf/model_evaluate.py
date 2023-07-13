@@ -41,8 +41,8 @@ def evaluating(model, tokenizer, test_dataloader, device,
 
 def load_model(file_path):
 
-    #ckpt_path = find_version_num(file_path)
-    ckpt_path = '../results/models/tb_logs/flan-t5_experiment_1/version_0/checkpoints/best_dst_ckpt/'
+    ckpt_path = find_version_num(file_path)
+    #ckpt_path = '../results/models/tb_logs/flan-t5_experiment_1/version_0/checkpoints/best_dst_ckpt/'
 
     if 'long' not in file_path:
         model = T5ForConditionalGeneration.from_pretrained(ckpt_path)
@@ -87,11 +87,10 @@ def main():
     subsetting = bool_4_args[args.subsetting]
     store = bool_4_args[args.store_output]
 
-    length_exp_setup = {1: {"source_len": 512, "target_len": 256, "setup": "context and states"},  # 1024?
-                        2: {"source_len": 512,  "target_len": 256, "setup": "only context"},
-                        3: {"source_len": 256,  "target_len": 256, "setup": "only states"}}
-    
 
+    length_exp_setup = {1: {"source_len": 1024, "target_len": 1024, "setup": "context and states"},
+                        2: {"source_len": 512,  "target_len": 1024, "setup": "only context"},
+                        3: {"source_len": 768,  "target_len": 1024, "setup": "only states"}}
     # TO DEBUG
     #length_exp_setup = {1: {"source_len": 256, "target_len": 256, "setup": "context and states"},
     #                    2: {"source_len": 256,  "target_len": 256, "setup": "only context"},

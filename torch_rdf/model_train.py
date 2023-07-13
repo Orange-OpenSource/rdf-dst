@@ -13,7 +13,7 @@ from utils.data_loader import DialogueRDFData
 from utils.train_tools import EarlyStopping, SaveBestModel
 from utils.args import create_arg_parser
 from utils.metric_tools import DSTMetrics
-from trainer import MyTrainer, MyEvaluation
+from trainer import MyTrainer
 from utils.predata_collate import PreDataCollator
 from torch.utils.tensorboard import SummaryWriter
 
@@ -100,17 +100,6 @@ def training(trainer, dataloaders, tokenizer, target_length):
                               target_length=target_length)
     
 
-def evaluate(model, tokenizer, test_dataloader, device, 
-             target_len, dst_metrics, checkpoint_path):
-
-
-    logging.info("Inference stage")
-
-
-    my_evaluation = MyEvaluation(model, tokenizer, device, target_len, dst_metrics, checkpoint_path)
-    my_evaluation(test_dataloader, validation=False, verbose=True)
-    print(my_evaluation.results)
-
 
 def manual_log_experiments(results, summary, path):
     # Save experiment logs
@@ -138,9 +127,9 @@ def main():
                         3: {"source_len": 768,  "target_len": 1024, "setup": "only states"}}
     
     # TO DEBUG
-    length_exp_setup = {1: {"source_len": 256, "target_len": 256, "setup": "context and states"},
-                        2: {"source_len": 256,  "target_len": 256, "setup": "only context"},
-                        3: {"source_len": 256,  "target_len": 256, "setup": "only states"}}
+    #length_exp_setup = {1: {"source_len": 256, "target_len": 256, "setup": "context and states"},
+    #                    2: {"source_len": 256,  "target_len": 256, "setup": "only context"},
+    #                    3: {"source_len": 256,  "target_len": 256, "setup": "only states"}}
 
     experimental_setup = args.experimental_setup
     source_len = length_exp_setup[experimental_setup]["source_len"]
@@ -280,9 +269,6 @@ def main():
     print(summary)
     logging.info(summary)
     logging.info(checkpoint_path)
-
-    #evaluate(model, tokenizer, dataloaders['test'], device, 
-    #         target_len, dst_metrics, checkpoint_path)
 
 if __name__ == '__main__':
     main()

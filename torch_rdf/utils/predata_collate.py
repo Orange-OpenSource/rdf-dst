@@ -15,15 +15,16 @@ class PreDataCollator:
         self.exp_setup = exp_setup
         self.source_len = source_len
         self.target_len = target_len
-        self.user_tkn = '<user_tkn>'
-        self.sys_tkn = '<sys_tkn>'
-        self.state_tkn = '<state_tkn>'
+        #self.user_tkn = '<user_tkn>'
+        #self.sys_tkn = '<sys_tkn>'
+        #self.state_tkn = '<state_tkn>'
 
         self.subject_tkn = '<subject_tkn>'
         self.relation_tkn = '<relation_tkn>'
         self.object_tkn = '<object_tkn>'
         if not inference_time:
-            sentinel_tkns = {"additional_special_tokens": [self.user_tkn, self.sys_tkn, self.state_tkn, self.subject_tkn, self.object_tkn, self.relation_tkn]}
+            #sentinel_tkns = {"additional_special_tokens": [self.user_tkn, self.sys_tkn, self.state_tkn, self.subject_tkn, self.object_tkn, self.relation_tkn]}
+            sentinel_tkns = {"additional_special_tokens": [self.subject_tkn, self.object_tkn, self.relation_tkn]}
             tokenizer.add_special_tokens(sentinel_tkns)
         self.tokenizer = tokenizer
 
@@ -64,7 +65,8 @@ class PreDataCollator:
         """
 
         # we can flatten all of the rdf-states and treat them as strings. But maybe the only last one matters?
-        toks = {"user": self.user_tkn, "system": self.sys_tkn}
+        #toks = {"user": self.user_tkn, "system": self.sys_tkn}
+        toks = {"user": 'USER: ', "system": "SYSTEM: "}
 
 
         states = map(lambda state: [[self.explicit_info_injection(val, i) for i, val in enumerate(triple)] for triple in state['triples']], states)
@@ -78,10 +80,12 @@ class PreDataCollator:
         context = ''
         all_context = []
         if self.exp_setup == 3:
-            model_input = list(map(lambda state: [self.state_tkn] + state, states[:-1]))
+            #model_input = list(map(lambda state: [self.state_tkn] + state, states[:-1]))
+            model_input = list(map(lambda state: ['STATE: '] + state, states[:-1]))
             model_input.insert(0, [self.state_tkn, ' '])
         else:
-            prev_states = list(map(lambda state: [self.state_tkn] + state, states[:-1]))
+            #prev_states = list(map(lambda state: [self.state_tkn] + state, states[:-1]))
+            prev_states = list(map(lambda state: ['STATE: '] + state, states[:-1]))
             for i in range(0, len(dialogue), 2):
 
                 speaker = dialogue[i]['speaker']

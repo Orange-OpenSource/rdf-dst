@@ -2,6 +2,8 @@
 
 Storing CSVs with results from relevant results
 
+--- FIXED LONGLOCAL BASE 1
+
 MULTIWOZ RDF (convlab 2.3)
 | Model                        | JGA | JG-F1 | GLEU | METEOR | JG-RECALL | JG-PRECISION | Batch size |
 |------------------------------|-----|-------|------|--------|-----------|--------------|------------|
@@ -11,14 +13,14 @@ MULTIWOZ RDF (convlab 2.3)
 | T5-base. Exp 1 none          | 70% | 84%   | 80%  | 75%    | 96%       | 75%          | 2          |
 | T5-base. Exp 2 none          | 38% | 72%   | 65%  | 67%    | 90%       | 60%          | 4          |
 | T5-base. Exp 3 none          | 17% | 61%   | 59%  | 57%    | 74%       | 52%          | 4          |
-| flanT5-base. Exp 1 none      | 77% | 72%   | %  | %    | 98%       | 57%          |           |
-| flanT5-base. Exp 2 none      | 52% | 69%   | %  | %    | 95%       | 54%          |           |
-| flanT5-base. Exp 3 none      | 10% | 59%   | %  | %    | 66%       | 53%          |           |
-| longlocal-base. Exp 1  none  | 78% | 73%   | %  | %    | 98%       | 59%          |           |
-| longlocal-base. Exp 2  none  | 44% | 75%   | %  | %    | 93%       | 63%          |           |
-| longlocal-base. Exp 3  none  | 15% | 58%   | %  | %    | 69%       | 49%          |           |
-| longtglobal-base. Exp 1 none | 73% | 75%   | %  | %    | 97%       | 61%          |           |
-| longtglobal-base. Exp 2 none | 48% | 76%   | %  | %    | 94%       | 63%          |           |
+| flanT5-base. Exp 1 none      | 77% | 72%   | %    | %      | 98%       | 57%          |            |
+| flanT5-base. Exp 2 none      | 52% | 69%   | %    | %      | 95%       | 54%          |            |
+| flanT5-base. Exp 3 none      | 10% | 59%   | %    | %      | 66%       | 53%          |            |
+| longlocal-base. Exp 1    | 61% | 83%   | 73%  | 73%    | 96%       | 74%          | 2          |
+| longlocal-base. Exp 2  none  | 44% | 75%   | %    | %      | 93%       | 63%          |            |
+| longlocal-base. Exp 3  none  | 15% | 58%   | %    | %      | 69%       | 49%          |            |
+| longtglobal-base. Exp 1 none | 73% | 75%   | %    | %      | 97%       | 61%          |            |
+| longtglobal-base. Exp 2 none | 48% | 76%   | %    | %      | 94%       | 63%          |            |
            
 
 Experiment 1 with T5 base has a slide window to remove older context, as the whole input does not fit into current T5. Experiments will be carried out with flanT5 and longT5 to gauge performance with the whole input
@@ -41,3 +43,5 @@ system|canthelp|search/ff7735d7, system|canthelp|search/19a734d2
 ```
 
 Adding slot accuracy and reviewing overall metrics is a possible extension of this project and an overall worthwhile discussion in the DST problem
+
+We carried experiments with the dynamic window for long with similar results as normal T5 vs the extended context. Extended context to fit the input is not worth it. Some states is better than none, but you don't need all of the states...

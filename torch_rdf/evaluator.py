@@ -30,8 +30,7 @@ class MyEvaluation:
 
     def __call__(self, eval_data, eval_steps=None, validation=False, verbose=False):
 
-        if validation:
-            eval_data, self.model = accelerator.prepare(eval_data, self.model)
+        eval_data, self.model = accelerator.prepare(eval_data, self.model)
     
         self.model.eval()
     
@@ -83,20 +82,19 @@ class MyEvaluation:
         '''
         Generation is expensive. Saving up gpu and using cpu instead!
         '''
-        self.model.to('cpu')
 
-        input_ids = input_ids.detach().cpu()
-        attention_mask = attention_mask.detach().cpu()
+        input_ids = input_ids.detach()
+        attention_mask = attention_mask.detach()
         generated_tokens = self.model.generate(input_ids, attention_mask=attention_mask, **self.gen_kwargs)
 
-        input_ids = input_ids.cpu()
+        input_ids = input_ids
         decoded_inputs = self.tokenizer.batch_decode(input_ids, skip_special_tokens=True)
 
-        generated_tokens = generated_tokens.detach().cpu().numpy()
+        generated_tokens = generated_tokens.detach()
         decoded_preds = self.tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
     
         labels = torch.where(labels != -100, labels, 0)
-        labels = labels.detach().cpu().numpy()
+        labels = labels.detach()
         decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
     
         decoded_labels = postprocess_rdfs(decoded_labels)
@@ -104,7 +102,7 @@ class MyEvaluation:
         if isinstance(dialogue_ids, list):
             dialogue_ids = dialogue_ids
         elif torch.tensor(dialogue_ids):
-            dialogue_ids = dialogue_ids.detach()#.cpu().numpy()
+            dialogue_ids = dialogue_ids.detach()
     
 
         return {"preds": decoded_preds, "labels": decoded_labels,
