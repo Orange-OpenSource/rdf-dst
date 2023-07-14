@@ -14,6 +14,7 @@ from utils.metric_tools import DSTMetrics
 from trainer import MyTrainer
 from utils.predata_collate import BaselinePreDataCollator
 from torch.utils.tensorboard import SummaryWriter
+from peft import get_peft_model, LoraConfig, TaskType
 
 import logging
 
@@ -131,6 +132,7 @@ def main():
 
     subsetting = bool_4_args[args.subsetting]
     store = bool_4_args[args.store_output]
+    is_peft = bool_4_args[args.peft]
 
     dataset = args.dataset
     batch_size = args.batch
@@ -145,6 +147,16 @@ def main():
     model = T5ForConditionalGeneration.from_pretrained(model_path)
     tokenizer = AutoTokenizer.from_pretrained(model_path, extra_ids=0, #truncation_side='left',
                                               truncation=True, model_max_length=max([target_len, source_len])) 
+
+    if is_peft:
+        og_model_size = sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+        peft_config = LoraConfig(task_type=TaskType.SEQ_2_SEQ_LM, inference_mode=False, r=8, lora_alpha=32, lora_dropout=0.1)
+        model = get_peft_model(model, peft_config)
+        peft_model_size = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        model.print_trainable_parameters()
+        logging.info(f"trainable params: {peft_model_size} || all params: {og_model_size} || trainable: {peft_model_size/og_model_size * 100}")
+
 
     message_setup = length_exp_setup[experimental_setup]["setup"]
     logging.info(f"{message_setup} with...\nInput_Length: {source_len}\nOutput_Length: {target_len}")

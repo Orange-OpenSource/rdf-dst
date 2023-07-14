@@ -15,13 +15,14 @@ accelerator = Accelerator()
 
 class MyEvaluation:
 
-    def __init__(self, model, tokenizer, device, target_length, dst_metrics, path=None):
+    def __init__(self, model, tokenizer, device, target_length, dst_metrics, path=None, is_peft=False):
         self.model = model
         self.tokenizer = tokenizer
         self.device = device
         self.dst_metrics = dst_metrics
         self.results = {}
         self.path = path
+        self.is_peft = is_peft
         self.gen_kwargs = {"max_length": target_length,
                            "min_length": target_length,
                            "early_stopping": True
@@ -85,7 +86,12 @@ class MyEvaluation:
 
         input_ids = input_ids.detach()
         attention_mask = attention_mask.detach()
-        generated_tokens = self.model.generate(input_ids, attention_mask=attention_mask, **self.gen_kwargs)
+        if self.is_peft:
+            peft_model = self.model
+            self.gen_kwargs.update({"input_ids": input_ids, "attention_mask": attention_mask})
+            generated_tokens = peft_model.generate(**self.gen_kwargs)
+        else:
+            generated_tokens = self.model.generate(input_ids, attention_mask=attention_mask, **self.gen_kwargs)
 
         input_ids = input_ids
         decoded_inputs = self.tokenizer.batch_decode(input_ids, skip_special_tokens=True)

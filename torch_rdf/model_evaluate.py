@@ -11,6 +11,7 @@ from utils.args import create_arg_parser
 from utils.metric_tools import DSTMetrics
 from evaluator import MyEvaluation
 from utils.predata_collate import PreDataCollator
+from peft import PeftModel, PeftConfig
 
 import logging
 
@@ -35,7 +36,7 @@ def evaluating(model, tokenizer, test_dataloader, device,
     logging.info("Inference stage")
 
 
-    my_evaluation = MyEvaluation(model, tokenizer, device, target_len, dst_metrics, path=path)
+    my_evaluation = MyEvaluation(model, tokenizer, device, target_len, dst_metrics, path=path, is_peft=is_peft)
     my_evaluation(test_dataloader, validation=False, verbose=True)
     print(my_evaluation.results)
 
@@ -44,11 +45,20 @@ def load_model(file_path):
     ckpt_path = find_version_num(file_path)
     #ckpt_path = '../results/models/tb_logs/flan-t5_experiment_1/version_0/checkpoints/best_dst_ckpt/'
 
-    if 'long' not in file_path:
-        model = T5ForConditionalGeneration.from_pretrained(ckpt_path)
+    if is_peft and 'long' not in file_path:
+        peft_model_id = ckpt_path
+        config = PeftConfig.from_pretrained(peft_model_id)
+        model = LongT5ForConditionalGeneration.from_pretrained(config.base_model_name_or_path)
+        model = PeftModel.from_pretrained(model, peft_model_id)
+        tokenizer = AutoTokenizer.from_pretrained(config.base_model_name_or_path) 
     else:
-        model = LongT5ForConditionalGeneration.from_pretrained(ckpt_path)
-    tokenizer = AutoTokenizer.from_pretrained(ckpt_path) 
+        if 'long' not in file_path:
+            model = T5ForConditionalGeneration.from_pretrained(ckpt_path)
+        else:
+            model = LongT5ForConditionalGeneration.from_pretrained(ckpt_path)
+
+        tokenizer = AutoTokenizer.from_pretrained(ckpt_path) 
+
     store_path = os.path.dirname(ckpt_path)
     return {"model": model, "tokenizer": tokenizer, "store_path": store_path}
 
@@ -72,6 +82,7 @@ def main():
 
     global subsetting
     global store
+    global is_peft
 
     args = create_arg_parser()
     models = {'t5': 't5', 'flan-t5': 'google/flan-t5', 'long-t5-local': 'google/long-t5-local', 'long-t5-tglobal': 'google/long-t5-tglobal'}
@@ -86,6 +97,7 @@ def main():
 
     subsetting = bool_4_args[args.subsetting]
     store = bool_4_args[args.store_output]
+    is_peft = bool_4_args[args.peft]
 
 
     length_exp_setup = {1: {"source_len": 1024, "target_len": 1024, "setup": "context and states"},
