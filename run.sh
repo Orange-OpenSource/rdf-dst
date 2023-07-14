@@ -7,7 +7,7 @@ DIR=./dst-snake
 experiment="${experiment:-1}"
 workers=5
 framework="torch"
-model="flan-t5"  # t5, flant-t5, long-t5-local, long-t5-tglobal
+model="long-t5-local"  # t5, flant-t5, long-t5-local, long-t5-tglobal
 
 programname=$0
 function usage {
@@ -93,7 +93,7 @@ else
 fi
 
 if [[ $debug == "yes" ]]; then
-    python "$script" -epochs 2 -d multiwoz --batch 2 -store yes -logger no -experiment "$experiment" -workers "$workers" -model "$model" -model_size base -subset yes -device cuda -method online -peft yes
+    python "$script" -epochs 2 -d multiwoz --batch 4 -store yes -logger no -experiment "$experiment" -workers "$workers" -model "$model" -model_size base -subset yes -device cuda -method online -peft yes
 elif [[ $debug == "no" ]]; then
     python "$script" -epochs 5 --batch 8 -d multiwoz -workers "$workers" -store yes -experiment "$experiment" -model "$model" -model_size base -logger yes -subset no
 else

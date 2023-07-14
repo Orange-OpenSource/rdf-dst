@@ -48,7 +48,7 @@ def load_model(file_path):
     if is_peft and 'long' not in file_path:
         peft_model_id = ckpt_path
         config = PeftConfig.from_pretrained(peft_model_id)
-        model = LongT5ForConditionalGeneration.from_pretrained(config.base_model_name_or_path)
+        model = T5ForConditionalGeneration.from_pretrained(config.base_model_name_or_path)
         model = PeftModel.from_pretrained(model, peft_model_id)
         tokenizer = AutoTokenizer.from_pretrained(config.base_model_name_or_path) 
     else:

@@ -126,9 +126,9 @@ def main():
                         3: {"source_len": 768,  "target_len": 1024, "setup": "only states"}}
     
     # TO DEBUG
-    length_exp_setup = {1: {"source_len": 256, "target_len": 256, "setup": "context and states"},
-                        2: {"source_len": 256,  "target_len": 256, "setup": "only context"},
-                        3: {"source_len": 256,  "target_len": 256, "setup": "only states"}}
+    #length_exp_setup = {1: {"source_len": 256, "target_len": 256, "setup": "context and states"},
+    #                    2: {"source_len": 256,  "target_len": 256, "setup": "only context"},
+    #                    3: {"source_len": 256,  "target_len": 256, "setup": "only states"}}
 
     experimental_setup = args.experimental_setup
     source_len = length_exp_setup[experimental_setup]["source_len"]

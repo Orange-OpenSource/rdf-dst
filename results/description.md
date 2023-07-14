@@ -19,8 +19,9 @@ MULTIWOZ RDF (convlab 2.3)
 | longlocal-base. Exp 1    | 61% | 83%   | 73%  | 73%    | 96%       | 74%          | 2          |
 | longlocal-base. Exp 2    | 25% | 71%   | 62%    | 66%      | 87%       | 60%          | 2          |
 | longlocal-base. Exp 3  none  | 15% | 58%   | %    | %      | 69%       | 49%          |            |
-| longtglobal-base. Exp 1 none | 73% | 75%   | %    | %      | 97%       | 61%          |            |
+| longtglobal-base. Exp 1 | 63% | 85%   | 76%    | 76%      | 95%       | 78%          |            |
 | longtglobal-base. Exp 2 none | 48% | 76%   | %    | %      | 94%       | 63%          |            |
+| T5-large. Exp 1   | 72% | 82%   | 69%  | 70%    | 97%       | 70%          | 2          |
            
 
 Experiment 1 with T5 base has a slide window to remove older context, as the whole input does not fit into current T5. Experiments will be carried out with flanT5 and longT5 to gauge performance with the whole input
