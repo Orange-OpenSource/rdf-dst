@@ -5,18 +5,18 @@ Storing CSVs with results from relevant results
 --- UPDATED FLAN EXP2 AND LOCAL BASE 2, BUT REVIEW WITH PEFT? BEST MODEL WILL BE XL AND ADDED TOKENS IN BASE?
 
 MULTIWOZ RDF (convlab 2.3)
-| Model                        | JGA | JG-F1 | GLEU | METEOR | JG-RECALL | JG-PRECISION | Batch size |
-|------------------------------|-----|-------|------|--------|-----------|--------------|------------|
-| Baseline Exp 1 | 37% | 32%   | 17%  | 35%    | 65%       | 21%          | 32         |
-| Baseline Exp 2 review        | 45% | 47%   | 30%  | 55%    | 94%       | 32%          | 8          |
-| Baseline Exp 3 review        | 37% | 41%   | 23%  | 50%    | 92%       | 26%          | 8          |
-| T5-base. Exp 1 review    | 70% | 84%   | 80%  | 75%    | 96%       | 75%          | 2          |
-| T5-base. Exp 2 review    | 38% | 72%   | 65%  | 67%    | 90%       | 60%          | 4          |
-| T5-base. Exp 3 review    | 17% | 61%   | 59%  | 57%    | 74%       | 52%          | 4          |
-| flanT5-base. Exp 1       | 60% | 83% | 71%    | 73%    | 95%       | 74%          | 2          |
+| Model                   | JGA | JG-F1 | GLEU | METEOR | JG-RECALL | JG-PRECISION | Batch size |
+|-------------------------|-----|-------|------|--------|-----------|--------------|------------|
+| Baseline Exp 1          | 37% | 32%   | 17%  | 35%    | 65%       | 21%          | 16         |
+| Baseline Exp 2          | 24% | 29%   | 18%  | 32%    | 53%       | 20%          | 16         |
+| Baseline Exp 3          | 17% | 10%   | 10%  | 20%    | 27%       |  6%          | 32         |
+| T5-base. Exp 1 review   | 70% | 84%   | 80%  | 75%    | 96%       | 75%          | 2          |
+| T5-base. Exp 2 review   | 38% | 72%   | 65%  | 67%    | 90%       | 60%          | 4          |
+| T5-base. Exp 3 review   | 17% | 61%   | 59%  | 57%    | 74%       | 52%          | 4          |
+| flanT5-base. Exp 1      | 60% | 83% | 71%    | 73%    | 95%       | 74%          | 2          |
 | flanT5-base. Exp 2 review       | 36% | 65%   | 43%    | 60%      | 92%       | 50%          |            |
 | flanT5-base. Exp 3 none      | 10% | 59%   | %    | %      | 66%       | 53%          |            |
-| longlocal-base. Exp 1    | 61% | 83%   | 73%  | 73%    | 96%       | 74%          | 2          |
+| longlocal-base. Exp 1   | 61% | 83%   | 73%  | 73%    | 96%       | 74%          | 2          |
 | longlocal-base. Exp 2 review    | 25% | 71%   | 62%    | 66%      | 87%       | 60%          | 2          |
 | longlocal-base. Exp 3  none  | 15% | 58%   | %    | %      | 69%       | 49%          |            |
 | longtglobal-base. Exp 1 | 63% | 85%   | 76%    | 76%      | 95%       | 78%          |            |
@@ -27,7 +27,9 @@ MULTIWOZ RDF (convlab 2.3)
 PEFT TABLE 
 | Model          | JGA | JG-F1 | GLEU | METEOR | JG-RECALL | JG-PRECISION | Batch size |
 |----------------|-----|-------|------|--------|-----------|--------------|------------|
-| Baseline Exp 1 | 49% | 36%   | 19%  | 40%    | 73%       | 24%          | 32         |
+| Baseline Exp 1 | 49% | 36%   | 19%  | 40%    | 73%       | 24%          | 24         |
+| Baseline Exp 2 | 62% | 41%   | 19%  | 39%    | 82%       | 27%          | 24         |
+| Baseline Exp 3 |  4% |  7%   |  8%  | 15%    | 12%       |  5%          | 32         |
            
 
 Experiment 1 with T5 base has a slide window to remove older context, as the whole input does not fit into current T5. Experiments will be carried out with flanT5 and longT5 to gauge performance with the whole input
