@@ -5,26 +5,30 @@ Storing CSVs with results from relevant results
 --- UPDATED FLAN EXP2 AND LOCAL BASE 2, BUT REVIEW WITH PEFT? BEST MODEL WILL BE XL AND ADDED TOKENS IN BASE?
 
 MULTIWOZ RDF (convlab 2.3)
+| Model                 | JGA | JG-F1 | GLEU | METEOR | JG-RECALL | JG-PRECISION | Batch size |
+|-----------------------|-----|-------|------|--------|-----------|--------------|------------|
+| Baseline Exp 1        | 37% | 32%   | 17%  | 35%    | 65%       | 21%          | 16         |
+| Baseline Exp 2        | 24% | 29%   | 18%  | 32%    | 53%       | 20%          | 16         |
+| Baseline Exp 3        | 17% | 10%   | 10%  | 20%    | 27%       |  6%          | 32         |
+| T5-base. Exp 1        | 76% | 72%   | 57%  | 64%    | 98%       | 57%          | 2          |
+| T5-base. Exp 2        | 53% | 69%   | 54%  | 63%    | 95%       | 54%          | 4          |
+| T5-base. Exp 3        | 16% | 59%   | 58%  | 60%    | 69%       | 51%          | 2          |
+| flanT5-base. Exp 1    | 60% | 83%   | 71%  | 76%    | 95%       | 74%          | 2          |
+| flanT5-base. Exp 2    | 48% | 70%   | 55%  | 64%    | 94%       | 56%          | 6          |
+| longlocal-base. Exp 1 | 61% | 83%   | 73%  | 72%    | 97%       | 74%          | 4          |
+| longlocal-base. Exp 2 | 42% | 80%   | 70%  | 71%    | 92%       | 71%          | 6          |
+| tglobal-base. Exp 1   | 63% | 86%   | 77%  | 76%    | 95%       | 78%          | 4          |
+| tglobal-base. Exp 2   | 49% | 76%   | 61%  | 66%    | 94%       | 63%          | 6          |
+| T5-large. Exp 1       | 72% | 82%   | 69%  | 70%    | 97%       | 70%          | 2          |
+
+DYNAMIC WINDOW: These models use a max size of 1024 as the T5 setup with a dynamic window, instead of 2048 tokens. We obtain better results, i.e. longer input may degrade performance
 | Model                   | JGA | JG-F1 | GLEU | METEOR | JG-RECALL | JG-PRECISION | Batch size |
 |-------------------------|-----|-------|------|--------|-----------|--------------|------------|
-| Baseline Exp 1          | 37% | 32%   | 17%  | 35%    | 65%       | 21%          | 16         |
-| Baseline Exp 2          | 24% | 29%   | 18%  | 32%    | 53%       | 20%          | 16         |
-| Baseline Exp 3          | 17% | 10%   | 10%  | 20%    | 27%       |  6%          | 32         |
-| T5-base. Exp 1 review   | 70% | 84%   | 80%  | 75%    | 96%       | 75%          | 2          |
-| T5-base. Exp 2 review   | 38% | 72%   | 65%  | 67%    | 90%       | 60%          | 4          |
-| T5-base. Exp 3 review   | 17% | 61%   | 59%  | 57%    | 74%       | 52%          | 4          |
-| flanT5-base. Exp 1      | 60% | 83% | 71%    | 73%    | 95%       | 74%          | 2          |
-| flanT5-base. Exp 2 review       | 36% | 65%   | 43%    | 60%      | 92%       | 50%          |            |
-| flanT5-base. Exp 3 none      | 10% | 59%   | %    | %      | 66%       | 53%          |            |
-| longlocal-base. Exp 1   | 61% | 83%   | 73%  | 73%    | 96%       | 74%          | 2          |
-| longlocal-base. Exp 2 review    | 25% | 71%   | 62%    | 66%      | 87%       | 60%          | 2          |
-| longlocal-base. Exp 3  none  | 15% | 58%   | %    | %      | 69%       | 49%          |            |
-| longtglobal-base. Exp 1 | 63% | 85%   | 76%    | 76%      | 95%       | 78%          |            |
-| longtglobal-base. Exp 2 none | 48% | 76%   | %    | %      | 94%       | 63%          |            |
-| T5-large. Exp 1   | 72% | 82%   | 69%  | 70%    | 97%       | 70%          | 2          |
+| flanT5-base. Exp 1      | 75% | 76%   | 49%  | 64%    | 98%       | 61%          | 2          |
+| longlocal-base. Exp 1   | 70% | 84%   | 75%  | 75%    | 97%       | 75%          | 2          |
+| longtglobal-base. Exp 1 | 76% | 78%   | 64%  | 69%    | 97%       | 65%          | 2          |
 
-
-PEFT TABLE 
+PEFT TABLE: Results only available for baseline, interesting finding
 | Model          | JGA | JG-F1 | GLEU | METEOR | JG-RECALL | JG-PRECISION | Batch size |
 |----------------|-----|-------|------|--------|-----------|--------------|------------|
 | Baseline Exp 1 | 49% | 36%   | 19%  | 40%    | 73%       | 24%          | 24         |
