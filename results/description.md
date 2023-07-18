@@ -20,6 +20,7 @@ MULTIWOZ RDF (convlab 2.3)
 | tglobal-base. Exp 1   | 63% | 86%   | 77%  | 76%    | 95%       | 78%          | 4          |
 | tglobal-base. Exp 2   | 49% | 76%   | 61%  | 66%    | 94%       | 63%          | 6          |
 | T5-large. Exp 1       | 72% | 82%   | 69%  | 70%    | 97%       | 70%          | 2          |
+| T5-large. Exp 2       | 49% | 73%   | 59%  | 66%    | 94%       | 59%          | 4          |
 
 DYNAMIC WINDOW: These models use a max size of 1024 as the T5 setup with a dynamic window, instead of 2048 tokens. We obtain better results, i.e. longer input may degrade performance
 | Model                   | JGA | JG-F1 | GLEU | METEOR | JG-RECALL | JG-PRECISION | Batch size |
