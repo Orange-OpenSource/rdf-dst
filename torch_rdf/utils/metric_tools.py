@@ -1,13 +1,35 @@
 import numpy as np
 import evaluate
 from fuzzywuzzy import fuzz
+from utils.my_google_bleu.my_google_bleu import GoogleBleu
+from utils.my_meteor.my_meteor import Meteor
+
+import nltk
+
+# Create a downloader instance
+downloader = nltk.downloader.Downloader()
+
+# Disable network access
+#downloader._download = downloader._download_noop
+
+downloader.download_dir = '../metrics/nltk_data'
+
+# Set the downloader for NLTK
+nltk.downloader.downloader = downloader
+
+# Now NLTK will only use locally available data
+import logging
+logging.basicConfig(level=logging.INFO)
+
 
 class DSTMetrics:
 
     def __init__(self):
         # may need to directly download punkt when running  from clusters and omw and wordnet?
-        self.gleu = evaluate.load("google_bleu")
-        self.meteor = evaluate.load("meteor")
+        #self.gleu = evaluate.load("google_bleu")
+        #self.meteor = evaluate.load("meteor")
+        self.gleu = GoogleBleu()
+        self.meteor = Meteor()
     
 
     def __call__(self, outputs, from_file: bool=False):
