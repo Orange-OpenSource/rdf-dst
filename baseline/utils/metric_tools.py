@@ -105,7 +105,7 @@ class DSTMetrics:
         fuzzy_jga = []
         for p, l in zip(preds, labels):
             flexible_match = l <= p
-            
+
             fga.append(1 if flexible_match else 0)
 
             exact_match = p ^ l

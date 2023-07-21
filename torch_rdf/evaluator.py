@@ -86,22 +86,39 @@ class MyEvaluation:
 
         input_ids = input_ids.detach()
         attention_mask = attention_mask.detach()
+
+        generation_sizes = [torch.sum(lab[0] != -100).item() for lab in labels.split(1)]  # split across first dim, getting rows, must index actual tensor
+        self.gen_kwargs["max_length"] = max(generation_sizes)
+        self.gen_kwargs["min_length"] = min(generation_sizes)
+        limit_idx = labels.detach().flatten().cpu().numpy().tolist()
+        limit_idx = [idx for idx in limit_idx if idx > 0]
+        self.gen_kwargs["force_words_ids"] = [limit_idx]
+        self.gen_kwargs["num_beams"] = 5
+
         if self.is_peft:
             peft_model = self.model
             self.gen_kwargs.update({"input_ids": input_ids, "attention_mask": attention_mask})
             generated_tokens = peft_model.generate(**self.gen_kwargs)
         else:
             generated_tokens = self.model.generate(input_ids, attention_mask=attention_mask, **self.gen_kwargs)
+        
+        print("TITO")
+        print(generated_tokens.shape)
 
-        input_ids = input_ids
         decoded_inputs = self.tokenizer.batch_decode(input_ids, skip_special_tokens=True)
 
         generated_tokens = generated_tokens.detach()
         decoded_preds = self.tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
     
+        print(decoded_preds)
         labels = torch.where(labels != -100, labels, 0)
         labels = labels.detach()
         decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
+        print()
+        print("TITO")
+        print(decoded_labels)
+        # https://huggingface.co/blog/constrained-beam-search
+        raise SystemExit
     
         decoded_labels = postprocess_rdfs(decoded_labels)
         decoded_preds = postprocess_rdfs(decoded_preds)
