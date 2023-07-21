@@ -76,7 +76,10 @@ def find_version_num(path):
 def regex_match(dir_name):
     versionRegex = re.compile(r"^version_(\d+)$")
     res_match = versionRegex.search(dir_name)
-    return int(res_match.group(1))
+    if res_match:
+        return int(res_match.group(1))
+    else:
+        return -1
 
 def main():
 

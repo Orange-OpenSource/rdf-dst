@@ -95,7 +95,7 @@ fi
 if [[ $debug == "yes" ]]; then
     python "$script" -epochs 2 -d multiwoz --batch 4 -store yes -logger no -experiment "$experiment" -workers "$workers" -model "$model" -model_size small -subset yes -device cuda -method online -peft yes
 elif [[ $debug == "no" ]]; then
-    python "$script" -epochs 5 --batch 4 -d multiwoz -workers "$workers" -store yes -experiment "$experiment" -model "$model" -model_size base -logger yes -subset no
+    python "$script" -epochs 5 --batch 16 -d multiwoz -workers "$workers" -store yes -experiment "$experiment" -model "$model" -model_size base -logger yes -subset no
 else
     usage
     die "Invalid value for debug parameter"
