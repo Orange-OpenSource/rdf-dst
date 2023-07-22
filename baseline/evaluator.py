@@ -50,12 +50,13 @@ class MyEvaluation:
                 attention_mask = batch['attention_mask']
                 dialogue_ids = batch['dialogue_id']  # this is a list no need to move to cpu
     
-                model_outputs = self.model(input_ids=inputs, attention_mask=attention_mask, labels=labels)
-                # loss, logits, encoder_last_hidden_state, past_key_values
-                loss = model_outputs.loss
-                total_loss += loss.item()
+                if validation:
+                    model_outputs = self.model(input_ids=inputs, attention_mask=attention_mask, labels=labels)
+                    # loss, logits, encoder_last_hidden_state, past_key_values
+                    loss = model_outputs.loss
+                    total_loss += loss.item()
     
-                if not validation:
+                else:
                     step_output = self.generate_rdfs(inputs, attention_mask, labels, dialogue_ids)
                     outputs.append(step_output)
 
@@ -64,14 +65,14 @@ class MyEvaluation:
                 #    outputs.append(step_output)
                     
     
-        if not validation and self.path:
+        if validation:
+            return total_loss / len(eval_data)
+        elif not validation and self.path:
             self.store_outputs(outputs)
             self.results = self.evaluate_outputs(outputs)
 
-        total_loss /= len(eval_data)
         outputs.clear()
 
-        return total_loss
 
     def evaluate_outputs(self, outputs):
         return self.dst_metrics(outputs)
