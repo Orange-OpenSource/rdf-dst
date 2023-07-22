@@ -6,6 +6,9 @@ from utils.my_meteor.my_meteor import Meteor
 
 import nltk
 
+nltk.download("punkt")
+nltk.download("wordnet")
+
 # Create a downloader instance
 #downloader = nltk.downloader.Downloader()
 #
