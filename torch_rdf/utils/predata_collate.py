@@ -22,10 +22,9 @@ class PreDataCollator:
         self.subject_tkn = '<subject_tkn>'
         self.relation_tkn = '<relation_tkn>'
         self.object_tkn = '<object_tkn>'
-        if not inference_time:
-            #sentinel_tkns = {"additional_special_tokens": [self.user_tkn, self.sys_tkn, self.state_tkn, self.subject_tkn, self.object_tkn, self.relation_tkn]}
-            sentinel_tkns = {"additional_special_tokens": [self.subject_tkn, self.object_tkn, self.relation_tkn]}
-            tokenizer.add_special_tokens(sentinel_tkns)
+
+        sentinel_tkns = {"additional_special_tokens": [self.subject_tkn, self.object_tkn, self.relation_tkn]}
+        tokenizer.add_special_tokens(sentinel_tkns)
         self.tokenizer = tokenizer
 
     def __call__(self, batch):

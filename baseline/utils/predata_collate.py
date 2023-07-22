@@ -12,13 +12,13 @@ class BaselinePreDataCollator:
         self.source_len = source_len
         self.target_len = target_len
 
-        #self.user_tkn = '<user_tkn>'
-        #self.sys_tkn = '<sys_tkn>'
-        #sentinel_tkns = {"additional_special_tokens": [self.user_tkn, self.sys_tkn]}
 
-        #if not inference_time:
-            #pass
-            #tokenizer.add_special_tokens(sentinel_tkns)
+        self.slot_tkn = '<slot_tkn>'
+        self.value_tkn = '<value_tkn>'
+
+        sentinel_tkns = {"additional_special_tokens": [self.slot_tkn, self.value_tkn]}
+        tokenizer.add_special_tokens(sentinel_tkns)
+
         self.tokenizer = tokenizer
 
     def __call__(self, batch):
@@ -59,7 +59,8 @@ class BaselinePreDataCollator:
             # Leo replaces old slots when they have a new value. This makes sense.
             #slot_values = list(frozenset(clean_slot_val(s_v['name']) + '=' + clean_slot_val(s_v['value']) for s_v in user_slot_vals + sys_slot_vals))
             slot_values = {clean_slot_val(s_v['name']): clean_slot_val(s_v['value']) for s_v in user_slot_vals + sys_slot_vals}
-            slot_values = [slot + '=' + value for slot, value in slot_values.items()]
+            slot_values = [f'{self.slot_tkn}{slot}={self.value_tkn}{value}' for slot, value in slot_values.items()]
+            #slot_values = [f'{slot}={value}' for slot, value in slot_values.items()]
             # augmentation: does it make eval more complicated?
             #slot_values = random.sample(slot_values, len(slot_values))
             states.append(' ; '.join(slot_values))
