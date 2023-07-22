@@ -101,8 +101,8 @@ class MyEvaluation:
         self.gen_kwargs["min_new_tokens"] = min(generation_sizes)
         #limit_idx = labels.detach().flatten().cpu().numpy().tolist()
         #limit_idx = [idx for idx in limit_idx if idx > 0]
-        if self.vocabulary:
-            self.gen_kwargs["force_words_ids"] = [self.vocabulary]
+        #if self.vocabulary:
+        #    self.gen_kwargs["force_words_ids"] = [self.vocabulary]
         self.gen_kwargs["num_beams"] = 5
 
         if self.is_peft:
