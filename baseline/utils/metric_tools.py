@@ -7,15 +7,15 @@ from utils.my_meteor.my_meteor import Meteor
 import nltk
 
 # Create a downloader instance
-downloader = nltk.downloader.Downloader()
-
-# Disable network access
-#downloader._download = downloader._download_noop
-
-downloader.download_dir = '../metrics/nltk_data'
-
-# Set the downloader for NLTK
-nltk.downloader.downloader = downloader
+#downloader = nltk.downloader.Downloader()
+#
+## Disable network access
+##downloader._download = downloader._download_noop
+#
+#downloader.download_dir = '../metrics/nltk_data'
+#
+## Set the downloader for NLTK
+#nltk.downloader.downloader = downloader
 
 # Now NLTK will only use locally available data
 import logging
