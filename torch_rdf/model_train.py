@@ -34,6 +34,8 @@ def preprocessing(collator, dataset, num_workers, batch_size, method):
 
     train_dataloader = dataloaders["train"]
     validation_dataloader = dataloaders["validation"]
+    global vocabulary
+    vocabulary = data.vocabulary
     return {'train': train_dataloader, 'validation': validation_dataloader}
 
 
@@ -43,7 +45,8 @@ def config_train_eval(model,
                       epochs,
                       num_train_optimization_steps, num_warmup_steps,
                       num_eval_steps,
-                      device, version_dir):
+                      device, version_dir,
+                      vocabulary):
     """
     returns trainer to use for finetuning and inference
     """
@@ -59,7 +62,7 @@ def config_train_eval(model,
                      warmup_steps=num_warmup_steps, eval_steps=num_eval_steps,
                      total_steps=total_iterations,
                      lr=lr, epochs=epochs, weight_decay=weight_decay, accumulation_steps=2,
-                     verbosity=True)
+                     verbosity=True, vocabulary=vocabulary)
 
 
 
@@ -248,7 +251,8 @@ def main():
                           num_warmup_steps,
                           num_eval_steps,
                           device,
-                          version_dir)
+                          version_dir,
+                          vocabulary=vocabulary)
 
     weights_biases_logger = {"active_logger": logger, "project": "basic_flant5", "config": summary}
     trainer.callbacks({"save": save_ckp, "early_stop": early_stopping,

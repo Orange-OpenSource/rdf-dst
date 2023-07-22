@@ -22,7 +22,8 @@ class MyTrainer:
                  epochs: int=5,
                  weight_decay: float=0.0,
                  accumulation_steps: int=2,  # careful, this increases size of graph
-                 verbosity: bool=False
+                 verbosity: bool=False,
+                 vocabulary=None
                  ):
 
         self.writer = logger
@@ -58,6 +59,7 @@ class MyTrainer:
         self.disable = not verbosity
 
         self.config = None
+        self.vocabulary = vocabulary
 
 
     def callbacks(self, dst_callbacks):
@@ -105,7 +107,7 @@ class MyTrainer:
             self.writer.add_scalar("Loss/train", train_loss, epoch)
 
             # VALIDATION
-            my_evaluation = MyEvaluation(self.model, tokenizer, self.device, target_length, self.dst_metrics)
+            my_evaluation = MyEvaluation(self.model, tokenizer, self.device, target_length, self.dst_metrics, vocabulary=self.vocabulary)
             val_loss = my_evaluation(val_data, eval_steps=self.eval_steps, validation=True, verbose=self.verbose)
             log_dict = my_evaluation.results
             log_dict.setdefault('train_loss', train_loss)

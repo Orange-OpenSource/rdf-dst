@@ -26,6 +26,8 @@ def preprocessing(collator, dataset, num_workers, batch_size, method):
                            inference_time=True)
     data.load_hf_data(method)
     dataloaders = data.create_loaders(subsetting=subsetting)
+    global vocabulary
+    vocabulary = data.vocabulary
 
     return {'test': dataloaders['test']}
 
@@ -36,7 +38,7 @@ def evaluating(model, tokenizer, test_dataloader, device,
     logging.info("Inference stage")
 
 
-    my_evaluation = MyEvaluation(model, tokenizer, device, target_len, dst_metrics, path=path, is_peft=is_peft)
+    my_evaluation = MyEvaluation(model, tokenizer, device, target_len, dst_metrics, path=path, is_peft=is_peft, vocabulary=vocabulary)
     my_evaluation(test_dataloader, validation=False, verbose=True)
     print(my_evaluation.results)
 
@@ -141,7 +143,7 @@ def main():
 
     logging.info(f"Outputs will be stored in\n{store_path}")
     evaluating(model, tokenizer, dataloaders['test'], device, 
-             target_len, dst_metrics, path=store_path)
+               target_len, dst_metrics, path=store_path)
 
 if __name__ == '__main__':
     main()
