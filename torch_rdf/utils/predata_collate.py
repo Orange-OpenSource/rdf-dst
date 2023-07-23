@@ -81,7 +81,9 @@ class PreDataCollator:
         if self.exp_setup == 3:
             #model_input = list(map(lambda state: [self.state_tkn] + state, states[:-1]))
             model_input = list(map(lambda state: ['STATE: '] + state, states[:-1]))
-            model_input.insert(0, [self.state_tkn, ' '])
+            #model_input.insert(0, [self.state_tkn, ' '])
+            model_input.insert(0, ['STATE: ', ' '])
+
         else:
             #prev_states = list(map(lambda state: [self.state_tkn] + state, states[:-1]))
             prev_states = list(map(lambda state: ['STATE: '] + state, states[:-1]))
