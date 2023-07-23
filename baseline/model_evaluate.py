@@ -124,7 +124,7 @@ def main():
     loaded_config = load_model(file_path)
     tokenizer = loaded_config["tokenizer"]
     model = loaded_config["model"]
-    store_path = loaded_config["store_path"]
+    store_path = os.path.join(loaded_config["store_path"], dataset)
 
 
 
