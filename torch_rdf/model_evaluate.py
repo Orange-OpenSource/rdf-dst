@@ -130,7 +130,13 @@ def main():
     loaded_config = load_model(file_path)
     tokenizer = loaded_config["tokenizer"]
     model = loaded_config["model"]
-    store_path = os.path.join(loaded_config["store_path"], dataset)
+    store_path = loaded_config["store_path"]
+    if not os.path.exists(store_path):
+        raise Exception("No path found to store outputs")
+    store_path = os.path.join(store_path, dataset)
+
+    if not os.path.exists(store_path):
+        os.makedirs(store_path)
 
 
     cut_context = True if ((model_name[:2] == 't5') and (experimental_setup == 1)) else False
