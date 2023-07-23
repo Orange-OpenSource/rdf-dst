@@ -15,7 +15,7 @@ def create_arg_parser():
 
     parser.add_argument(
         "-d", "--dataset", default='sfxdial', type=str,
-        choices=['sfxdial', 'multiwoz', 'dstc2', 'all', 'multiwoz-sim', 'camrest-sim'],
+        choices=['sfx', 'multiwoz', 'dstc2', 'all', 'multiwoz-sim', 'camrest-sim'],
         help="Select rdf data from options. Note that DATCHA is missing"
     )
 
