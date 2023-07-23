@@ -29,10 +29,10 @@ class MyEvaluation:
                            "early_stopping": True
                           }
     
-        self.gen_kwargs = {"max_new_tokens": target_length,
-                           "min_new_tokens": target_length,
-                           "early_stopping": True
-                          }
+        #self.gen_kwargs = {"max_new_tokens": target_length,
+        #                   "min_new_tokens": target_length,
+        #                   "early_stopping": True
+        #                  }
 
     def __call__(self, eval_data, eval_steps=None, validation=False, verbose=False):
 
@@ -94,8 +94,8 @@ class MyEvaluation:
         attention_mask = attention_mask.detach()
 
         generation_sizes = [torch.sum(lab[0] != -100).item() for lab in labels.split(1)]  # split across first dim, getting rows, must index actual tensor
-        self.gen_kwargs["max_new_tokens"] = max(generation_sizes)
-        self.gen_kwargs["min_new_tokens"] = min(generation_sizes)
+        #self.gen_kwargs["max_new_tokens"] = max(generation_sizes)
+        #self.gen_kwargs["min_new_tokens"] = min(generation_sizes)
         #limit_idx = labels.detach().flatten().cpu().numpy().tolist()
         #limit_idx = [idx for idx in limit_idx if idx > 0]
         #self.gen_kwargs["force_words_ids"] = [limit_idx]
