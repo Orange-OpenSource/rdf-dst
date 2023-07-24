@@ -10,6 +10,10 @@ test_val_rdf = train_val_rdf['test'].train_test_split(test_size=0.5)
 rdf_dataset.update({'train': train_val_rdf['train'], 'validation': test_val_rdf['train'], 'test': test_val_rdf['test']})
 
 print(rdf_dataset)
+test_rdf = rdf_dataset['test']
+print(len(test_rdf))
+
+raise SystemExit
 
 #rdf_dataset.save_to_disk("multiwoz_rdf_data")
 #raise SystemExit

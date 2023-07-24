@@ -2,6 +2,7 @@
 /__pycache__
 */__pycache__
 */*/__pycache__
+*/*/*/__pycache__
 dst-snake/
 # rdf dirs
 poc-rdf/
@@ -11,6 +12,8 @@ multiwoz_data/
 sfx_rdf_data/
 # dpr package?
 .dpr/
+# debugging
+debugging_scripts/
 # checkpoints and logs
 lightning_logs/
 tb_logs/
@@ -22,6 +25,7 @@ wandb/
 poc-rdf-env/
 # config yml
 config.yml
+old_config.yml
 poc-rdf_requirements.txt
 analyzing.py
 # others
@@ -31,3 +35,7 @@ unit-testing-snake/
 results/models
 data_analysis/
 graphT5/
+marcel_start.sh
+*.sbatch
+base_dockerfile
+
