@@ -3,6 +3,7 @@
 */__pycache__
 */*/__pycache__
 */*/*/__pycache__
+*/*/*/*/__pycache__
 dst-snake/
 # ignoring lightning and hf because torch is enough for now
 lightning_rdf/
