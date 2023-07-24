@@ -4,6 +4,9 @@
 */*/__pycache__
 */*/*/__pycache__
 dst-snake/
+# ignoring lightning and hf because torch is enough for now
+lightning_rdf/
+hf_rdf/
 # rdf dirs
 poc-rdf/
 dstc2_rdf_data/

@@ -63,13 +63,6 @@ fi
 
 handle_option(){
 	case $1 in
-		"pl")
-			cd lightning_rdf/
-			;;
-		"hf")
-			cd hf_rdf/
-			;;
-		 
 		"baseline")
 			cd baseline/
 			;;
