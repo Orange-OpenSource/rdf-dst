@@ -75,19 +75,12 @@ class DialogueData:
 
         if self.inference_time:
             self.test_dataset = self.dialogue_data['test'].map(self.collator, num_proc=8, remove_columns=self.dialogue_data['test'].column_names, batched=True) 
-            vocabulary = [batch['labels'].detach().cpu().numpy().tolist() for batch in self.test_dataset]
-            self.vocabulary = [idx for lis_idx in vocabulary for idx in lis_idx if idx >= 0]
             if subsetting:
                 self.test_dataset = self.test_dataset.select(range(10))
             return {"test": self.test_dataloader()}
 
         self.train_dataset = self.dialogue_data['train'].map(self.collator, num_proc=8, remove_columns=self.dialogue_data['train'].column_names, batched=True)  
         self.validation_dataset = self.dialogue_data['validation'].map(self.collator, num_proc=8, remove_columns=self.dialogue_data['validation'].column_names, batched=True) 
-        train_vocabulary = [batch['labels'].detach().cpu().numpy().tolist() for batch in self.train_dataset]
-        train_vocabulary = [idx for lis_idx in train_vocabulary for idx in lis_idx if idx >= 0]
-        val_vocabulary = [batch['labels'].detach().cpu().numpy().tolist() for batch in self.validation_dataset]
-        val_vocabulary = [idx for lis_idx in val_vocabulary for idx in lis_idx if idx >= 0]
-        self.vocabulary = list(set(val_vocabulary + train_vocabulary))
 
         if subsetting:
             self.train_dataset = self.train_dataset.select(range(45))

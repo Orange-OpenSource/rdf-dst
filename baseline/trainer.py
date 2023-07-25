@@ -18,12 +18,11 @@ class MyTrainer:
                  model, logger, device,
                  warmup_steps, eval_steps,
                  total_steps,
-                 lr=1e-6,
+                 lr=1e-3,
                  epochs: int=5,
                  weight_decay: float=0.0,
                  accumulation_steps: int=2,  # careful, this increases size of graph
-                 verbosity: bool=False,
-                 vocabulary=None
+                 verbosity: bool=False
                  ):
 
         self.writer = logger
@@ -32,7 +31,6 @@ class MyTrainer:
         self.device = device
         # no batch norm in T5? https://discuss.pytorch.org/t/accumulating-gradients/30020/3
         self.accumulation_steps = accumulation_steps
-        lr = 1e-3  # 1e-4 best so far?. 1e-3
 
 
         no_decay = ["bias", "LayerNorm.weight"]
@@ -59,7 +57,6 @@ class MyTrainer:
         self.disable = not verbosity
 
         self.config = None
-        self.vocabulary = vocabulary
 
 
     def callbacks(self, dst_callbacks):
@@ -107,7 +104,7 @@ class MyTrainer:
             self.writer.add_scalar("Loss/train", train_loss, epoch)
 
             # VALIDATION
-            my_evaluation = MyEvaluation(self.model, tokenizer, self.device, target_length, self.dst_metrics, vocabulary=self.vocabulary)
+            my_evaluation = MyEvaluation(self.model, tokenizer, self.device, target_length, self.dst_metrics)
             val_loss = my_evaluation(val_data, eval_steps=self.eval_steps, validation=True, verbose=self.verbose)
             log_dict = my_evaluation.results
             log_dict.setdefault('train_loss', train_loss)

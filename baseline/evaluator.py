@@ -4,6 +4,7 @@ import os
 from utils.postprocessing import postprocess_states
 from tqdm import tqdm
 from accelerate import Accelerator
+from transformers.generation import GenerationConfig
 
 import logging
 
@@ -15,22 +16,20 @@ accelerator = Accelerator()
 
 class MyEvaluation:
 
-    def __init__(self, model, tokenizer, device, target_length, dst_metrics, path=None, is_peft=False, vocabulary=None):
+    def __init__(self, model, tokenizer, device, target_length, dst_metrics, path=None):
         self.model = model
         self.tokenizer = tokenizer
         self.device = device
         self.dst_metrics = dst_metrics
         self.results = {}
         self.path = path
-        self.is_peft = is_peft
-        self.vocabulary = vocabulary
-        #self.gen_kwargs = {"max_length": target_length,
-        #                   "min_length": target_length,
-        #                   "early_stopping": True
-        #                  }
+        self.gen_kwargs = {"max_length": target_length,
+                           "min_length": target_length // 32,
+                           "early_stopping": True
+                          }
     
         self.gen_kwargs = {"max_new_tokens": target_length,
-                           "min_new_tokens": target_length,
+                           "min_new_tokens": target_length // 4,
                            "early_stopping": True
                           }
 
@@ -96,19 +95,11 @@ class MyEvaluation:
         generation_sizes = [torch.sum(lab[0] != -100).item() for lab in labels.split(1)]  # split across first dim, getting rows, must index actual tensor
         self.gen_kwargs["max_new_tokens"] = max(generation_sizes)
         self.gen_kwargs["min_new_tokens"] = min(generation_sizes)
-        #limit_idx = labels.detach().flatten().cpu().numpy().tolist()
-        #limit_idx = [idx for idx in limit_idx if idx > 0]
-        #self.gen_kwargs["force_words_ids"] = [limit_idx]
-        #if self.vocabulary:
-        #    self.gen_kwargs["force_words_ids"] = [self.vocabulary]
         self.gen_kwargs["num_beams"] = 5
 
-        if self.is_peft:
-            peft_model = self.model
-            self.gen_kwargs.update({"input_ids": input_ids, "attention_mask": attention_mask})
-            generated_tokens = peft_model.generate(**self.gen_kwargs)
-        else:
-            generated_tokens = self.model.generate(input_ids, attention_mask=attention_mask, **self.gen_kwargs)
+        gen_cfg = GenerationConfig.from_dict(self.gen_kwargs)
+
+        generated_tokens = self.model.generate(input_ids=input_ids, attention_mask=attention_mask, generation_config=gen_cfg)
 
         input_ids = input_ids
         decoded_inputs = self.tokenizer.batch_decode(input_ids, skip_special_tokens=True)

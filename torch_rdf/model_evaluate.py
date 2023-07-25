@@ -38,7 +38,7 @@ def evaluating(model, tokenizer, test_dataloader, device,
     logging.info("Inference stage")
 
 
-    my_evaluation = MyEvaluation(model, tokenizer, device, target_len, dst_metrics, path=path, is_peft=is_peft, vocabulary=vocabulary)
+    my_evaluation = MyEvaluation(model, tokenizer, device, target_len, dst_metrics, path=path)
     my_evaluation(test_dataloader, validation=False, verbose=True)
     print(my_evaluation.results)
 
