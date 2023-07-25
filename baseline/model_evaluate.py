@@ -124,7 +124,8 @@ def main():
     model = loaded_config["model"]
     store_path = os.path.join(loaded_config["store_path"], dataset)
 
-
+    if not os.path.exists(store_path):
+        os.makedirs(store_path)
 
     collator = BaselinePreDataCollator(tokenizer, source_len, target_len, experimental_setup, inference_time=True)
 
