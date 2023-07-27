@@ -26,8 +26,6 @@ def preprocessing(collator, dataset, num_workers, batch_size, method):
                            inference_time=True)
     data.load_hf_data(method)
     dataloaders = data.create_loaders(subsetting=subsetting)
-    global vocabulary
-    vocabulary = data.vocabulary
 
     return {'test': dataloaders['test']}
 
