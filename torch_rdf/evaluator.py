@@ -16,13 +16,14 @@ accelerator = Accelerator()
 
 class MyEvaluation:
 
-    def __init__(self, model, tokenizer, device, target_length, dst_metrics, path=None):
+    def __init__(self, model, tokenizer, device, target_length, dst_metrics, beam_size, path=None):
         self.model = model
         self.tokenizer = tokenizer
         self.device = device
         self.dst_metrics = dst_metrics
         self.results = {}
         self.path = path
+        self.beam_size = beam_size
         self.gen_kwargs = {"max_length": target_length,
                            "min_length": target_length//32,
                            "early_stopping": True
@@ -30,7 +31,8 @@ class MyEvaluation:
         
         self.gen_kwargs = {"max_new_tokens": target_length,
                            "min_new_tokens": target_length//4,
-                           "early_stopping": True
+                           "early_stopping": True,
+                           "num_beams": beam_size
                           }
         
 
@@ -81,7 +83,7 @@ class MyEvaluation:
 
     def store_outputs(self, outputs):
         states_df = pd.DataFrame(outputs)
-        states_df.to_csv(os.path.join(self.path, "outputs.csv"), index=False)
+        states_df.to_csv(os.path.join(self.path, f"outputs_beam_{self.beam_size}.csv"), index=False)
     
 
 
@@ -97,7 +99,6 @@ class MyEvaluation:
         generation_sizes = [torch.sum(lab[0] != -100).item() for lab in labels.split(1)]  # split across first dim, getting rows, must index actual tensor
         self.gen_kwargs["max_new_tokens"] = max(generation_sizes)
         self.gen_kwargs["min_new_tokens"] = min(generation_sizes)
-        self.gen_kwargs["num_beams"] = 5
 
         #gen_cfg = GenerationConfig.from_model_config(model.config)
         gen_cfg = GenerationConfig.from_dict(self.gen_kwargs)

@@ -32,13 +32,13 @@ def preprocessing(collator, dataset, num_workers, batch_size, method):
     return {'test': dataloaders['test']}
 
 def evaluating(model, tokenizer, test_dataloader, device, 
-             target_len, dst_metrics, path):
+             target_len, dst_metrics, beam_size, path):
 
 
     logging.info("Inference stage")
 
 
-    my_evaluation = MyEvaluation(model, tokenizer, device, target_len, dst_metrics, path=path)
+    my_evaluation = MyEvaluation(model, tokenizer, device, target_len, dst_metrics, beam_size, path=path)
     my_evaluation(test_dataloader, validation=False, verbose=True)
     print(my_evaluation.results)
 
@@ -97,6 +97,7 @@ def main():
     method = args.method
     device = args.device
     model_name = models[args.model]
+    beam_size = args.beam
 
     bool_4_args = {"no": False, "yes": True}
 
@@ -149,7 +150,7 @@ def main():
 
     logging.info(f"Outputs will be stored in\n{store_path}")
     evaluating(model, tokenizer, dataloaders['test'], device, 
-               target_len, dst_metrics, path=store_path)
+               target_len, dst_metrics, beam_size, path=store_path)
 
 if __name__ == '__main__':
     main()

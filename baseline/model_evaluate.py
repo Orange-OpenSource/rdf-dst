@@ -72,11 +72,11 @@ def regex_match(dir_name):
 
 
 def evaluate(model, tokenizer, test_dataloader, device, 
-             target_len, dst_metrics, path):
+             target_len, dst_metrics, beam_size, path):
 
     logging.info("Inference stage")
 
-    my_evaluation = MyEvaluation(model, tokenizer, device, target_len, dst_metrics, path=path)
+    my_evaluation = MyEvaluation(model, tokenizer, device, target_len, dst_metrics, beam_size, path=path)
     my_evaluation(test_dataloader, validation=False, verbose=True)
     print(my_evaluation.results)
 
@@ -94,6 +94,7 @@ def main():
     batch_size = args.batch
     method = args.method
     device = args.device
+    beam_size = args.beam
 
     bool_4_args = {"no": False, "yes": True}
     length_exp_setup = {1: {"source_len": 512, "target_len": 256, "setup": "context and states"},  # 1024?
@@ -139,7 +140,7 @@ def main():
 
     logging.info(f"Outputs will be stored in\n{store_path}")
     evaluate(model, tokenizer, dataloaders['test'], device, 
-             target_len, dst_metrics, path=store_path)
+             target_len, dst_metrics, beam_size, path=store_path)
 
 if __name__ == '__main__':
     main()
