@@ -23,17 +23,16 @@ class MyEvaluation:
         self.dst_metrics = dst_metrics
         self.results = {}
         self.path = path
-        self.beam_size = beam_size
-        self.gen_kwargs = {"max_length": target_length,
-                           "min_length": target_length//32,
-                           "early_stopping": True
-                          }
         
         self.gen_kwargs = {"max_new_tokens": target_length,
                            "min_new_tokens": target_length//4,
                            "early_stopping": True,
                            "num_beams": beam_size
                           }
+        if beam_size <= 0:
+            beam_size = 'greedy'
+            self.gen_kwargs.pop("num_beams")
+        self.beam_size = beam_size
         
 
     def __call__(self, eval_data, eval_steps=None, validation=False, verbose=False):
