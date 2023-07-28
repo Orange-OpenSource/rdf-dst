@@ -10,7 +10,7 @@ def create_arg_parser():
                         choices=['yes', 'no'], help="Use peft, yes or no")
 
     parser.add_argument("-beam", "--beam", default=2, type=int,
-                        choices=[1, 2, 3, 4, 5], help="beam size, if beam == 1 then greedy")
+                        choices=[0, 1, 2, 3, 4, 5], help="beam size, if beam == 1 then greedy")
 
     parser.add_argument(
         "-b", "--batch", default=4, type=int, help="Provide the number of batch"
