@@ -31,17 +31,23 @@ def preprocessing(collator, dataset, num_workers, batch_size, method):
     return {'test': dataloaders["test"]}
 
 
-def load_model(file_path, peft):
+def load_model(model_path, file_path, peft):
 
     ckpt_path = find_version_num(file_path, peft)
     #ckpt_path = '../results/models/tb_logs/flan-t5_experiment_1/version_0/checkpoints/best_dst_ckpt/'
     if peft:
         peft_model_id = ckpt_path
-        config = PeftConfig.from_pretrained(peft_model_id)
-        model = T5ForConditionalGeneration.from_pretrained(config.base_model_name_or_path)
-
+        # ONLY VALID IF PATH LOADED FROM IS THE SAME AS THE PATH IT STORES THE MODEL AFTER TRAINING
+        #config = PeftConfig.from_pretrained(peft_model_id)
+        #model = T5ForConditionalGeneration.from_pretrained(config.base_model_name_or_path)
+        #model = PeftModel.from_pretrained(model, peft_model_id)
+        #tokenizer = AutoTokenizer.from_pretrained(config.base_model_name_or_path)
+        # TEMPORARY SOLUTION...
+        model = T5ForConditionalGeneration.from_pretrained(model_path)
         model = PeftModel.from_pretrained(model, peft_model_id)
-        tokenizer = AutoTokenizer.from_pretrained(config.base_model_name_or_path)
+        if peft != 'prefix':
+            model = model.merge_and_unload()
+        tokenizer = AutoTokenizer.from_pretrained(model_path) 
 
     else:
         model = T5ForConditionalGeneration.from_pretrained(ckpt_path)
@@ -95,6 +101,7 @@ def main():
     device = args.device
     beam_size = args.beam
     peft_type = args.peft
+    model_path =  model_name + '-' + args.model_size
 
     bool_4_args = {"no": False, "yes": True}
     length_exp_setup = {1: {"source_len": 512, "target_len": 256, "setup": "context and states"},  # 1024?
@@ -121,7 +128,7 @@ def main():
 
     file_path = os.path.join(path, 'tb_logs', model_checkpoint_name)
 
-    loaded_config = load_model(file_path, peft_type)
+    loaded_config = load_model(model_path, file_path, peft_type)
     tokenizer = loaded_config["tokenizer"]
     model = loaded_config["model"]
 
