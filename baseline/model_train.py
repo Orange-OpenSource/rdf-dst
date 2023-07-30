@@ -155,7 +155,8 @@ def main():
 
 
         peft_methods = {
-            'lora': LoraConfig(task_type=TaskType.SEQ_2_SEQ_LM, inference_mode=False, r=4, lora_alpha=32, lora_dropout=0.1),
+            'lora': LoraConfig(task_type=TaskType.SEQ_2_SEQ_LM, inference_mode=False, r=4, lora_alpha=32, lora_dropout=0.1,
+                               target_modules=["q_proj", "k_proj", "v_proj", "o_proj"]),
             'prefix': PrefixTuningConfig(task_type=TaskType.SEQ_2_SEQ_LM, inference_mode=False, num_virtual_tokens=20),
             'ia3': IA3Config(task_type=TaskType.SEQ_2_SEQ_LM, inference_mode=False, feedforward_modules=[]),
             'adalora': AdaLoraConfig(
