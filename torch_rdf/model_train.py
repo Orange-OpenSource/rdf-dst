@@ -16,7 +16,8 @@ from utils.metric_tools import DSTMetrics
 from trainer import MyTrainer
 from utils.predata_collate import PreDataCollator
 from torch.utils.tensorboard import SummaryWriter
-from peft import get_peft_model, LoraConfig, TaskType
+from peft import get_peft_model, LoraConfig, TaskType, PrefixTuningConfig, IA3Config, AdaLoraConfig, PeftConfig, PeftModel
+# PeftModel added in case of training peft with checkpoints
 
 import logging
 
