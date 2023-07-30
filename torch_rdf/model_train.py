@@ -149,7 +149,10 @@ def main():
     grad_acc_steps = args.gradient_accumulation_steps
     device = args.device
     method = args.method
-    model_checkpoint_name = f"{model_name}_{args.model_size}_experiment_{experimental_setup}"
+    if is_peft:
+        model_checkpoint_name = f"peft_{model_name}_{args.model_size}_experiment_{experimental_setup}"
+    else:
+        model_checkpoint_name = f"{model_name}_{args.model_size}_experiment_{experimental_setup}"
 
     #peft_model_id = model_path
     #config = PeftConfig.from_pretrained(peft_model_id)

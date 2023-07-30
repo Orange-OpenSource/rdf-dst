@@ -165,7 +165,10 @@ def main():
     logger = bool_4_args[args.logger]
 
 
-    model_checkpoint_name = f"baseline_{model_name}_{args.model_size}_experiment_{experimental_setup}"
+    if is_peft:
+        model_checkpoint_name = f"peft_{model_name}_{args.model_size}_experiment_{experimental_setup}"
+    else:
+        model_checkpoint_name = f"{model_name}_{args.model_size}_experiment_{experimental_setup}"
 
     collator = BaselinePreDataCollator(tokenizer, source_len, target_len, experimental_setup)
 
