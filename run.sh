@@ -93,11 +93,8 @@ fi
 if [[ $debug == "yes" ]]; then
     python "$script" -epochs 2 -d multiwoz --batch 16 -store yes -logger no -experiment "$experiment" -workers "$workers" -model "$model" -model_size "$size" -subset yes -device cuda -method online -peft lora
 elif [[ $debug == "no" ]]; then
-<<<<<<< HEAD
     CUDA_VISIBLE_DEVICES=3 python "$script" -epochs 5 --batch 16 -d multiwoz -workers "$workers" -store yes -experiment "$experiment" -model "$model" -model_size "$size" -logger no -subset no -method offline -peft lora -beam 5
-=======
     python "$script" -epochs 5 --batch 16 -d multiwoz -workers "$workers" -store yes -experiment "$experiment" -model "$model" -model_size "$size" -logger no -subset no -method offline -peft lora -beam 3
->>>>>>> 4b773481e73ee4c9b1b6b0257d6643d0e315ce81
 else
     usage
     die "Invalid value for debug parameter"

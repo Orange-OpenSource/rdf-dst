@@ -48,7 +48,6 @@ def load_model(model_path, file_path, peft):
     if peft:
         peft_model_id = ckpt_path
         config = PeftConfig.from_pretrained(peft_model_id)
-        #config.base_model_name_or_path = ckpt_path
         model = T5ForConditionalGeneration.from_pretrained(model_path)
         model = PeftModel.from_pretrained(model, peft_model_id)
         model = model.merge_and_unload()
