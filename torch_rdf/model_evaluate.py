@@ -40,7 +40,7 @@ def evaluating(model, tokenizer, test_dataloader, device,
     my_evaluation(test_dataloader, validation=False, verbose=True)
     print(my_evaluation.results)
 
-def load_model(file_path, peft):
+def load_model(model_path, file_path, peft):
 
     ckpt_path = find_version_num(file_path, peft)
     #ckpt_path = '../results/models/tb_logs/flan-t5_experiment_1/version_0/checkpoints/best_dst_ckpt/'
@@ -48,9 +48,11 @@ def load_model(file_path, peft):
     if peft:
         peft_model_id = ckpt_path
         config = PeftConfig.from_pretrained(peft_model_id)
-        model = T5ForConditionalGeneration.from_pretrained(config.base_model_name_or_path)
+        #config.base_model_name_or_path = ckpt_path
+        model = T5ForConditionalGeneration.from_pretrained(model_path)
         model = PeftModel.from_pretrained(model, peft_model_id)
-        tokenizer = AutoTokenizer.from_pretrained(config.base_model_name_or_path) 
+        model = model.merge_and_unload()
+        tokenizer = AutoTokenizer.from_pretrained(model_path) 
     else:
         if 'long' not in file_path:
             model = T5ForConditionalGeneration.from_pretrained(ckpt_path)
@@ -96,6 +98,7 @@ def main():
     model_name = models[args.model]
     beam_size = args.beam
     peft_type = args.peft
+    model_path =  model_name + '-' + args.model_size
 
     bool_4_args = {"no": False, "yes": True}
 
@@ -123,7 +126,7 @@ def main():
     model_checkpoint_name = model_checkpoint_name.replace('google/', '')
     file_path = os.path.join(path, 'tb_logs', model_checkpoint_name)
 
-    loaded_config = load_model(file_path, peft_type)
+    loaded_config = load_model(model_path, file_path, peft_type)
     tokenizer = loaded_config["tokenizer"]
     model = loaded_config["model"]
     store_path = loaded_config["store_path"]
