@@ -131,8 +131,8 @@ def main():
     experimental_setup = args.experimental_setup
     source_len = length_exp_setup[experimental_setup]["source_len"]
     peft_type = args.peft
-    if (model_name != 't5') and (experimental_setup == 1):  # longer sequence than 2048 may not be needed...
-        source_len *= 2
+    #if (model_name != 't5') and (experimental_setup == 1):  # longer sequence than 2048 may not be needed...
+    #    source_len *= 2
 
     target_len = length_exp_setup[experimental_setup]["target_len"]
 
@@ -201,7 +201,8 @@ def main():
     subsetting = bool_4_args[args.subsetting]
     store = bool_4_args[args.store_output]
 
-    cut_context = True if ((model_name[:2] == 't5') and (experimental_setup == 1)) else False
+    cut_context = True if experimental_setup == 1 else False
+    #cut_context = True if ((model_name[:2] == 't5') and (experimental_setup == 1)) else False
 
     collator = PreDataCollator(tokenizer, source_len, target_len, experimental_setup, cut_context=cut_context)
     logging.info("Size of the tokenizer changed in the data collator. Special tokens added, resizing token embeddings")
