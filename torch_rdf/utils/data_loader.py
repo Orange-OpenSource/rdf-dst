@@ -56,15 +56,20 @@ class DialogueRDFData:
         if self.inference_time:
             self.test_dataset = self.dialogue_data['test'].map(self.collator, num_proc=8, remove_columns=self.dialogue_data['test'].column_names, batched=True) 
             if subsetting:
-                self.test_dataset = self.test_dataset.select(range(10))
+        
+                subset_val = round(len(self.test_dataset) * .35)
+                self.test_dataset = self.test_dataset.select(range(subset_val))
             return {"test": self.test_dataloader()}
 
         self.train_dataset = self.dialogue_data['train'].map(self.collator, num_proc=8, remove_columns=self.dialogue_data['train'].column_names, batched=True)  
         self.validation_dataset = self.dialogue_data['validation'].map(self.collator, num_proc=8, remove_columns=self.dialogue_data['validation'].column_names, batched=True) 
 
         if subsetting:
-            self.train_dataset = self.train_dataset.select(range(25))
-            self.validation_dataset = self.train_dataset.select(range(13))
+            subset_val = round(len(self.train_dataset) * .35)
+            self.train_dataset = self.train_dataset.select(range(subset_val))
+            subset_val = round(len(self.validation_dataset) * .35)
+            self.validation_dataset = self.validation_dataset.select(range(subset_val))
+
 
         return {"train": self.train_dataloader(), "validation": self.validation_dataloader()}
 

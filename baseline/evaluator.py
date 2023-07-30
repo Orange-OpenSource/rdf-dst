@@ -101,7 +101,6 @@ class MyEvaluation:
 
         generated_tokens = self.model.generate(input_ids=input_ids, attention_mask=attention_mask, generation_config=gen_cfg)
 
-        input_ids = input_ids
         decoded_inputs = self.tokenizer.batch_decode(input_ids, skip_special_tokens=True)
 
         generated_tokens = generated_tokens.detach()

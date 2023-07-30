@@ -54,12 +54,6 @@ class DSTMetrics:
         preds = [self.normalize(p) for preds in preds_batch for p in preds]
         labels = [self.normalize(l) for labels in labels_batch for l in labels]
 
-        #self.diag_construction()
-        #reordered_preds_batch = self.reordered_dialogues['preds']
-        #reordered_labels_batch = self.reordered_dialogues['labels']
-        #reordered_preds = [self.normalize(p) for preds in reordered_preds_batch for p in preds]
-        #reordered_labels = [self.normalize(l) for labels in reordered_labels_batch for l in labels]
-
         span_scores = self.span_evaluation(preds, labels)
         ga_scores = self.goal_accuracy(preds, labels)
         f1_scores = self.f1_states(preds, labels)
@@ -70,47 +64,6 @@ class DSTMetrics:
     def normalize(states):
         return frozenset('='.join([slot, value]) for slot, value in states.items())
     #        #normalized = frozenset('='.join([slot, value]) for dictionary in batch for slot, value in dictionary.items() if slot != '_NONE_')
-
-    def diag_construction(self):
-        ids = self.data['ids']
-        all_ids = [i for batch_ids in ids for i in batch_ids]
-
-        unique_ids = {i: v for i, v in enumerate(set(all_ids))}
-        inverse_ids = {v: k for k, v in unique_ids.items()}
-        self.unique_ids = unique_ids
-        self.inverse_ids = inverse_ids
-
-        preds = self.data['preds']
-        all_preds = [p for batch_preds in preds for p in batch_preds]
-        labels = self.data['labels']
-        all_labels = [l for batch_labels in labels for l in batch_labels]
-        inputs = self.data['inputs']
-        all_inputs = [l for batch_inputs in inputs for l in batch_inputs]
-
-        new_dialogues = {}
-        turn_number = 0
-
-        for idx, p, l, ip in zip(all_ids, all_preds, all_labels, all_inputs):
-            diag_id = inverse_ids[idx] 
-            diag_data = [{'preds': p, 'labels': l, 'inputs': ip}]
-            if diag_id in new_dialogues:
-                turn_number += 1
-                new_dialogues[diag_id].extend(diag_data)
-            else:
-                turn_number = 0
-                new_dialogues[diag_id] = diag_data
-        
-
-        preds = []
-        labels = []
-        inputs = []
-        for k in new_dialogues.keys():
-            preds.append([data['preds'] for data in new_dialogues[k]])
-            labels.append([data['labels'] for data in new_dialogues[k]])
-            inputs.append([data['inputs'] for data in new_dialogues[k]])
-
-        self.reordered_dialogues = {"preds": preds, "labels": labels, "inputs": inputs}
-        
 
     def span_evaluation(self, preds, labels):
         preds = [';'.join(p) for p in preds]

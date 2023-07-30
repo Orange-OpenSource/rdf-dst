@@ -123,10 +123,15 @@ def main():
     loaded_config = load_model(file_path)
     tokenizer = loaded_config["tokenizer"]
     model = loaded_config["model"]
-    store_path = os.path.join(loaded_config["store_path"], dataset)
+
+    store_path = loaded_config["store_path"]
+    if not os.path.exists(store_path):
+        raise Exception("No path found to store outputs")
+    store_path = os.path.join(store_path, dataset)
 
     if not os.path.exists(store_path):
         os.makedirs(store_path)
+
 
     collator = BaselinePreDataCollator(tokenizer, source_len, target_len, experimental_setup, inference_time=True)
 

@@ -151,22 +151,48 @@ def main():
     method = args.method
     model_checkpoint_name = f"{model_name}_{args.model_size}_experiment_{experimental_setup}"
 
+    #peft_model_id = model_path
+    #config = PeftConfig.from_pretrained(peft_model_id)
+
     if 'long' not in model_name:
         model = T5ForConditionalGeneration.from_pretrained(model_path)
+        #model = T5ForConditionalGeneration.from_pretrained(config.base_model_name_or_path)
+        #model = PeftModel.from_pretrained(model, peft_model_id)
     else:
         model = LongT5ForConditionalGeneration.from_pretrained(model_path)
 
     tokenizer = AutoTokenizer.from_pretrained(model_path, extra_ids=0, truncation=True, model_max_length=max([target_len, source_len])) 
-
+    #tokenizer = AutoTokenizer.from_pretrained(model_path) 
+    #tokenizer = AutoTokenizer.from_pretrained(config.base_model_name_or_path)
 
     if is_peft and 'long' not in model_name:
         og_model_size = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-        peft_config = LoraConfig(task_type=TaskType.SEQ_2_SEQ_LM, inference_mode=False, r=8, lora_alpha=32, lora_dropout=0.1)
+        peft_config = LoraConfig(task_type=TaskType.SEQ_2_SEQ_LM, inference_mode=False, r=4, lora_alpha=32, lora_dropout=0.1)
+        #peft_config = PrefixTuningConfig(task_type=TaskType.SEQ_2_SEQ_LM, inference_mode=False, num_virtual_tokens=20)
+
+        #peft_config = IA3Config(task_type=TaskType.SEQ_2_SEQ_LM, inference_mode=False, feedforward_modules=[])
+        #peft_config = AdaLoraConfig(
+        #    init_r=12,
+        #    target_r=8,
+        #    beta1=0.85,
+        #    beta2=0.85,
+        #    tinit=200,
+        #    tfinal=1000,
+        #    deltaT=10,
+        #    lora_alpha=32,
+        #    lora_dropout=0.1,
+        #    task_type=TaskType.SEQ_2_SEQ_LM,
+        #    inference_mode=False
+        #)
+
+
         model = get_peft_model(model, peft_config)
         peft_model_size = sum(p.numel() for p in model.parameters() if p.requires_grad)
         model.print_trainable_parameters()
         logging.info(f"trainable params: {peft_model_size} || all params: {og_model_size} || trainable: {peft_model_size/og_model_size * 100}")
+        logging.info(f"PEFT: {peft_config}")
+
 
 
     message_setup = length_exp_setup[experimental_setup]["setup"]
