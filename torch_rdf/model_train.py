@@ -153,8 +153,10 @@ def main():
         model = T5ForConditionalGeneration.from_pretrained(model_path)
         #model = T5ForConditionalGeneration.from_pretrained(config.base_model_name_or_path)
         #model = PeftModel.from_pretrained(model, peft_model_id)
+        target_modules = None
     else:
         model = LongT5ForConditionalGeneration.from_pretrained(model_path)
+        target_modules = ['q', 'v']
 
     tokenizer = AutoTokenizer.from_pretrained(model_path, extra_ids=0, truncation=True, model_max_length=max([target_len, source_len])) 
     #tokenizer = AutoTokenizer.from_pretrained(model_path) 
@@ -165,7 +167,7 @@ def main():
 
         peft_methods = {
             'lora': LoraConfig(task_type=TaskType.SEQ_2_SEQ_LM, inference_mode=False, r=4, lora_alpha=32, lora_dropout=0.1,
-                               target_modules=["q_proj", "k_proj", "v_proj", "o_proj"]),
+                               target_modules=target_modules),
             'prefix': PrefixTuningConfig(task_type=TaskType.SEQ_2_SEQ_LM, inference_mode=False, num_virtual_tokens=20),
             'ia3': IA3Config(task_type=TaskType.SEQ_2_SEQ_LM, inference_mode=False, feedforward_modules=[]),
             'adalora': AdaLoraConfig(
@@ -252,7 +254,8 @@ def main():
         "num_eval_steps": num_eval_steps,
         "weight_decay": weight_decay,
         "learning_rate": lr,
-        "training size": train_set_size
+        "training size": train_set_size,
+        "peft_type": peft_type
     }
 
 
