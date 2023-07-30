@@ -40,12 +40,12 @@ def evaluating(model, tokenizer, test_dataloader, device,
     my_evaluation(test_dataloader, validation=False, verbose=True)
     print(my_evaluation.results)
 
-def load_model(file_path):
+def load_model(file_path, peft):
 
-    ckpt_path = find_version_num(file_path)
+    ckpt_path = find_version_num(file_path, peft)
     #ckpt_path = '../results/models/tb_logs/flan-t5_experiment_1/version_0/checkpoints/best_dst_ckpt/'
 
-    if is_peft and 'long' not in file_path:
+    if peft:
         peft_model_id = ckpt_path
         config = PeftConfig.from_pretrained(peft_model_id)
         model = T5ForConditionalGeneration.from_pretrained(config.base_model_name_or_path)
@@ -63,12 +63,12 @@ def load_model(file_path):
     return {"model": model, "tokenizer": tokenizer, "store_path": store_path}
 
 
-def find_version_num(path):
+def find_version_num(path, peft):
 
     dirs = [d for d in os.listdir(path) if 'checkpoints' in os.listdir(os.path.join(path, d))]
     assert dirs, "No version has any checkpoints. Did you train the model?"
     newest_version = max(map(regex_match, dirs))
-    parent_dir = os.path.join(path, f"version_{newest_version}", "checkpoints")
+    parent_dir = os.path.join(path, f"version_{newest_version}", "checkpoints", peft)
     pattern = os.path.join(parent_dir, "best_dst_ckpt")
     checkpoints = [dir_path for dir_path in glob.glob(pattern) if os.path.isdir(dir_path)]
     return max(checkpoints, key=os.path.getctime)
@@ -85,7 +85,6 @@ def main():
 
     global subsetting
     global store
-    global is_peft
 
     args = create_arg_parser()
     models = {'t5': 't5', 'flan-t5': 'google/flan-t5', 'long-t5-local': 'google/long-t5-local', 'long-t5-tglobal': 'google/long-t5-tglobal'}
@@ -96,12 +95,12 @@ def main():
     device = args.device
     model_name = models[args.model]
     beam_size = args.beam
+    peft_type = args.peft
 
     bool_4_args = {"no": False, "yes": True}
 
     subsetting = bool_4_args[args.subsetting]
     store = bool_4_args[args.store_output]
-    is_peft = bool_4_args[args.peft]
 
 
     length_exp_setup = {1: {"source_len": 1024, "target_len": 1024, "setup": "context and states"},
@@ -116,10 +115,9 @@ def main():
 
     source_len = length_exp_setup[experimental_setup]["source_len"]
     target_len = length_exp_setup[experimental_setup]["target_len"]
-    if is_peft:
-        model_checkpoint_name = f"peft_{model_name}_{args.model_size}_experiment_{experimental_setup}"
-    else:
-        model_checkpoint_name = f"{model_name}_{args.model_size}_experiment_{experimental_setup}"
+    if not peft_type:
+        peft_type = ''
+    model_checkpoint_name = f"{model_name}_{args.model_size}_experiment_{experimental_setup}"
 
     if os.getenv('DPR_JOB'):
         path = os.path.join("/userstorage/", os.getenv('DPR_JOB'))
@@ -129,7 +127,7 @@ def main():
     model_checkpoint_name = model_checkpoint_name.replace('google/', '')
     file_path = os.path.join(path, 'tb_logs', model_checkpoint_name)
 
-    loaded_config = load_model(file_path)
+    loaded_config = load_model(file_path, peft_type)
     tokenizer = loaded_config["tokenizer"]
     model = loaded_config["model"]
     store_path = loaded_config["store_path"]

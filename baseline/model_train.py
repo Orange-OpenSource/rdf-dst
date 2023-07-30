@@ -126,6 +126,10 @@ def main():
                         2: {"source_len": 512,  "target_len": 256, "setup": "only context"},
                         3: {"source_len": 256,  "target_len": 256, "setup": "only states"}}
     
+    # TO DEBUG
+    length_exp_setup = {1: {"source_len": 32, "target_len": 32, "setup": "context and states"},
+                        2: {"source_len": 32, "target_len": 32, "setup": "only context"},
+                        3: {"source_len": 32, "target_len": 32, "setup": "only states"}}
 
     experimental_setup = args.experimental_setup
     source_len = length_exp_setup[experimental_setup]["source_len"]
@@ -134,7 +138,7 @@ def main():
 
     subsetting = bool_4_args[args.subsetting]
     store = bool_4_args[args.store_output]
-    is_peft = bool_4_args[args.peft]
+    peft_type = args.peft
 
     dataset = args.dataset
     batch_size = args.batch
@@ -150,25 +154,45 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(model_path, extra_ids=0, #truncation_side='left',
                                               truncation=True, model_max_length=max([target_len, source_len])) 
 
-    if is_peft:
+    if peft_type:
         og_model_size = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-        peft_config = LoraConfig(task_type=TaskType.SEQ_2_SEQ_LM, inference_mode=False, r=8, lora_alpha=32, lora_dropout=0.1)
+
+        peft_methods = {
+            'lora': LoraConfig(task_type=TaskType.SEQ_2_SEQ_LM, inference_mode=False, r=4, lora_alpha=32, lora_dropout=0.1),
+            'prefix': PrefixTuningConfig(task_type=TaskType.SEQ_2_SEQ_LM, inference_mode=False, num_virtual_tokens=20),
+            'ia3': IA3Config(task_type=TaskType.SEQ_2_SEQ_LM, inference_mode=False, feedforward_modules=[]),
+            'adalora': AdaLoraConfig(
+                   init_r=12,
+                   target_r=8,
+                   beta1=0.85,
+                   beta2=0.85,
+                   tinit=200,
+                   tfinal=1000,
+                   deltaT=10,
+                   lora_alpha=32,
+                   lora_dropout=0.1,
+                   task_type=TaskType.SEQ_2_SEQ_LM,
+                   inference_mode=False
+            )
+         }
+
+        peft_config = peft_methods[peft_type]
         model = get_peft_model(model, peft_config)
         peft_model_size = sum(p.numel() for p in model.parameters() if p.requires_grad)
         model.print_trainable_parameters()
         logging.info(f"trainable params: {peft_model_size} || all params: {og_model_size} || trainable: {peft_model_size/og_model_size * 100}")
+        logging.info(f"PEFT: {peft_config.peft_type}")
+    else:
+        peft_type = ''
 
+    model_checkpoint_name = f"{model_name}_{args.model_size}_experiment_{experimental_setup}"
 
     message_setup = length_exp_setup[experimental_setup]["setup"]
     logging.info(f"{message_setup} with...\nInput_Length: {source_len}\nOutput_Length: {target_len}")
     logger = bool_4_args[args.logger]
 
 
-    if is_peft:
-        model_checkpoint_name = f"peft_{model_name}_{args.model_size}_experiment_{experimental_setup}"
-    else:
-        model_checkpoint_name = f"{model_name}_{args.model_size}_experiment_{experimental_setup}"
 
     collator = BaselinePreDataCollator(tokenizer, source_len, target_len, experimental_setup)
 
@@ -225,7 +249,7 @@ def main():
     base_path = os.path.join(parent_dir, model_checkpoint_name)
     version_dir = create_version_num(base_path)
 
-    checkpoint_path = os.path.join(version_dir, 'checkpoints')
+    checkpoint_path = os.path.join(version_dir, 'checkpoints', peft_type)
     model_name_path = 'best_dst_ckpt'
 
     dst_metrics = DSTMetrics()  # this is loading the metrics now so we don't have to do this again

@@ -16,7 +16,7 @@ accelerator = Accelerator()
 
 class MyEvaluation:
 
-    def __init__(self, model, tokenizer, device, target_length, dst_metrics, beam_size, path=None):
+    def __init__(self, model, tokenizer, device, target_length, dst_metrics, beam_size=0, path=None):
         self.model = model
         self.tokenizer = tokenizer
         self.device = device

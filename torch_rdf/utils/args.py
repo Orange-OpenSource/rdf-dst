@@ -6,8 +6,8 @@ def create_arg_parser():
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-peft", "--peft", default='no', type=str,
-                        choices=['yes', 'no'], help="Use peft, yes or no")
+    parser.add_argument("-peft", "--peft", default=None, type=str,
+                        choices=['lora', 'adalora', 'prefix', 'ia3'], help="What peft method to use. If None then no peft")
 
     parser.add_argument("-beam", "--beam", default=2, type=int,
                         choices=[0, 1, 2, 3, 4, 5], help="beam size, if beam == 1 then greedy")

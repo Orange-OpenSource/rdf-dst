@@ -6,7 +6,7 @@ DIR=./dst-snake
 # default values, workers must be 1 with marcel... 6 with nadia?
 experiment="${experiment:-1}"
 workers=5
-framework="torch"
+framework="baseline"
 model="t5"  # t5, flant-t5, long-t5-local, long-t5-tglobal
 
 programname=$0
@@ -86,7 +86,7 @@ else
 fi
 
 if [[ $debug == "yes" ]]; then
-    python "$script" -epochs 2 -d multiwoz --batch 2 -store yes -logger no -experiment "$experiment" -workers "$workers" -model "$model" -model_size small -subset yes -device cuda -method online -peft yes
+    python "$script" -epochs 2 -d multiwoz --batch 16 -store yes -logger no -experiment "$experiment" -workers "$workers" -model "$model" -model_size small -subset yes -device cuda -method online -peft lora
 elif [[ $debug == "no" ]]; then
     python "$script" -epochs 5 --batch 16 -d multiwoz -workers "$workers" -store yes -experiment "$experiment" -model "$model" -model_size base -logger no -subset no -method offline -peft no
 else

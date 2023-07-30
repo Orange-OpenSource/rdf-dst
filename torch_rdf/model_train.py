@@ -128,13 +128,13 @@ def main():
                         3: {"source_len": 768,  "target_len": 1024, "setup": "only states"}}
     
     # TO DEBUG
-    #length_exp_setup = {1: {"source_len": 256, "target_len": 256, "setup": "context and states"},
-    #                    2: {"source_len": 256,  "target_len": 256, "setup": "only context"},
-    #                    3: {"source_len": 256,  "target_len": 256, "setup": "only states"}}
+    #length_exp_setup = {1: {"source_len": 32, "target_len": 32, "setup": "context and states"},
+    #                    2: {"source_len": 32, "target_len": 32, "setup": "only context"},
+    #                    3: {"source_len": 32, "target_len": 32, "setup": "only states"}}
 
     experimental_setup = args.experimental_setup
     source_len = length_exp_setup[experimental_setup]["source_len"]
-    is_peft = bool_4_args[args.peft]
+    peft_type = args.peft
     if (model_name != 't5') and (experimental_setup == 1):  # longer sequence than 2048 may not be needed...
         source_len *= 2
 
@@ -149,10 +149,6 @@ def main():
     grad_acc_steps = args.gradient_accumulation_steps
     device = args.device
     method = args.method
-    if is_peft:
-        model_checkpoint_name = f"peft_{model_name}_{args.model_size}_experiment_{experimental_setup}"
-    else:
-        model_checkpoint_name = f"{model_name}_{args.model_size}_experiment_{experimental_setup}"
 
     #peft_model_id = model_path
     #config = PeftConfig.from_pretrained(peft_model_id)
@@ -168,34 +164,38 @@ def main():
     #tokenizer = AutoTokenizer.from_pretrained(model_path) 
     #tokenizer = AutoTokenizer.from_pretrained(config.base_model_name_or_path)
 
-    if is_peft and 'long' not in model_name:
+    if peft_type:
         og_model_size = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-        peft_config = LoraConfig(task_type=TaskType.SEQ_2_SEQ_LM, inference_mode=False, r=4, lora_alpha=32, lora_dropout=0.1)
-        #peft_config = PrefixTuningConfig(task_type=TaskType.SEQ_2_SEQ_LM, inference_mode=False, num_virtual_tokens=20)
+        peft_methods = {
+            'lora': LoraConfig(task_type=TaskType.SEQ_2_SEQ_LM, inference_mode=False, r=4, lora_alpha=32, lora_dropout=0.1),
+            'prefix': PrefixTuningConfig(task_type=TaskType.SEQ_2_SEQ_LM, inference_mode=False, num_virtual_tokens=20),
+            'ia3': IA3Config(task_type=TaskType.SEQ_2_SEQ_LM, inference_mode=False, feedforward_modules=[]),
+            'adalora': AdaLoraConfig(
+                   init_r=12,
+                   target_r=8,
+                   beta1=0.85,
+                   beta2=0.85,
+                   tinit=200,
+                   tfinal=1000,
+                   deltaT=10,
+                   lora_alpha=32,
+                   lora_dropout=0.1,
+                   task_type=TaskType.SEQ_2_SEQ_LM,
+                   inference_mode=False
+            )
+         }
 
-        #peft_config = IA3Config(task_type=TaskType.SEQ_2_SEQ_LM, inference_mode=False, feedforward_modules=[])
-        #peft_config = AdaLoraConfig(
-        #    init_r=12,
-        #    target_r=8,
-        #    beta1=0.85,
-        #    beta2=0.85,
-        #    tinit=200,
-        #    tfinal=1000,
-        #    deltaT=10,
-        #    lora_alpha=32,
-        #    lora_dropout=0.1,
-        #    task_type=TaskType.SEQ_2_SEQ_LM,
-        #    inference_mode=False
-        #)
-
-
+        peft_config = peft_methods[peft_type]
         model = get_peft_model(model, peft_config)
         peft_model_size = sum(p.numel() for p in model.parameters() if p.requires_grad)
         model.print_trainable_parameters()
         logging.info(f"trainable params: {peft_model_size} || all params: {og_model_size} || trainable: {peft_model_size/og_model_size * 100}")
-        logging.info(f"PEFT: {peft_config}")
+        logging.info(f"PEFT: {peft_config.peft_type}")
+    else:
+        peft_type = ''
 
+    model_checkpoint_name = f"{model_name}_{args.model_size}_experiment_{experimental_setup}"
 
 
     message_setup = length_exp_setup[experimental_setup]["setup"]
@@ -264,7 +264,7 @@ def main():
 
     version_dir = create_version_num(base_path)
 
-    checkpoint_path = os.path.join(version_dir, 'checkpoints')
+    checkpoint_path = os.path.join(version_dir, 'checkpoints', peft_type)
     model_name_path = 'best_dst_ckpt'
 
     dst_metrics = DSTMetrics()  # this is loading the metrics now so we don't have to do this again
