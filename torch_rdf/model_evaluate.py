@@ -50,7 +50,8 @@ def load_model(model_path, file_path, peft):
         config = PeftConfig.from_pretrained(peft_model_id)
         model = T5ForConditionalGeneration.from_pretrained(model_path)
         model = PeftModel.from_pretrained(model, peft_model_id)
-        model = model.merge_and_unload()
+        if peft != 'prefix':
+            model = model.merge_and_unload()
         tokenizer = AutoTokenizer.from_pretrained(model_path) 
     else:
         if 'long' not in file_path:
@@ -137,10 +138,10 @@ def main():
         os.makedirs(store_path)
 
 
-    cut_context = True if ((model_name[:2] == 't5') and (experimental_setup == 1)) else False
+    #cut_context = True if ((model_name[:2] == 't5') and (experimental_setup == 1)) else False
+    cut_context = True if experimental_setup == 1 else False
     collator = PreDataCollator(tokenizer, source_len, target_len, experimental_setup, cut_context=cut_context, inference_time=True)
     dataloaders = preprocessing(collator, dataset, num_workers, batch_size, method)
-
 
 
     dst_metrics = DSTMetrics()  # this is loading the metrics now so we don't have to do this again
