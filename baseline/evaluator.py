@@ -35,7 +35,7 @@ class MyEvaluation:
             self.gen_kwargs.pop("num_beams")
         self.beam_size = beam_size
 
-    @track_emissions(project_name='dst-base', save_to_api=True, country_iso_code='FRA',
+    @track_emissions(project_name='dst-base', save_to_api=False, country_iso_code='FRA',
                      experiment_id='eval_baseline-2-base-dst-full', output_file='eval_base_2_basefull_emissions.csv')
     def __call__(self, eval_data, eval_steps=None, validation=False, verbose=False):
 
