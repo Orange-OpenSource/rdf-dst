@@ -72,7 +72,7 @@ class MyTrainer:
             wandb.login()  
             wandb.init(project=project, config=config)
 
-    @track_emissions(project_name='dst-base', save_to_api=False, country_iso_code='FRA',
+    @track_emissions(project_name='dst-base', save_to_api=False, country_iso_code='FRA', offline=True,
                      experiment_id='train_baseline-2-base-dst-full', output_file='train_base_2_basefull_emissions.csv')
     def train_loop(self, train_data, val_data, tokenizer, target_length):
 
