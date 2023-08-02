@@ -4,6 +4,7 @@ from utils.custom_schedulers import LinearWarmupScheduler
 from torch.optim import AdamW
 from tqdm import tqdm
 from accelerate import Accelerator
+from codecarbon import track_emissions
 
 import logging
 
@@ -71,6 +72,8 @@ class MyTrainer:
             wandb.login()  
             wandb.init(project=project, config=config)
 
+    @track_emissions(project_name='dst-base', save_to_api=True, country_iso_code='FRA',
+                     experiment_id='train_baseline-2-dst-full-1234', output_file='train_base_2full_emissions.csv')
     def train_loop(self, train_data, val_data, tokenizer, target_length):
 
         train_data, val_data, self.model, self.optimizer = accelerator.prepare(train_data, val_data, self.model, self.optimizer)
