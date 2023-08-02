@@ -36,7 +36,7 @@ class MyEvaluation:
         self.beam_size = beam_size
 
     @track_emissions(project_name='dst-base', save_to_api=True, country_iso_code='FRA',
-                     experiment_id='eval_baseline-2-dst-full-1234', output_file='eval_base_2full_emissions.csv')
+                     experiment_id='eval_baseline-2-base-dst-full', output_file='eval_base_2_basefull_emissions.csv')
     def __call__(self, eval_data, eval_steps=None, validation=False, verbose=False):
 
         eval_data, self.model = accelerator.prepare(eval_data, self.model)
