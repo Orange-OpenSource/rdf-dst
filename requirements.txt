@@ -18,3 +18,4 @@ python-Levenshtein==0.21.1
 accelerate==0.20.3
 pandas==2.0.3
 peft==0.4.0
+codecarbon==2.2.7
