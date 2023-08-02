@@ -48,7 +48,11 @@ def load_model(model_path, file_path, peft):
     if peft:
         peft_model_id = ckpt_path
         config = PeftConfig.from_pretrained(peft_model_id)
-        model = T5ForConditionalGeneration.from_pretrained(model_path)
+        if 'long' not in file_path:
+            model = T5ForConditionalGeneration.from_pretrained(model_path)
+        else:
+            model = LongT5ForConditionalGeneration.from_pretrained(model_path)
+
         model = PeftModel.from_pretrained(model, peft_model_id)
         if peft != 'prefix':
             model = model.merge_and_unload()
