@@ -52,6 +52,7 @@ def load_model(model_path, file_path, peft):
             model = T5ForConditionalGeneration.from_pretrained(model_path)
         else:
             model = LongT5ForConditionalGeneration.from_pretrained(model_path)
+            #model = LongT5ForConditionalGeneration.from_pretrained(ckpt_path)
 
         model = PeftModel.from_pretrained(model, peft_model_id)
         if peft != 'prefix':

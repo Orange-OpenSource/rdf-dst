@@ -33,21 +33,22 @@ def preprocessing(collator, dataset, num_workers, batch_size, method):
 
 def load_model(model_path, file_path, peft):
 
-    ckpt_path = find_version_num(file_path, peft)
+    #ckpt_path = find_version_num(file_path, peft)
     #ckpt_path = '../results/models/tb_logs/flan-t5_experiment_1/version_0/checkpoints/best_dst_ckpt/'
+    ckpt_path = '/data/userstorage/yddb9991/base-flant5-dst/baseline/tb_logs/t5_base_experiment_2/full/checkpoints/best_dst_ckpt' 
     if peft:
         peft_model_id = ckpt_path
         # ONLY VALID IF PATH LOADED FROM IS THE SAME AS THE PATH IT STORES THE MODEL AFTER TRAINING
-        #config = PeftConfig.from_pretrained(peft_model_id)
-        #model = T5ForConditionalGeneration.from_pretrained(config.base_model_name_or_path)
-        #model = PeftModel.from_pretrained(model, peft_model_id)
-        #tokenizer = AutoTokenizer.from_pretrained(config.base_model_name_or_path)
-        # TEMPORARY SOLUTION...
-        model = T5ForConditionalGeneration.from_pretrained(model_path)
+        config = PeftConfig.from_pretrained(peft_model_id)
+        model = T5ForConditionalGeneration.from_pretrained(config.base_model_name_or_path)
         model = PeftModel.from_pretrained(model, peft_model_id)
+        tokenizer = AutoTokenizer.from_pretrained(config.base_model_name_or_path)
+        # TEMPORARY SOLUTION...
+        #model = T5ForConditionalGeneration.from_pretrained(model_path)
+        #model = PeftModel.from_pretrained(model, peft_model_id)
         if peft != 'prefix':
             model = model.merge_and_unload()
-        tokenizer = AutoTokenizer.from_pretrained(model_path) 
+        #tokenizer = AutoTokenizer.from_pretrained(model_path) 
 
     else:
         model = T5ForConditionalGeneration.from_pretrained(ckpt_path)
