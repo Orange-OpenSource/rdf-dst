@@ -124,7 +124,7 @@ def main():
     bool_4_args = {"no": False, "yes": True}
     length_exp_setup = {1: {"source_len": 512, "target_len": 256, "setup": "context and states"},  # 1024?
                         2: {"source_len": 512,  "target_len": 256, "setup": "only context"},
-                        3: {"source_len": 256,  "target_len": 256, "setup": "only states"}}
+                        3: {"source_len": 512,  "target_len": 256, "setup": "only states"}}
     
 
     experimental_setup = args.experimental_setup

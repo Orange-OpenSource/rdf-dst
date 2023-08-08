@@ -113,7 +113,7 @@ def main():
 
     length_exp_setup = {1: {"source_len": 1024, "target_len": 1024, "setup": "context and states"},
                         2: {"source_len": 512,  "target_len": 1024, "setup": "only context"},
-                        3: {"source_len": 768,  "target_len": 1024, "setup": "only states"}}
+                        3: {"source_len": 1024,  "target_len": 1024, "setup": "only states"}}
 
     experimental_setup = args.experimental_setup
 
@@ -144,7 +144,7 @@ def main():
         os.makedirs(store_path)
 
 
-    cut_context = True if ((model_name[:2] == 't5') and (experimental_setup == 1)) else False
+    cut_context = True if experimental_setup == 1 else False
     collator = PreDataCollator(tokenizer, source_len, target_len, experimental_setup, cut_context=cut_context, inference_time=True)
     dataloaders = preprocessing(collator, dataset, num_workers, batch_size, method)
 

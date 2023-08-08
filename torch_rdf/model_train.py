@@ -125,7 +125,7 @@ def main():
     bool_4_args = {"no": False, "yes": True}
     length_exp_setup = {1: {"source_len": 1024, "target_len": 1024, "setup": "context and states"},
                         2: {"source_len": 512,  "target_len": 1024, "setup": "only context"},
-                        3: {"source_len": 768,  "target_len": 1024, "setup": "only states"}}
+                        3: {"source_len": 1024,  "target_len": 1024, "setup": "only states"}}
     
 
     experimental_setup = args.experimental_setup
@@ -224,12 +224,6 @@ def main():
     num_warmup_steps = math.ceil(train_set_size / grad_acc_steps)
     total_val_steps = validation_set_size // batch_size * epochs
     total_train_steps =  num_train_optimization_steps // batch_size
-
-    # for batch of 2, then compute the rest.... Funky, it doesn't work well. Need to add other iterations for other steps
-    #default_eval_steps = {2: 2000}
-    #options_eval_steps = {k*2: v //2 for k, v in default_eval_steps.items()}
-    #options_eval_steps.update(default_eval_steps)
-    #num_eval_steps = options_eval_steps[batch_size]
 
     factor = 10
     num_eval_steps = total_val_steps // factor

@@ -33,12 +33,13 @@ def preprocessing(collator, dataset, num_workers, batch_size, method):
 
 def load_model(model_path, file_path, peft):
 
-    #ckpt_path = find_version_num(file_path, peft)
+    ckpt_path = find_version_num(file_path, peft)
     #ckpt_path = '../results/models/tb_logs/flan-t5_experiment_1/version_0/checkpoints/best_dst_ckpt/'
-    ckpt_path = '/data/userstorage/yddb9991/base-flant5-dst/baseline/tb_logs/t5_base_experiment_2/full/checkpoints/best_dst_ckpt' 
+    #ckpt_path = '/data/userstorage/yddb9991/base-flant5-dst/baseline/tb_logs/t5_base_experiment_2/full/checkpoints/best_dst_ckpt' 
     if peft:
         peft_model_id = ckpt_path
         # ONLY VALID IF PATH LOADED FROM IS THE SAME AS THE PATH IT STORES THE MODEL AFTER TRAINING
+        # otherwise change adapter config json
         config = PeftConfig.from_pretrained(peft_model_id)
         model = T5ForConditionalGeneration.from_pretrained(config.base_model_name_or_path)
         model = PeftModel.from_pretrained(model, peft_model_id)
@@ -46,9 +47,9 @@ def load_model(model_path, file_path, peft):
         # TEMPORARY SOLUTION...
         #model = T5ForConditionalGeneration.from_pretrained(model_path)
         #model = PeftModel.from_pretrained(model, peft_model_id)
+        #tokenizer = AutoTokenizer.from_pretrained(model_path) 
         if peft != 'prefix':
             model = model.merge_and_unload()
-        #tokenizer = AutoTokenizer.from_pretrained(model_path) 
 
     else:
         model = T5ForConditionalGeneration.from_pretrained(ckpt_path)
@@ -107,7 +108,7 @@ def main():
     bool_4_args = {"no": False, "yes": True}
     length_exp_setup = {1: {"source_len": 512, "target_len": 256, "setup": "context and states"},  # 1024?
                         2: {"source_len": 512,  "target_len": 256, "setup": "only context"},
-                        3: {"source_len": 256,  "target_len": 256, "setup": "only states"}}
+                        3: {"source_len": 512,  "target_len": 256, "setup": "only states"}}
     
 
     subsetting = bool_4_args[args.subsetting]
@@ -146,9 +147,6 @@ def main():
 
     model.resize_token_embeddings(len(tokenizer))
     dataloaders = preprocessing(collator, dataset, num_workers, batch_size, method)
-
-
-
 
     dst_metrics = DSTMetrics()  # this is loading the metrics now so we don't have to do this again
 
