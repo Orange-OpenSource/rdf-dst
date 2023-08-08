@@ -119,6 +119,7 @@ def main():
 
     source_len = length_exp_setup[experimental_setup]["source_len"]
     target_len = length_exp_setup[experimental_setup]["target_len"]
+    #source_len = source_len * 2 if ((model_name[:2] != 't5') and (experimental_setup == 1)) else source_len
     if not peft_type:
         peft_type = ''
     model_checkpoint_name = f"{model_name}_{args.model_size}_experiment_{experimental_setup}"
@@ -143,8 +144,7 @@ def main():
         os.makedirs(store_path)
 
 
-    #cut_context = True if ((model_name[:2] == 't5') and (experimental_setup == 1)) else False
-    cut_context = True if experimental_setup == 1 else False
+    cut_context = True if ((model_name[:2] == 't5') and (experimental_setup == 1)) else False
     collator = PreDataCollator(tokenizer, source_len, target_len, experimental_setup, cut_context=cut_context, inference_time=True)
     dataloaders = preprocessing(collator, dataset, num_workers, batch_size, method)
 
