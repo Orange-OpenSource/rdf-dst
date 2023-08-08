@@ -63,7 +63,6 @@ class DialogueData:
                 dialogue_data.update({'train': train_val['train'], 'validation': test_val['train'], 'test': test_val['test']})
             
 
-
         # shuffling dialogues
         self.dialogue_data = dialogue_data.shuffle(seed=SEED)
 

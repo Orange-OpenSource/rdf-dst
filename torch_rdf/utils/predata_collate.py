@@ -78,32 +78,41 @@ class PreDataCollator:
 
         context = ''
         all_context = []
-        if self.exp_setup == 3:
-            #model_input = list(map(lambda state: [self.state_tkn] + state, states[:-1]))
-            model_input = list(map(lambda state: ['STATE: '] + state, states[:-1]))
-            #model_input.insert(0, [self.state_tkn, ' '])
-            model_input.insert(0, ['STATE: ', ' '])
+        #if self.exp_setup == 3:
+        #    #model_input = list(map(lambda state: [self.state_tkn] + state, states[:-1]))
+        #    model_input = list(map(lambda state: ['STATE: '] + state, states[:-1]))
+        #    #model_input.insert(0, [self.state_tkn, ' '])
+        #    model_input.insert(0, ['STATE: ', ' '])
 
-        else:
-            #prev_states = list(map(lambda state: [self.state_tkn] + state, states[:-1]))
-            prev_states = list(map(lambda state: ['STATE: '] + state, states[:-1]))
-            for i in range(0, len(dialogue), 2):
+        #prev_states = list(map(lambda state: [self.state_tkn] + state, states[:-1]))
+        prev_states = list(map(lambda state: ['STATE: '] + state, states[:-1]))
+        model_input_3 = []
+        for i in range(0, len(dialogue), 2):
 
-                speaker = dialogue[i]['speaker']
-                context += toks[speaker] + dialogue[i]['text']
+            speaker = dialogue[i]['speaker']
+            context += toks[speaker] + dialogue[i]['text']
+            curr_turn_usr = toks[speaker] + dialogue[i]['text']
 
-                speaker = dialogue[i+1]['speaker']
-                context += toks[speaker] + dialogue[i+1]['text']
-                all_context.append(context)
+            speaker = dialogue[i+1]['speaker']
+            context += toks[speaker] + dialogue[i+1]['text']
+            curr_turn_sys = toks[speaker] + dialogue[i]['text']
+            all_context.append(context)
 
-            model_input = [diag.split() for diag in all_context]
-            
-            if self.exp_setup == 1:
-                model_input = model_input[:1] + list(map(list.__add__, model_input[1:], prev_states))
+            curr_turn_info = curr_turn_usr + curr_turn_sys
+            model_input_3.append(curr_turn_info.strip().split())
 
-            # cutting context in T5 left to right because the sequence is too long.
-            if self.cut_context:
-                model_input = list(map(self.reduce_context, model_input))
+        model_input = [diag.split() for diag in all_context]
+        
+        if self.exp_setup == 1:
+            model_input = model_input[:1] + list(map(list.__add__, model_input[1:], prev_states))
+
+        # cutting context in T5 left to right because the sequence is too long.
+        elif self.exp_setup == 3:
+            model_input_3 = model_input_3[:1] + list(map(list.__add__, model_input_3[1:], prev_states))
+            model_input = model_input_3
+
+        if self.cut_context:
+            model_input = list(map(self.reduce_context, model_input))
 
         labels = map(lambda state: ','.join([';'.join(state[i:i+3]) for i in range(0, len(state), 3)]), states)
         labels = list(labels)

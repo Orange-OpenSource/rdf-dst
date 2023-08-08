@@ -66,22 +66,20 @@ class BaselinePreDataCollator:
             states.append(' ; '.join(slot_values))
             turn_ids.append(t['turn-index'])
 
+            system = t['system']['text']
+            user = t['user']['text']
+            convo = 'SYSTEM: ' + system + 'USER: ' + user
+            context += convo
             if self.exp_setup in [1, 2]:
-                system = t['system']['text']
-                user = t['user']['text']
-                #convo = self.sys_tkn + system + self.user_tkn + user
-                convo = 'SYSTEM: ' + system + 'USER: ' + user
-                context += convo
                 txt_input.append(context.strip().lower())
-        if self.exp_setup == 1:
+            elif self.exp_setup == 3:
+                txt_input.append(convo.strip().lower())
+        if self.exp_setup in [1, 3]:
             first_turn = txt_input[0]
             #txt_input = [txt + states[i] for i, txt in enumerate(txt_input[1:])]
             txt_input = [txt + 'STATE: ' + states[i] for i, txt in enumerate(txt_input[1:])]
             txt_input.insert(0, first_turn)
-        elif self.exp_setup == 3:
-            txt_input = [' ']
-            txt_input.extend(states[:-1])
-            
+        
         return txt_input, states, turn_ids
 
 
