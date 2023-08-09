@@ -57,13 +57,15 @@ class BaselinePreDataCollator:
             user_slot_vals = [s_v for slot_val in t['user']['dialog-acts'] for s_v in slot_val['slots']] 
             sys_slot_vals = [s_v for slot_val in t['system']['dialog-acts'] for s_v in slot_val['slots']] 
             # Leo replaces old slots when they have a new value. This makes sense.
-            #slot_values = list(frozenset(clean_slot_val(s_v['name']) + '=' + clean_slot_val(s_v['value']) for s_v in user_slot_vals + sys_slot_vals))
-            slot_values = {clean_slot_val(s_v['name']): clean_slot_val(s_v['value']) for s_v in user_slot_vals + sys_slot_vals}
-            #slot_values = [f'{self.slot_tkn}{slot}={self.value_tkn}{value}' for slot, value in slot_values.items()]
-            slot_values = [f'{slot}={value}' for slot, value in slot_values.items()]
+            # set way
+            slot_values = list(frozenset(clean_slot_val(s_v['name']) + '=' + clean_slot_val(s_v['value']) for s_v in user_slot_vals + sys_slot_vals))
+            # leo's way...
+            #slot_values = {clean_slot_val(s_v['name']): clean_slot_val(s_v['value']) for s_v in user_slot_vals + sys_slot_vals}
+            #slot_values = [f'{slot}={value}' for slot, value in slot_values.items()]
+
             # augmentation: does it make eval more complicated?
-            #slot_values = random.sample(slot_values, len(slot_values))
-            states.append(' ; '.join(slot_values))
+            slot_values = random.sample(slot_values, len(slot_values))
+            states.append(';'.join(slot_values))
             turn_ids.append(t['turn-index'])
 
             system = t['system']['text']
