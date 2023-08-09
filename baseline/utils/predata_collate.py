@@ -64,7 +64,7 @@ class BaselinePreDataCollator:
             #slot_values = [f'{slot}={value}' for slot, value in slot_values.items()]
 
             # augmentation: does it make eval more complicated?
-            slot_values = random.sample(slot_values, len(slot_values))
+            #slot_values = random.sample(slot_values, len(slot_values))
             states.append(';'.join(slot_values))
             turn_ids.append(t['turn-index'])
 
