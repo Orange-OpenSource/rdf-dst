@@ -4,14 +4,16 @@
 from dataclasses import dataclass
 from utils.postprocessing import clean_node
 import random
+import re
 
 
 @dataclass
 class PreDataCollator:
     
-    def __init__(self, tokenizer, source_len, target_len, exp_setup, cut_context, inference_time=False):
+    def __init__(self, tokenizer, source_len, target_len, exp_setup, ignore_inter, cut_context):
 
         self.cut_context = cut_context
+        self.ignore_inter_states = ignore_inter
         self.exp_setup = exp_setup
         self.source_len = source_len
         self.target_len = target_len
@@ -55,6 +57,16 @@ class PreDataCollator:
         special_tkn = {0: self.subject_tkn, 1: self.relation_tkn, 2: self.object_tkn}
         return special_tkn[i] + clean_node(word)
     
+    def filter_triples(self, triple):
+        randompatternRegex = re.compile(r'\/[a-zA-Z0-9]+')
+        if '_:system' in triple[0] or '_:user' in triple[0]:
+            return False
+        for el in triple:
+            # ignore rejected searches, results, etc. Intermediate triples that create noise
+            if randompatternRegex.search(el):
+                return False
+        return True
+    
     def create_inputs_outputs(self, dialogue, states):
         """
         This is where we choose the inputs and the rdf we will predict.
@@ -67,7 +79,13 @@ class PreDataCollator:
         toks = {"user": 'USER ', "system": "SYSTEM "}
 
 
-        states = map(lambda state: [[self.explicit_info_injection(val, i) for i, val in enumerate(triple)] for triple in state['triples']], states)
+        # removing system triples, user and states that pollute generation
+        if self.ignore_inter_states:
+            states = map(lambda state: list(filter(self.filter_triples, state['triples'])), states)
+        else:
+            states = [state['triples'] for state in states]
+
+        states = map(lambda state: [[self.explicit_info_injection(val, i) for i, val in enumerate(triple)] for triple in state], states)
         # shuffling for augmentation: maybe triggers issues with eval? IT DOES HELP OUR CASE BECAUSE THE TRIPLES ARE NOT IN THE RIGHT ORDER?
         
         states = map(lambda state: random.sample(state, len(state)), states)

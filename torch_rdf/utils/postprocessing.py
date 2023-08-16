@@ -8,7 +8,7 @@ def clean_node(node):
     node = node.replace(',', '')  # removing commas to facilitate RDF creation and splitting
     node = node.replace(';', '')  # removing semicolons to facilitate RDF creation and splitting
 
-    node = node.replace(':', '')
+    #node = node.replace(':', '')
     node = node.replace('USER', '') 
     node = node.replace('SYSTEM', '') 
     node = node.replace('STATE', '') 
