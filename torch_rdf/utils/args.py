@@ -10,7 +10,7 @@ def create_arg_parser():
                         choices=['lora', 'adalora', 'prefix', 'ia3'], help="What peft method to use. If None then no peft")
 
     parser.add_argument("-beam", "--beam", default=2, type=int,
-                        choices=[0, 1, 2, 3, 4, 5], help="beam size, if beam == 1 then greedy")
+                        choices=[1, 2, 3, 4, 5], help="beam size, if beam == 1 then greedy")
 
     parser.add_argument(
         "-b", "--batch", default=4, type=int, help="Provide the number of batch"
@@ -38,7 +38,7 @@ def create_arg_parser():
 
     parser.add_argument(
         "-experiment", "--experimental_setup", default=1, type=int,
-        choices=[1, 2, 3],
+        choices=[1, 2, 3, 4, 5, 6],
         help="Select experimental setup.\n1: Context + states\n2: Context\n3: States"
     )
 

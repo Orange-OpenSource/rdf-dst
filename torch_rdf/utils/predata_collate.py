@@ -64,8 +64,7 @@ class PreDataCollator:
         """
 
         # we can flatten all of the rdf-states and treat them as strings. But maybe the only last one matters?
-        #toks = {"user": self.user_tkn, "system": self.sys_tkn}
-        toks = {"user": 'USER: ', "system": "SYSTEM: "}
+        toks = {"user": 'USER ', "system": "SYSTEM "}
 
 
         states = map(lambda state: [[self.explicit_info_injection(val, i) for i, val in enumerate(triple)] for triple in state['triples']], states)
@@ -77,39 +76,46 @@ class PreDataCollator:
         states = [[node for rdf in state for node in rdf] for state in states]
 
         context = ''
-        all_context = []
-        #if self.exp_setup == 3:
-        #    #model_input = list(map(lambda state: [self.state_tkn] + state, states[:-1]))
-        #    model_input = list(map(lambda state: ['STATE: '] + state, states[:-1]))
-        #    #model_input.insert(0, [self.state_tkn, ' '])
-        #    model_input.insert(0, ['STATE: ', ' '])
+        if self.exp_setup == 6:
+            model_input = list(map(lambda state: ['STATE '] + state, states[:-1]))
+            model_input.insert(0, ['STATE ', ' '])
 
-        #prev_states = list(map(lambda state: [self.state_tkn] + state, states[:-1]))
-        prev_states = list(map(lambda state: ['STATE: '] + state, states[:-1]))
-        model_input_3 = []
-        for i in range(0, len(dialogue), 2):
+        else:
+            prev_states = list(map(lambda state: ['STATE '] + state, states[:-1]))
 
-            speaker = dialogue[i]['speaker']
-            context += toks[speaker] + dialogue[i]['text']
-            curr_turn_usr = toks[speaker] + dialogue[i]['text']
+            model_input = []
+            for i in range(0, len(dialogue), 2):
 
-            speaker = dialogue[i+1]['speaker']
-            context += toks[speaker] + dialogue[i+1]['text']
-            curr_turn_sys = toks[speaker] + dialogue[i]['text']
-            all_context.append(context)
+                # USER UTTERANCE
+                usr_speaker = dialogue[i]['speaker']
+                curr_turn_usr = toks[usr_speaker] + dialogue[i]['text']
+                prev_turn_sys = ''
+                if i > 0:
+                    # prev sys utterance
+                    sys_speaker = dialogue[i+1]['speaker']
+                    prev_turn_sys = toks[sys_speaker] + dialogue[i-1]['text']
 
-            curr_turn_info = curr_turn_usr + curr_turn_sys
-            model_input_3.append(curr_turn_info.strip().split())
+                    if self.exp_setup in [1, 2]:
+                        # prev user utterance
+                        prev_turn_user = toks[usr_speaker] + dialogue[i-2]['text']
+                        context += (prev_turn_user + ' ' + prev_turn_sys + ' ')
+                
 
-        model_input = [diag.split() for diag in all_context]
+                if self.exp_setup == 3:
+                    curr_turn_input = prev_turn_sys + curr_turn_usr
+                if self.exp_setup in [4, 5]:
+                    curr_turn_input = curr_turn_usr 
+                elif self.exp_setup in [1, 2]:
+                    curr_turn_input = context + curr_turn_usr
+
+                model_input.append(curr_turn_input.strip().split())
+
+
         
-        if self.exp_setup == 1:
+        if self.exp_setup in [1, 3, 4]:
             model_input = model_input[:1] + list(map(list.__add__, model_input[1:], prev_states))
 
         # cutting context in T5 left to right because the sequence is too long.
-        elif self.exp_setup == 3:
-            model_input_3 = model_input_3[:1] + list(map(list.__add__, model_input_3[1:], prev_states))
-            model_input = model_input_3
 
         if self.cut_context:
             model_input = list(map(self.reduce_context, model_input))

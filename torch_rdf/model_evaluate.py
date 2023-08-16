@@ -111,9 +111,16 @@ def main():
     store = bool_4_args[args.store_output]
 
 
-    length_exp_setup = {1: {"source_len": 1024, "target_len": 1024, "setup": "context and states"},
-                        2: {"source_len": 512,  "target_len": 1024, "setup": "only context"},
-                        3: {"source_len": 1024,  "target_len": 1024, "setup": "only states"}}
+    length_exp_setup = {1: {"source_len": 1024, "target_len": 1024, "setup": "user, context and states"},
+                        2: {"source_len": 512,  "target_len": 1024, "setup": "user and context"},
+                        3: {"source_len": 1024, "target_len": 1024, "setup": "user, prev. sys input and states"},
+                        4: {"source_len": 768,  "target_len": 1024, "setup": "user and states"},
+                        5: {"source_len": 256,  "target_len": 1024, "setup": "user input"},
+                        6: {"source_len": 1024, "target_len": 1024, "setup": "only states"}
+                        }
+
+    if args.experimental_setup in [4, 5, 6]:
+        logging.WARNING(f"YOU ARE RUNNING ABLATION NUMBER {args.experimental_setup - 3}")
 
     experimental_setup = args.experimental_setup
 

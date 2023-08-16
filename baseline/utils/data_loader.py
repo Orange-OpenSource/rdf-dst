@@ -73,13 +73,16 @@ class DialogueData:
         """
 
         if self.inference_time:
-            self.test_dataset = self.dialogue_data['test'].map(self.collator, num_proc=8, remove_columns=self.dialogue_data['test'].column_names, batched=True) 
+            self.test_dataset = self.dialogue_data['test'].map(self.collator, num_proc=8, remove_columns=self.dialogue_data['test'].column_names,
+                                                               batched=True, load_from_cache_file=False) 
             if subsetting:
                 self.test_dataset = self.test_dataset.select(range(10))
             return {"test": self.test_dataloader()}
 
-        self.train_dataset = self.dialogue_data['train'].map(self.collator, num_proc=8, remove_columns=self.dialogue_data['train'].column_names, batched=True)  
-        self.validation_dataset = self.dialogue_data['validation'].map(self.collator, num_proc=8, remove_columns=self.dialogue_data['validation'].column_names, batched=True) 
+        self.train_dataset = self.dialogue_data['train'].map(self.collator, num_proc=8, remove_columns=self.dialogue_data['train'].column_names,
+                                                             batched=True, load_from_cache_file=False)  
+        self.validation_dataset = self.dialogue_data['validation'].map(self.collator, num_proc=8, remove_columns=self.dialogue_data['validation'].column_names,
+                                                                       batched=True, load_from_cache_file=False) 
 
         if subsetting:
             self.train_dataset = self.train_dataset.select(range(45))

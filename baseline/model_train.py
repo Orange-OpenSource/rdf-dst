@@ -122,10 +122,16 @@ def main():
     model_path =  model_name + '-' + args.model_size
 
     bool_4_args = {"no": False, "yes": True}
-    length_exp_setup = {1: {"source_len": 512, "target_len": 256, "setup": "context and states"},  # 1024?
-                        2: {"source_len": 512,  "target_len": 256, "setup": "only context"},
-                        3: {"source_len": 512,  "target_len": 256, "setup": "only states"}}
+    length_exp_setup = {1: {"source_len": 728,  "target_len": 256, "setup": "user, context and states"},  # 1024?
+                        2: {"source_len": 512,  "target_len": 256, "setup": "user and context"},
+                        3: {"source_len": 256,  "target_len": 256, "setup": "user, prev. sys input and states"},
+                        4: {"source_len": 256,  "target_len": 256, "setup": "user and states"},
+                        5: {"source_len": 128,  "target_len": 256, "setup": "user input"},
+                        6: {"source_len": 256,  "target_len": 256, "setup": "only states"}
+                        }
     
+    if args.experimental_setup in [4, 5, 6]:
+        logging.warning(f"YOU ARE RUNNING ABLATION NUMBER {args.experimental_setup - 3}")
 
     experimental_setup = args.experimental_setup
     source_len = length_exp_setup[experimental_setup]["source_len"]

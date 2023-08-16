@@ -51,11 +51,11 @@ class DSTMetrics:
         preds_batch = self.data["preds"]
         labels_batch = self.data["labels"]
         # for leo's version
-        #preds = [self.normalize(p) for preds in preds_batch for p in preds]
-        #labels = [self.normalize(l) for labels in labels_batch for l in labels]
+        preds = [self.normalize(p) for preds in preds_batch for p in preds]
+        labels = [self.normalize(l) for labels in labels_batch for l in labels]
         # for my version
-        preds = self.normalize(preds_batch)
-        labels = self.normalize(labels_batch)
+        #preds = self.normalize(preds_batch)
+        #labels = self.normalize(labels_batch)
 
         span_scores = self.span_evaluation(preds, labels)
         ga_scores = self.goal_accuracy(preds, labels)
@@ -65,9 +65,9 @@ class DSTMetrics:
     
     @staticmethod
     def normalize(states):
-        return [set.union(*batch) for batch in states]
+        #return [set.union(*batch) for batch in states]
         # leo needs to convert to sets
-        #return frozenset('='.join([slot, value]) for slot, value in states.items())
+        return frozenset('='.join([slot, value]) for slot, value in states.items())
     #        #normalized = frozenset('='.join([slot, value]) for dictionary in batch for slot, value in dictionary.items() if slot != '_NONE_')
 
     def span_evaluation(self, preds, labels):

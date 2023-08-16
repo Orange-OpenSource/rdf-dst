@@ -50,39 +50,56 @@ class BaselinePreDataCollator:
     def create_inputs_outputs(self, dialogue_data):
 
         states = []
-        txt_input = []
+        model_input = []
         turn_ids = []
         context = ''
-        for t in dialogue_data:
+        for i, t in enumerate(dialogue_data):
             user_slot_vals = [s_v for slot_val in t['user']['dialog-acts'] for s_v in slot_val['slots']] 
             sys_slot_vals = [s_v for slot_val in t['system']['dialog-acts'] for s_v in slot_val['slots']] 
             # Leo replaces old slots when they have a new value. This makes sense.
             # set way
-            slot_values = list(frozenset(clean_slot_val(s_v['name']) + '=' + clean_slot_val(s_v['value']) for s_v in user_slot_vals + sys_slot_vals))
+            #slot_values = list(frozenset(clean_slot_val(s_v['name']) + '=' + clean_slot_val(s_v['value']) for s_v in user_slot_vals + sys_slot_vals))
             # leo's way...
-            #slot_values = {clean_slot_val(s_v['name']): clean_slot_val(s_v['value']) for s_v in user_slot_vals + sys_slot_vals}
-            #slot_values = [f'{slot}={value}' for slot, value in slot_values.items()]
+            slot_values = {clean_slot_val(s_v['name']): clean_slot_val(s_v['value']) for s_v in user_slot_vals + sys_slot_vals}
+            slot_values = [f'{slot}={value}' for slot, value in slot_values.items()]
 
             # augmentation: does it make eval more complicated?
-            #slot_values = random.sample(slot_values, len(slot_values))
+            slot_values = random.sample(slot_values, len(slot_values))
+
             states.append(';'.join(slot_values))
             turn_ids.append(t['turn-index'])
 
-            system = t['system']['text']
-            user = t['user']['text']
-            convo = 'SYSTEM: ' + system + 'USER: ' + user
-            context += convo
+            # UNUSED
+            curr_system = 'SYSTEM ' + t['system']['text'] + ' '
+
+            curr_user = 'USER ' + t['user']['text'] + ' '
+            prev_system = ''
+            if i > 0:
+                prev_system = dialogue_data[i-1]['system']['text']
+                prev_user = dialogue_data[i-1]['user']['text']
+                prev_system = 'SYSTEM ' + prev_system + ' '
+                prev_user = 'USER ' + prev_user + ' '
+                convo = prev_user + prev_system
+                context += convo
+
             if self.exp_setup in [1, 2]:
-                txt_input.append(context.strip().lower())
+                txt_input = context + curr_user
             elif self.exp_setup == 3:
-                txt_input.append(convo.strip().lower())
-        if self.exp_setup in [1, 3]:
-            first_turn = txt_input[0]
+                txt_input = prev_system + curr_user
+            elif self.exp_setup in [4, 5]:
+                txt_input = curr_user
+
+            model_input.append(txt_input.strip().lower())
+        if self.exp_setup in [1, 3, 4]:
+            first_turn = model_input[0]
             #txt_input = [txt + states[i] for i, txt in enumerate(txt_input[1:])]
-            txt_input = [txt + 'STATE: ' + states[i] for i, txt in enumerate(txt_input[1:])]
-            txt_input.insert(0, first_turn)
-        
-        return txt_input, states, turn_ids
+            model_input = [txt + ' STATE ' + states[i] for i, txt in enumerate(model_input[1:])]
+            model_input.insert(0, first_turn)
+        elif self.exp_setup == 6:
+            model_input = ['STATE ' + state for state in states[1:]]
+            model_input.insert(0, ' ')
+
+        return model_input, states, turn_ids
 
 
     def tokenize(self, dialogue : str, slot_value : str):
