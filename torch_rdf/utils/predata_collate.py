@@ -3,6 +3,7 @@
 # https://github.com/IBM/transition-amr-parser
 from dataclasses import dataclass
 from utils.postprocessing import clean_node
+from typing import Iterable
 import random
 import re
 
@@ -17,9 +18,6 @@ class PreDataCollator:
         self.exp_setup = exp_setup
         self.source_len = source_len
         self.target_len = target_len
-        #self.user_tkn = '<user_tkn>'
-        #self.sys_tkn = '<sys_tkn>'
-        #self.state_tkn = '<state_tkn>'
 
         self.subject_tkn = '<subject_tkn>'
         self.relation_tkn = '<relation_tkn>'
@@ -86,20 +84,23 @@ class PreDataCollator:
             states = [state['triples'] for state in states]
 
         states = map(lambda state: [[self.explicit_info_injection(val, i) for i, val in enumerate(triple)] for triple in state], states)
-        # shuffling for augmentation: maybe triggers issues with eval? IT DOES HELP OUR CASE BECAUSE THE TRIPLES ARE NOT IN THE RIGHT ORDER?
+        # shuffling for augmentation: triple order does not matter.
         
         states = map(lambda state: random.sample(state, len(state)), states)
         states = list(states)
 
         states = [[node for rdf in state for node in rdf] for state in states]
 
+        labels = map(lambda state: ','.join([';'.join(state[i:i+3]) for i in range(0, len(state), 3)]), states)
+        labels = list(labels)
+
         context = ''
         if self.exp_setup == 6:
-            model_input = list(map(lambda state: ['STATE '] + state, states[:-1]))
-            model_input.insert(0, ['STATE ', ' '])
+            #model_input = list(map(lambda state: ['STATE '] + state, states[:-1]))
+            model_input = ['STATE ' + state for state in labels[:-1]]
+            model_input.insert(0, 'STATE ')
 
         else:
-            prev_states = list(map(lambda state: ['STATE '] + state, states[:-1]))
 
             model_input = []
             for i in range(0, len(dialogue), 2):
@@ -120,26 +121,32 @@ class PreDataCollator:
                 
 
                 if self.exp_setup == 3:
-                    curr_turn_input = prev_turn_sys + curr_turn_usr
+                    curr_turn_input = (prev_turn_sys + curr_turn_usr).strip()
                 if self.exp_setup in [4, 5]:
-                    curr_turn_input = curr_turn_usr 
+                    curr_turn_input = curr_turn_usr.strip() 
                 elif self.exp_setup in [1, 2]:
-                    curr_turn_input = context + curr_turn_usr
+                    curr_turn_input = (context + curr_turn_usr).strip()
+                    if self.exp_setup == 1:
+                        curr_turn_input = curr_turn_input.split()
 
-                model_input.append(curr_turn_input.strip().split())
+
+                model_input.append(curr_turn_input)
 
 
         
-        if self.exp_setup in [1, 3, 4]:
+        if self.exp_setup == 1:
+            prev_states = list(map(lambda state: ['STATE '] + state, states[:-1]))
             model_input = model_input[:1] + list(map(list.__add__, model_input[1:], prev_states))
+        elif self.exp_setup in [3, 4]:
+            first_turn = model_input[0]
+            prev_states = ['STATE ' + state for state in labels[:-1]]
+            model_input = [txt + ' ' + s for txt, s in zip(model_input[1:], prev_states)]
+            model_input.insert(0, first_turn)
 
         # cutting context in T5 left to right because the sequence is too long.
 
-        if self.cut_context:
+        if self.cut_context and self.exp_setup == 1:
             model_input = list(map(self.reduce_context, model_input))
-
-        labels = map(lambda state: ','.join([';'.join(state[i:i+3]) for i in range(0, len(state), 3)]), states)
-        labels = list(labels)
 
         return model_input, labels
 
@@ -155,13 +162,20 @@ class PreDataCollator:
             txt = txt[slice_val:]
         return txt
 
-    def tokenize(self, dialogue : list, rdf : str):
+    def tokenize(self, dialogue : Iterable, rdf : str):
         
-        encoding = self.tokenizer(dialogue,
-                       is_split_into_words=True,
-                       padding='max_length',
-                       truncation=True,
-                       max_length=self.source_len)
+        if self.exp_setup == 1:
+            encoding = self.tokenizer(dialogue,
+                           is_split_into_words=True,
+                           padding='max_length',
+                           truncation=True,
+                           max_length=self.source_len)
+        else:
+            encoding = self.tokenizer(dialogue,
+                           is_split_into_words=False,
+                           padding='max_length',
+                           truncation=True,
+                           max_length=self.source_len)
         
         target_encoding = self.tokenizer(rdf, padding='max_length',
                                          is_split_into_words=False,
