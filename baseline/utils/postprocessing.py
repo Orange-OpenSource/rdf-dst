@@ -26,7 +26,7 @@ def postprocess_states(decoded):
     # leo's way
     post_states = dict()
     # set way
-    post_set_states = set()
+    #post_set_states = set()
 
     for slot_val in clean_states:
         if len(slot_val) == 2:
@@ -37,5 +37,5 @@ def postprocess_states(decoded):
             post_states['_NONE_'] = '_NONE_'
             post_set_states.add('_NONE_')
     
-    #return post_states
-    return post_set_states
+    return post_states
+    #return post_set_states
