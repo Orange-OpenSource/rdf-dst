@@ -11,10 +11,9 @@ import re
 @dataclass
 class PreDataCollator:
     
-    def __init__(self, tokenizer, source_len, target_len, exp_setup, sys_response, ignore_inter, cut_context):
+    def __init__(self, tokenizer, source_len, target_len, exp_setup, ignore_inter, cut_context):
 
         self.cut_context = cut_context
-        self.curr_sys = sys_response
         self.ignore_inter_states = ignore_inter
         self.exp_setup = exp_setup
         self.source_len = source_len
@@ -126,17 +125,14 @@ class PreDataCollator:
                         prev_turn_user = toks[usr_speaker] + dialogue[i-2]['text']
                         context += (prev_turn_user + ' ' + prev_turn_sys + ' ')
                 
-                # CURR SYS UTTERANCE. NOT FOR NOW
-                curr_sys_speaker = dialogue[i+1]['speaker']
-                curr_turn_sys = toks[curr_sys_speaker] + dialogue[i+1]['text']
                 
 
                 if self.exp_setup == 3:
-                    curr_turn_input = (prev_turn_sys + curr_turn_usr).strip() if not self.curr_sys else (prev_turn_sys + curr_turn_usr + curr_turn_sys)
+                    curr_turn_input = (prev_turn_sys + curr_turn_usr).strip()
                 if self.exp_setup in [4, 5]:
-                    curr_turn_input = curr_turn_usr.strip() if not self.curr_sys else (curr_turn_usr + curr_turn_sys).strip()
+                    curr_turn_input = curr_turn_usr.strip()
                 elif self.exp_setup in [1, 2]:
-                    curr_turn_input = (context + curr_turn_usr).strip() if not self.curr_sys else (context + curr_turn_usr + curr_turn_sys).strip()
+                    curr_turn_input = (context + curr_turn_usr).strip()
                     if self.exp_setup == 1:
                         curr_turn_input = curr_turn_input.split()
 

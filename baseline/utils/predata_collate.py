@@ -6,9 +6,8 @@ import random
 @dataclass
 class BaselinePreDataCollator:
     
-    def __init__(self, tokenizer, source_len, target_len, exp_setup, sys_response):
+    def __init__(self, tokenizer, source_len, target_len, exp_setup):
 
-        self.sys_response = sys_response
         self.exp_setup = exp_setup
         self.source_len = source_len
         self.target_len = target_len
@@ -84,11 +83,11 @@ class BaselinePreDataCollator:
                 context += convo
 
             if self.exp_setup in [1, 2]:
-                txt_input = context + curr_user if not self.sys_response else context + curr_user + curr_system
+                txt_input = context + curr_user
             elif self.exp_setup == 3:
-                txt_input = prev_system + curr_user if not self.sys_response else prev_system + curr_user + curr_system
+                txt_input = prev_system + curr_user
             elif self.exp_setup in [4, 5]:
-                txt_input = curr_user if not self.sys_response else curr_user + curr_system
+                txt_input = curr_user
 
             model_input.append(txt_input.strip().lower())
         if self.exp_setup in [1, 3, 4]:

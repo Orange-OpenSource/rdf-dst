@@ -12,9 +12,6 @@ def create_arg_parser():
     parser.add_argument("-beam", "--beam", default=2, type=int,
                         choices=[1, 2, 3, 4, 5], help="beam size, if beam == 1 then greedy")
 
-    parser.add_argument("-system", "--system", default='no', type=str,
-                        choices=['yes', 'no'], help="Include system response after user input to provide more context for DST")
-
     parser.add_argument(
         "-b", "--batch", default=4, type=int, help="Provide the number of batch"
     ) 

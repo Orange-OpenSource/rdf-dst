@@ -110,9 +110,6 @@ def main():
     subsetting = bool_4_args[args.subsetting]
     store = bool_4_args[args.store_output]
     ignore_inter = bool_4_args[args.ig]
-    sys_response = bool_4_args[args.system]
-    if sys_response:
-        raise Exception("SYSTEM RESPONSE MUST NOT BE PART OF INPUT. SET VARIABLE TO no")
 
 
     length_exp_setup = {1: {"source_len": 1024, "target_len": 1024, "setup": "user, context and states"},
@@ -156,7 +153,7 @@ def main():
 
 
     cut_context = True if experimental_setup == 1 else False
-    collator = PreDataCollator(tokenizer, source_len, target_len, experimental_setup, sys_response=sys_response,
+    collator = PreDataCollator(tokenizer, source_len, target_len, experimental_setup,
                                ignore_inter=ignore_inter, cut_context=cut_context)
     dataloaders = preprocessing(collator, dataset, num_workers, batch_size, method)
 
