@@ -57,7 +57,7 @@ class PreDataCollator:
     
     def filter_triples(self, triple):
         randompatternRegex = re.compile(r'\/[a-zA-Z0-9]+')
-        if triple[0] in ['_:user', '_:system']:
+        if triple[0] == '_:system':
             return False
         for el in triple:
             # ignore rejected searches, results, etc. Intermediate triples that create noise
@@ -69,6 +69,7 @@ class PreDataCollator:
         """
         Current implementation has triples from the curr sys utterance, they have to be moved.
         The DST Task is user intent, not system and user intent
+        # what are the intents then? https://gitlab.tech.orange/NEPAL/task-oriented-dialogue/poc-rdf/-/blob/master/poc_rdf/dst.py
         """
         user_raw_state = []
         sys_raw_state = []
@@ -76,7 +77,10 @@ class PreDataCollator:
             user_raw_rdf = []
             sys_raw_rdf = []
             for triple in rdf:
-                if triple[0] != '_:search':
+                # user's edge can be deny which does express user intent, so we are keeping this.
+                # Identifying if the user greeted in utterance is important as well. See link above
+                # This is how user expresses emotions and other info there.
+                if triple[0] not in ['_:search', '_:user']:
                     # this is from the curr sys utterance. It should be in the present state
                     sys_raw_rdf.append(triple)
                 else:
