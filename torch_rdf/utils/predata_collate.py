@@ -57,13 +57,40 @@ class PreDataCollator:
     
     def filter_triples(self, triple):
         randompatternRegex = re.compile(r'\/[a-zA-Z0-9]+')
-        if triple[0] in ['_:user', '_:system', '_:result']:
+        if triple[0] in ['_:user', '_:system']:
             return False
         for el in triple:
             # ignore rejected searches, results, etc. Intermediate triples that create noise
             if randompatternRegex.search(el):
                 return False
         return True
+    
+    def rearrange_sys_triples(self, state):
+        """
+        Current implementation has triples from the curr sys utterance, they have to be moved.
+        The DST Task is user intent, not system and user intent
+        """
+        user_raw_state = []
+        sys_raw_state = []
+        for rdf in state:
+            user_raw_rdf = []
+            sys_raw_rdf = []
+            for triple in rdf:
+                if triple[0] != '_:search':
+                    # this is from the curr sys utterance. It should be in the present state
+                    sys_raw_rdf.append(triple)
+                else:
+                    user_raw_rdf.append(triple)
+            user_raw_state.append(user_raw_rdf)
+            sys_raw_state.append(sys_raw_rdf)
+
+        clean_state = []
+        for i in range(len(sys_raw_state)-1):
+            clean_rdf = user_raw_state[i+1] + sys_raw_state[i]
+            clean_state.append(clean_rdf)
+        clean_state.insert(0, user_raw_state[0])
+        return clean_state
+        
     
     def clean_states(self, states):
         states = map(lambda state: [[self.explicit_info_injection(val, i) for i, val in enumerate(triple)] for triple in state], states)
@@ -86,24 +113,21 @@ class PreDataCollator:
 
         # removing system triples, user and states that pollute generation
         if self.ignore_inter_states:
-            output_states = map(lambda state: list(filter(self.filter_triples, state['triples'])), states)
-            input_states = [state['triples'] for state in states]
+            states = map(lambda state: list(filter(self.filter_triples, state['triples'])), states)
+            states = map(self.rearrange_sys_triples, states)
+            states = list(states)
         else:
-            input_states = [state['triples'] for state in states]
-            output_states = [state['triples'] for state in states]
+            states = [state['triples'] for state in states]
         
-        input_states  = self.clean_states(input_states)
-        output_states  = self.clean_states(output_states)
+        states  = self.clean_states(states)
 
-        linearized_inp_states = map(lambda state: ','.join([';'.join(state[i:i+3]) for i in range(0, len(state), 3)]), input_states)
-        linearized_out_states = map(lambda state: ','.join([';'.join(state[i:i+3]) for i in range(0, len(state), 3)]), output_states)
-        l_inp_states = list(linearized_inp_states)
-        labels = list(linearized_out_states)
+        linearized_states = map(lambda state: ','.join([';'.join(state[i:i+3]) for i in range(0, len(state), 3)]), states)
+        labels = list(linearized_states)
 
         context = ''
         if self.exp_setup == 6:
             #model_input = list(map(lambda state: ['STATE '] + state, states[:-1]))
-            model_input = ['STATE ' + state for state in l_inp_states[:-1]]
+            model_input = ['STATE ' + state for state in labels[:-1]]
             model_input.insert(0, 'STATE ')
 
         else:
@@ -143,11 +167,11 @@ class PreDataCollator:
         
         if self.exp_setup == 1:
             # non linearized, they are in a list so tokenizer can work with these
-            prev_states = list(map(lambda state: ['STATE '] + state, input_states[:-1]))
+            prev_states = list(map(lambda state: ['STATE '] + state, states[:-1]))
             model_input = model_input[:1] + list(map(list.__add__, model_input[1:], prev_states))
         elif self.exp_setup in [3, 4]:
             first_turn = model_input[0]
-            prev_states = ['STATE ' + state for state in l_inp_states[:-1]]
+            prev_states = ['STATE ' + state for state in labels[:-1]]
             model_input = [txt + ' ' + s for txt, s in zip(model_input[1:], prev_states)]
             model_input.insert(0, first_turn)
 
