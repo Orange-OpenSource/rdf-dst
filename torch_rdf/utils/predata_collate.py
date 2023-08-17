@@ -57,7 +57,7 @@ class PreDataCollator:
     
     def filter_triples(self, triple):
         randompatternRegex = re.compile(r'\/[a-zA-Z0-9]+')
-        if '_:system' in triple[0] or '_:user' in triple[0]:
+        if triple[0] in ['_:user', '_:system', '_:result']:
             return False
         for el in triple:
             # ignore rejected searches, results, etc. Intermediate triples that create noise
