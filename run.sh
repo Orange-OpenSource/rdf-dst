@@ -28,6 +28,8 @@ function usage {
     echo "                              (example: small)"
     echo "  --experiment integer        which experiment to run. 1, 2, or 3" echo "
                                        (example and default val: 1)"
+    echo "  --batch integer             select batch size 16, 8, or 4" echo " 
+                                            (example : 4)" 
     echo ""
 }
 function die {
@@ -48,9 +50,9 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-if [[ -z $debug || -z $setup || -z $model || -z $size ]]; then
-    usage
-    die "Missing parameter --debug or --setup or --model"
+if [[ -z $debug || -z $setup || -z $model || -z $size || -z $batch ]]; then
+	    usage
+	        die "Missing parameter --debug or --setup or --model or --batch or --size"
 fi
 
 if [[ -z $framework ]]; then
@@ -90,10 +92,12 @@ else
     die "Invalid value for setup parameter"
 fi
 
+eval_batch=$((batch * 2))
 if [[ $debug == "yes" ]]; then
     python "$script" -epochs 2 -d multiwoz --batch 16 -store yes -logger no -experiment "$experiment" -workers "$workers" -model "$model" -model_size "$size" -subset yes -device cuda -method online -peft lora
 elif [[ $debug == "no" ]]; then
-    CUDA_VISIBLE_DEVICES=2 python "$script" -epochs 5 --batch 16 -d multiwoz -workers "$workers" -store yes -experiment "$experiment" -model "$model" -model_size "$size" -logger no -subset no -method offline -peft prefix -beam 5
+    CUDA_VISIBLE_DEVICES=0 python "$script" -epochs 5 --batch "$batch" -d multiwoz -workers "$workers" -store yes -experiment "$experiment" -model "$model" -model_size "$size" -logger yes -subset no -method offline -beam 5
+    CUDA_VISIBLE_DEVICES=0 python model_evaluate.py -epochs 5 --batch "$eval_batch" -d multiwoz -workers "$workers" -store yes -experiment "$experiment" -model "$model" -model_size "$size" -logger no -subset no -method offline -beam 5
 else
     usage
     die "Invalid value for debug parameter"
