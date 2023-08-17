@@ -121,7 +121,7 @@ def main():
                         }
 
     if args.experimental_setup in [4, 5, 6]:
-        logging.WARNING(f"YOU ARE RUNNING ABLATION NUMBER {args.experimental_setup - 3}")
+        logging.warning(f"YOU ARE RUNNING ABLATION NUMBER {args.experimental_setup - 3}")
 
     experimental_setup = args.experimental_setup
 
