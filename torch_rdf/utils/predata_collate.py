@@ -11,9 +11,10 @@ import re
 @dataclass
 class PreDataCollator:
     
-    def __init__(self, tokenizer, source_len, target_len, exp_setup, ignore_inter, cut_context):
+    def __init__(self, tokenizer, source_len, target_len, exp_setup, sys_response, ignore_inter, cut_context):
 
         self.cut_context = cut_context
+        self.curr_sys = sys_response
         self.ignore_inter_states = ignore_inter
         self.exp_setup = exp_setup
         self.source_len = source_len
@@ -65,6 +66,13 @@ class PreDataCollator:
                 return False
         return True
     
+    def clean_states(self, states):
+        states = map(lambda state: [[self.explicit_info_injection(val, i) for i, val in enumerate(triple)] for triple in state], states)
+        # shuffling for augmentation: triple order does not matter.
+        states = map(lambda state: random.sample(state, len(state)), states)
+        states = list(states)
+        return [[node for rdf in state for node in rdf] for state in states]
+    
     def create_inputs_outputs(self, dialogue, states):
         """
         This is where we choose the inputs and the rdf we will predict.
@@ -79,25 +87,24 @@ class PreDataCollator:
 
         # removing system triples, user and states that pollute generation
         if self.ignore_inter_states:
-            states = map(lambda state: list(filter(self.filter_triples, state['triples'])), states)
+            output_states = map(lambda state: list(filter(self.filter_triples, state['triples'])), states)
+            input_states = [state['triples'] for state in states]
         else:
-            states = [state['triples'] for state in states]
-
-        states = map(lambda state: [[self.explicit_info_injection(val, i) for i, val in enumerate(triple)] for triple in state], states)
-        # shuffling for augmentation: triple order does not matter.
+            input_states = [state['triples'] for state in states]
+            output_states = [state['triples'] for state in states]
         
-        states = map(lambda state: random.sample(state, len(state)), states)
-        states = list(states)
+        input_states  = self.clean_states(input_states)
+        output_states  = self.clean_states(output_states)
 
-        states = [[node for rdf in state for node in rdf] for state in states]
-
-        labels = map(lambda state: ','.join([';'.join(state[i:i+3]) for i in range(0, len(state), 3)]), states)
-        labels = list(labels)
+        linearized_inp_states = map(lambda state: ','.join([';'.join(state[i:i+3]) for i in range(0, len(state), 3)]), input_states)
+        linearized_out_states = map(lambda state: ','.join([';'.join(state[i:i+3]) for i in range(0, len(state), 3)]), output_states)
+        l_inp_states = list(linearized_inp_states)
+        labels = list(linearized_out_states)
 
         context = ''
         if self.exp_setup == 6:
             #model_input = list(map(lambda state: ['STATE '] + state, states[:-1]))
-            model_input = ['STATE ' + state for state in labels[:-1]]
+            model_input = ['STATE ' + state for state in l_inp_states[:-1]]
             model_input.insert(0, 'STATE ')
 
         else:
@@ -119,13 +126,17 @@ class PreDataCollator:
                         prev_turn_user = toks[usr_speaker] + dialogue[i-2]['text']
                         context += (prev_turn_user + ' ' + prev_turn_sys + ' ')
                 
+                # CURR SYS UTTERANCE. NOT FOR NOW
+                curr_sys_speaker = dialogue[i+1]['speaker']
+                curr_turn_sys = toks[curr_sys_speaker] + dialogue[i+1]['text']
+                
 
                 if self.exp_setup == 3:
-                    curr_turn_input = (prev_turn_sys + curr_turn_usr).strip()
+                    curr_turn_input = (prev_turn_sys + curr_turn_usr).strip() if not self.curr_sys else (prev_turn_sys + curr_turn_usr + curr_turn_sys)
                 if self.exp_setup in [4, 5]:
-                    curr_turn_input = curr_turn_usr.strip() 
+                    curr_turn_input = curr_turn_usr.strip() if not self.curr_sys else (curr_turn_usr + curr_turn_sys).strip()
                 elif self.exp_setup in [1, 2]:
-                    curr_turn_input = (context + curr_turn_usr).strip()
+                    curr_turn_input = (context + curr_turn_usr).strip() if not self.curr_sys else (context + curr_turn_usr + curr_turn_sys).strip()
                     if self.exp_setup == 1:
                         curr_turn_input = curr_turn_input.split()
 
@@ -135,11 +146,12 @@ class PreDataCollator:
 
         
         if self.exp_setup == 1:
-            prev_states = list(map(lambda state: ['STATE '] + state, states[:-1]))
+            # non linearized, they are in a list so tokenizer can work with these
+            prev_states = list(map(lambda state: ['STATE '] + state, input_states[:-1]))
             model_input = model_input[:1] + list(map(list.__add__, model_input[1:], prev_states))
         elif self.exp_setup in [3, 4]:
             first_turn = model_input[0]
-            prev_states = ['STATE ' + state for state in labels[:-1]]
+            prev_states = ['STATE ' + state for state in l_inp_states[:-1]]
             model_input = [txt + ' ' + s for txt, s in zip(model_input[1:], prev_states)]
             model_input.insert(0, first_turn)
 

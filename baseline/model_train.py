@@ -141,6 +141,7 @@ def main():
     subsetting = bool_4_args[args.subsetting]
     store = bool_4_args[args.store_output]
     peft_type = args.peft
+    sys_response = bool_4_args[args.system]
 
     dataset = args.dataset
     batch_size = args.batch
@@ -198,7 +199,7 @@ def main():
 
 
 
-    collator = BaselinePreDataCollator(tokenizer, source_len, target_len, experimental_setup)
+    collator = BaselinePreDataCollator(tokenizer, source_len, target_len, experimental_setup, sys_response=sys_response)
 
     logging.info("Size of the tokenizer changed in the data collator. Special tokens added, resizing token embeddings")
     model.resize_token_embeddings(len(tokenizer))

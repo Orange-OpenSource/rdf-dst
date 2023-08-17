@@ -124,6 +124,7 @@ def main():
 
     bool_4_args = {"no": False, "yes": True}
     ignore_inter = bool_4_args[args.ig]
+    sys_response = bool_4_args[args.system]
     length_exp_setup = {1: {"source_len": 1024, "target_len": 1024, "setup": "user, context and states"},
                         2: {"source_len": 512,  "target_len": 1024, "setup": "user and context"},
                         3: {"source_len": 1024, "target_len": 1024, "setup": "user, prev. sys input and states"},
@@ -215,7 +216,8 @@ def main():
     cut_context = True if experimental_setup == 1 else False
     #cut_context = True if ((model_name[:2] == 't5') and (experimental_setup == 1)) else False
 
-    collator = PreDataCollator(tokenizer, source_len, target_len, experimental_setup, ignore_inter=ignore_inter, cut_context=cut_context)
+    collator = PreDataCollator(tokenizer, source_len, target_len, experimental_setup, sys_response=sys_response,
+                               ignore_inter=ignore_inter, cut_context=cut_context)
     logging.info("Size of the tokenizer changed in the data collator. Special tokens added, resizing token embeddings")
     model.resize_token_embeddings(len(tokenizer))
 
