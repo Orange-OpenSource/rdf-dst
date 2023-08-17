@@ -125,6 +125,8 @@ def main():
     bool_4_args = {"no": False, "yes": True}
     ignore_inter = bool_4_args[args.ig]
     sys_response = bool_4_args[args.system]
+    if sys_response:
+        raise Exception("SYSTEM RESPONSE MUST NOT BE PART OF INPUT. SET VARIABLE TO no")
     length_exp_setup = {1: {"source_len": 1024, "target_len": 1024, "setup": "user, context and states"},
                         2: {"source_len": 512,  "target_len": 1024, "setup": "user and context"},
                         3: {"source_len": 1024, "target_len": 1024, "setup": "user, prev. sys input and states"},
