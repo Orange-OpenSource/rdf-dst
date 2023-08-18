@@ -122,7 +122,7 @@ def main():
     model_path =  model_name + '-' + args.model_size
 
     bool_4_args = {"no": False, "yes": True}
-    length_exp_setup = {1: {"source_len": 728,  "target_len": 256, "setup": "user, context and states"},  # 1024?
+    length_exp_setup = {1: {"source_len": 512,  "target_len": 256, "setup": "user, context and states"},  # 1024?
                         2: {"source_len": 512,  "target_len": 256, "setup": "user and context"},
                         3: {"source_len": 256,  "target_len": 256, "setup": "user, prev. sys input and states"},
                         4: {"source_len": 256,  "target_len": 256, "setup": "user and states"},
