@@ -65,34 +65,49 @@ class PreDataCollator:
                 return False
         return True
     
-    def rearrange_sys_triples(self, state):
+    def rearrange_sys_triples(self, states):
         """
         Current implementation has triples from the curr sys utterance, they have to be moved.
         The DST Task is user intent, not system and user intent
         # what are the intents then? https://gitlab.tech.orange/NEPAL/task-oriented-dialogue/poc-rdf/-/blob/master/poc_rdf/dst.py
         """
-        user_raw_state = []
-        sys_raw_state = []
-        for rdf in state:
+        user_raw_states = []
+        sys_raw_states = []
+        # THIS IS A TRIPLE NOT THE GRAPH
+        for s in states:
             user_raw_rdf = []
             sys_raw_rdf = []
-            for triple in rdf:
-                # user's edge can be deny which does express user intent, so we are keeping this.
-                # Identifying if the user greeted in utterance is important as well. See link above
-                # This is how user expresses emotions and other info there.
-                if triple[0] not in ['_:search', '_:user']:
-                    # this is from the curr sys utterance. It should be in the present state
-                    sys_raw_rdf.append(triple)
-                else:
-                    user_raw_rdf.append(triple)
-            user_raw_state.append(user_raw_rdf)
-            sys_raw_state.append(sys_raw_rdf)
+            print(s)
+            print(len(s))
+            print()
+            print('UPCOMING')
+            print(s[0])
+            print()
+            #for triple in rdf:
+            #    # user's edge can be deny which does express user intent, so we are keeping this.
+            #    # Identifying if the user greeted in utterance is important as well. See link above
+            #    # This is how user expresses emotions and other info there.
+            #    print(triple)
 
+            #    if triple[0] not in ['_:search', '_:user']:
+            #        # this is from the curr sys utterance. It should be in the present state
+            #        sys_raw_rdf.append(triple)
+            #    else:
+            #        user_raw_rdf.append(triple)
+            
+            #print("NEXT ONE")
+            #print()
+            #user_raw_state.append(user_raw_rdf)
+            #sys_raw_state.append(sys_raw_rdf)
+        
+        print()
+        raise SystemExit
+
+        #clean_state = [user_raw_state[0]]
         clean_state = []
         for i in range(len(sys_raw_state)-1):
             clean_rdf = user_raw_state[i+1] + sys_raw_state[i]
             clean_state.append(clean_rdf)
-        clean_state.insert(0, user_raw_state[0])
         return clean_state
         
     
@@ -118,8 +133,8 @@ class PreDataCollator:
         # removing system triples, user and states that pollute generation
         if self.ignore_inter_states:
             states = map(lambda state: list(filter(self.filter_triples, state['triples'])), states)
-            states = map(self.rearrange_sys_triples, states)
             states = list(states)
+            states = self.rearrange_sys_triples(states)
         else:
             states = [state['triples'] for state in states]
         
