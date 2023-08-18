@@ -73,41 +73,33 @@ class PreDataCollator:
         """
         user_raw_states = []
         sys_raw_states = []
-        # THIS IS A TRIPLE NOT THE GRAPH
         for s in states:
             user_raw_rdf = []
             sys_raw_rdf = []
-            print(s)
-            print(len(s))
-            print()
-            print('UPCOMING')
-            print(s[0])
-            print()
-            #for triple in rdf:
+            for triple in s:
             #    # user's edge can be deny which does express user intent, so we are keeping this.
             #    # Identifying if the user greeted in utterance is important as well. See link above
             #    # This is how user expresses emotions and other info there.
             #    print(triple)
 
-            #    if triple[0] not in ['_:search', '_:user']:
-            #        # this is from the curr sys utterance. It should be in the present state
-            #        sys_raw_rdf.append(triple)
-            #    else:
-            #        user_raw_rdf.append(triple)
+                if triple[0] not in ['_:search', '_:user']:
+                    # this is from the curr sys utterance. It should be in the present state
+                    sys_raw_rdf.append(triple)
+                else:
+                    user_raw_rdf.append(triple)
             
             #print("NEXT ONE")
             #print()
-            #user_raw_state.append(user_raw_rdf)
-            #sys_raw_state.append(sys_raw_rdf)
+            user_raw_states.append(user_raw_rdf)
+            sys_raw_states.append(sys_raw_rdf)
         
-        print()
-        raise SystemExit
 
-        #clean_state = [user_raw_state[0]]
-        clean_state = []
-        for i in range(len(sys_raw_state)-1):
-            clean_rdf = user_raw_state[i+1] + sys_raw_state[i]
+        clean_state = [user_raw_states[0]]
+        #clean_state = []
+        for i in range(len(sys_raw_states)-1):
+            clean_rdf = user_raw_states[i+1] + sys_raw_states[i]
             clean_state.append(clean_rdf)
+
         return clean_state
         
     

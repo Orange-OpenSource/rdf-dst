@@ -73,9 +73,6 @@ class DialogueRDFData:
             subset_val = round(len(self.validation_dataset) * .35)
             self.validation_dataset = self.validation_dataset.select(range(subset_val))
         
-        print(self.train_dataset)
-        print(self.validation_dataset)
-        raise SystemExit
         return {"train": self.train_dataloader(), "validation": self.validation_dataloader()}
 
         
