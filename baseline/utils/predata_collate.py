@@ -59,7 +59,7 @@ class BaselinePreDataCollator:
             #sys_slot_vals = [s_v for slot_val in t['system']['dialog-acts'] for s_v in slot_val['slots']] 
             # Leo replaces old slots when they have a new value. This makes sense.
             # set way
-            #slot_values = list(frozenset(clean_slot_val(s_v['name']) + '=' + clean_slot_val(s_v['value']) for s_v in user_slot_vals + sys_slot_vals))
+            #slot_values = list(frozenset(clean_slot_val(s_v['name']) + '=' + clean_slot_val(s_v['value']) for s_v in user_slot_vals))
             # leo's way...
             slot_values = {clean_slot_val(s_v['name']): clean_slot_val(s_v['value']) for s_v in user_slot_vals}
             slot_values = [f'{slot}={value}' for slot, value in slot_values.items()]
