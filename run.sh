@@ -54,7 +54,7 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-if [[ -z $debug || -z $setup || -z $model || -z $size || -z $batch || -z $ignore || -z $dataset ]]; then
+if [[ -z $debug || -z $setup || -z $model || -z $size || -z $batch || -z $ig || -z $dataset ]]; then
 	    usage
 	        die "Missing parameter --debug or --setup or --model or --batch or --size or --ignore or --dataset"
 fi
@@ -103,11 +103,11 @@ if [[ $debug == "yes" ]]; then
 elif [[ $debug == "no" ]]; then
     if [[ $framework == "baseline" ]]; then
         python "$script" -epochs 5 --batch "$batch" -d "$dataset" -workers "$workers" -store yes \
-        -experiment "$experiment" -model "$model" -incl "$ignore" -model_size "$size" \
+        -experiment "$experiment" -model "$model" -incl "$ig" -model_size "$size" \
         -logger yes -subset no -method offline -beam 5
     else
         python "$script" -epochs 5 --batch "$batch" -d "$dataset" -workers "$workers" \
-        -store yes -experiment "$experiment" -model "$model" -ig "$ignore" \
+        -store yes -experiment "$experiment" -model "$model" -ig "$ig" \
         -model_size "$size" -logger yes -subset no -method offline -beam 5
         #CUDA_VISIBLE_DEVICES=0 python model_evaluate.py -epochs 5 --batch "$eval_batch" -d multiwoz -workers "$workers" -store yes -experiment "$experiment" -model "$model" -model_size "$size" -logger no -subset no -method offline -beam 5
     fi
