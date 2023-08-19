@@ -1,10 +1,11 @@
-from datasets import load_dataset, concatenate_datasets, load_from_disk
+from datasets import load_dataset, concatenate_datasets, load_from_disk, disable_caching
 from torch.utils.data import DataLoader
 import os
 import logging
 
 logging.basicConfig(level=logging.INFO)
 SEED = 42  # for replication purposes
+disable_caching()  # we have a lot of different collators that depend on data sets and experimental setup. We have to avoid reloading previous maps
 
 class DialogueData:
     """
