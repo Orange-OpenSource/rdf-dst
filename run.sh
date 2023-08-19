@@ -22,14 +22,18 @@ function usage {
     echo "                              (example: pl, torch, hf)"
     echo "  --debug string   		    yes or no"
     echo "                              (example: no)"
+    echo "  --dataset string   		    multiwoz, dstc2, sfx"
+    echo "                              (example: multiwoz)"
     echo "  --model string              t5, flan-t5, long-t5-local or long-t5-tglobal"
     echo "                              (example: long-t5-tglobal)"
     echo "  --size string               small, base, large. NO small version available for long models"
     echo "                              (example: small)"
-    echo "  --experiment integer        which experiment to run. 1, 2, or 3" echo "
-                                       (example and default val: 1)"
-    echo "  --batch integer             select batch size 16, 8, or 4" echo " 
-                                            (example : 4)" 
+    echo "  --experiment integer        which experiment to run. 1, 2, or 3"
+    echo "                             (example and default val: 1)"
+    echo "  --batch integer             select batch size 16, 8, or 4" 
+    echo "                              (example : 4)" 
+    echo "  --ig  string               select yes or no. Ignore inter states for rdf but yes for baseline" 
+    echo "                              (example : no)" 
     echo ""
 }
 function die {
@@ -50,9 +54,9 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-if [[ -z $debug || -z $setup || -z $model || -z $size || -z $batch ]]; then
+if [[ -z $debug || -z $setup || -z $model || -z $size || -z $batch || -z $ignore || -z $dataset ]]; then
 	    usage
-	        die "Missing parameter --debug or --setup or --model or --batch or --size"
+	        die "Missing parameter --debug or --setup or --model or --batch or --size or --ignore or --dataset"
 fi
 
 if [[ -z $framework ]]; then
@@ -94,10 +98,19 @@ fi
 
 eval_batch=$((batch * 2))
 if [[ $debug == "yes" ]]; then
-    python "$script" -epochs 2 -d multiwoz --batch 16 -store yes -logger no -experiment "$experiment" -workers "$workers" -model "$model" -model_size "$size" -subset yes -device cuda -method online -peft lora
+    python "$script" -epochs 2 -d multiwoz --batch 16 -store yes -logger no -experiment "$experiment" \
+    -workers "$workers" -model "$model" -model_size "$size" -subset yes -device cuda -method online -peft lora
 elif [[ $debug == "no" ]]; then
-    CUDA_VISIBLE_DEVICES=0 python "$script" -epochs 5 --batch "$batch" -d multiwoz -workers "$workers" -store yes -experiment "$experiment" -model "$model" -model_size "$size" -logger yes -subset no -method offline -beam 5
-    CUDA_VISIBLE_DEVICES=0 python model_evaluate.py -epochs 5 --batch "$eval_batch" -d multiwoz -workers "$workers" -store yes -experiment "$experiment" -model "$model" -model_size "$size" -logger no -subset no -method offline -beam 5
+    if [[ $framework == "baseline" ]]; then
+        python "$script" -epochs 5 --batch "$batch" -d "$dataset" -workers "$workers" -store yes \
+        -experiment "$experiment" -model "$model" -incl "$ignore" -model_size "$size" \
+        -logger yes -subset no -method offline -beam 5
+    else
+        python "$script" -epochs 5 --batch "$batch" -d "$dataset" -workers "$workers" \
+        -store yes -experiment "$experiment" -model "$model" -ig "$ignore" \
+        -model_size "$size" -logger yes -subset no -method offline -beam 5
+        #CUDA_VISIBLE_DEVICES=0 python model_evaluate.py -epochs 5 --batch "$eval_batch" -d multiwoz -workers "$workers" -store yes -experiment "$experiment" -model "$model" -model_size "$size" -logger no -subset no -method offline -beam 5
+    fi
 else
     usage
     die "Invalid value for debug parameter"
