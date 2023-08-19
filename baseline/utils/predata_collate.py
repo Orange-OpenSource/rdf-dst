@@ -6,9 +6,12 @@ import random
 @dataclass
 class BaselinePreDataCollator:
     
-    def __init__(self, tokenizer, source_len, target_len, exp_setup):
+    def __init__(self, tokenizer, source_len, target_len, exp_setup, dataset_type, include_prev_sys=True):
 
         self.exp_setup = exp_setup
+        self.include_prev_sys = include_prev_sys
+        data_collation = {"multiwoz": self.multiwoz_loop, "dstc2": self.dstc2_loop, "sfx": self.sfx_loop}
+        self.data_collation = data_collation[dataset_type]
         self.source_len = source_len
         self.target_len = target_len
 
@@ -23,6 +26,15 @@ class BaselinePreDataCollator:
 
     def __call__(self, batch):
         
+        return self.data_collation(batch)
+    
+    def dstc2_loop(self, batch):
+        pass
+
+    def sfx_loop(self, batch):
+        pass
+
+    def multiwoz_loop(self, batch):
         input_ids = []
         attention_mask = []
         labels = []
@@ -31,7 +43,7 @@ class BaselinePreDataCollator:
 
 
         for diag_id, dialogue_data in zip(batch['dialogue_id'], batch['turns']):  # dict, history is a str that is the key
-            txt_input, slot_value, turn_ids = self.create_inputs_outputs(dialogue_data)
+            txt_input, slot_value, turn_ids = self.create_inputs_outputs_multiwoz(dialogue_data)
 
             turn_number.extend(turn_ids)
             dialogue_ids.extend([diag_id] * len(turn_ids))
@@ -42,26 +54,31 @@ class BaselinePreDataCollator:
                 attention_mask.append(tokenized['attention_mask'])
                 labels.append(tokenized['labels'])
 
-
         return {'input_ids': input_ids, 'attention_mask': attention_mask,
                 'labels': labels, 'dialogue_id': dialogue_ids, 'turn_number': turn_number}
 
-    
-    def create_inputs_outputs(self, dialogue_data):
+
+    def create_inputs_outputs_multiwoz(self, dialogue_data):
 
         states = []
         model_input = []
         turn_ids = []
         context = ''
+        prev_sys_slot_val = []
         for i, t in enumerate(dialogue_data):
             user_slot_vals = [s_v for slot_val in t['user']['dialog-acts'] for s_v in slot_val['slots']] 
-            # INCLUDING SYSTEM SLOT VALUES DOES NOT CORRESPOND TO THE DST TASK 
-            #sys_slot_vals = [s_v for slot_val in t['system']['dialog-acts'] for s_v in slot_val['slots']] 
+            curr_slot_vals = user_slot_vals + prev_sys_slot_val
+
+            # sys slot values include updates to user slot values based on system responses as conv goes on.
+            # WARNING: current sys_sv is made up of the curr system response, thus we must use the previous ones
+            if self.include_prev_sys:
+                sys_slot_vals = [s_v for slot_val in t['system']['dialog-acts'] for s_v in slot_val['slots']] 
+                prev_sys_slot_val = sys_slot_vals  # updating previous slot vals for next turn!
             # Leo replaces old slots when they have a new value. This makes sense.
             # set way
             #slot_values = list(frozenset(clean_slot_val(s_v['name']) + '=' + clean_slot_val(s_v['value']) for s_v in user_slot_vals))
             # leo's way...
-            slot_values = {clean_slot_val(s_v['name']): clean_slot_val(s_v['value']) for s_v in user_slot_vals}
+            slot_values = {clean_slot_val(s_v['name']): clean_slot_val(s_v['value']) for s_v in curr_slot_vals}
             slot_values = [f'{slot}={value}' for slot, value in slot_values.items()]
 
             # augmentation: does it make eval more complicated?

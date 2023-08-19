@@ -140,6 +140,7 @@ def main():
 
     subsetting = bool_4_args[args.subsetting]
     store = bool_4_args[args.store_output]
+    include_prev_sys = bool_4_args[args.incl]
     peft_type = args.peft
 
     dataset = args.dataset
@@ -198,7 +199,8 @@ def main():
 
 
 
-    collator = BaselinePreDataCollator(tokenizer, source_len, target_len, experimental_setup)
+    collator = BaselinePreDataCollator(tokenizer, source_len, target_len, experimental_setup,
+                                       dataset_type=dataset, include_prev_sys=include_prev_sys)
 
     logging.info("Size of the tokenizer changed in the data collator. Special tokens added, resizing token embeddings")
     model.resize_token_embeddings(len(tokenizer))

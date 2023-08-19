@@ -119,6 +119,7 @@ def main():
 
     subsetting = bool_4_args[args.subsetting]
     store = bool_4_args[args.store_output]
+    include_prev_sys = bool_4_args[args.incl]
 
     experimental_setup = args.experimental_setup
     source_len = length_exp_setup[experimental_setup]["source_len"]
@@ -149,7 +150,8 @@ def main():
         os.makedirs(store_path)
 
 
-    collator = BaselinePreDataCollator(tokenizer, source_len, target_len, experimental_setup)
+    collator = BaselinePreDataCollator(tokenizer, source_len, target_len, experimental_setup,
+                                       dataset_type=dataset, include_prev_sys=include_prev_sys)
 
     model.resize_token_embeddings(len(tokenizer))
     dataloaders = preprocessing(collator, dataset, num_workers, batch_size, method)

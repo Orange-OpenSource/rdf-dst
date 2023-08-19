@@ -10,8 +10,8 @@ def create_arg_parser():
                         choices=['lora', 'adalora', 'prefix', 'ia3'], help="What peft method to use. If None then no peft")
 
 
-    parser.add_argument("-ig", "--ig", default='yes', type=str,
-                        choices=['yes', 'no'], help="Ignore intermediate states. Highly encouraged to do so. Work in progress for baseline...")
+    parser.add_argument("-incl", "--incl", default='yes', type=str,
+                        choices=['yes', 'no'], help="Include intermediate states. Should be included in baseline to update belief states with sys responses")
 
     parser.add_argument("-beam", "--beam", default=2, type=int,
                         choices=[1, 2, 3, 4, 5], help="beam size, if beam == 1 then greedy")
