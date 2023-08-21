@@ -51,10 +51,10 @@ class DialogueData:
 
             #dialogue_data.cleanup_cache_files()
 
+            diag_id = {"multiwoz": 'dialogue_id', 'sfxdial': 'id', 'dstc2': 'session-id'}
+            diag_id = diag_id[self.dataset]
             if ('validation' not in dialogue_data.keys()) and ('test' not in dialogue_data.keys()):  
                 all_data = dialogue_data['train']
-                diag_id = {"multiwoz": 'dialogue_id', 'sfxdial': 'id', 'dstc2': 'session-id'}
-                diag_id = diag_id[self.dataset]
                 #all_data = all_data.filter(lambda x: x['dialogue_id'] in rdf_ids)
                 all_data = all_data.filter(lambda x: x[diag_id] in rdf_ids)
                 train_val = all_data.train_test_split(test_size=0.2)
@@ -62,8 +62,11 @@ class DialogueData:
                 dialogue_data.update({'train': train_val['train'], 'validation': test_val['train'], 'test': test_val['test']})
 
             else:
-                all_data = concatenate_datasets([dialogue_data['validation'], dialogue_data['train'], dialogue_data['test']])  # splits are weird
-                all_data = all_data.filter(lambda x: x['dialogue_id'] in rdf_ids)
+                if 'validation' in dialogue_data.keys():
+                    all_data = concatenate_datasets([dialogue_data['validation'], dialogue_data['train'], dialogue_data['test']])  # splits are weird
+                else:
+                    all_data = concatenate_datasets([dialogue_data['train'], dialogue_data['test']])  # splits are weird
+                all_data = all_data.filter(lambda x: x[diag_id] in rdf_ids)
 
                 train_val = all_data.train_test_split(test_size=0.2)
                 test_val = train_val['test'].train_test_split(test_size=0.5)

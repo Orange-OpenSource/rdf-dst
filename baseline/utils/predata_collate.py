@@ -95,16 +95,6 @@ class BaselinePreDataCollator:
             model_input = [txt + ' STATE ' + states[i] for i, txt in enumerate(model_input[1:])]
             model_input.insert(0, first_turn)
 
-        print()
-        print("TITO")
-        count = 0
-        for i in model_input:
-            print(i)
-            print()
-            count += 1
-            if count == 8:
-                raise SystemExit
-
         return model_input, states, turn_ids
 
     def sfx_loop(self, batch):
