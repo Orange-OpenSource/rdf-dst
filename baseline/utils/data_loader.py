@@ -5,7 +5,7 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 SEED = 42  # for replication purposes
-disable_caching()  # we have a lot of different collators that depend on data sets and experimental setup. We have to avoid reloading previous maps
+#disable_caching()  # we have a lot of different collators that depend on data sets and experimental setup. We have to avoid reloading previous maps
 
 class DialogueData:
     """

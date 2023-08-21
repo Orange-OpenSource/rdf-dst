@@ -51,6 +51,18 @@ class BaselinePreDataCollator:
 
         return {'input_ids': input_ids, 'attention_mask': attention_mask,
                 'labels': labels, 'dialogue_id': dialogue_ids, 'turn_number': turn_number}
+    
+    def model_input_processing(self, model_input, states):
+
+        if self.exp_setup in [1, 4]:
+            # non linearized, they are in a list so tokenizer can work with these
+            first_turn = model_input[0]
+            prev_states = ['STATE ' + state if state != '' else state for state in states[:-1]]
+
+            model_input = [txt + ' ' + s for txt, s in zip(model_input[1:], prev_states)]
+            model_input.insert(0, first_turn)
+        
+        return model_input
 
     def create_inputs_outputs_dstc2(self, dialogue_data):
 
@@ -63,11 +75,31 @@ class BaselinePreDataCollator:
             system = t['output']
             user = t['label']
 
-            sys_slot_vals = [s_v['slots'] for s_v in system['dialog-acts']]
-            sys_slot_vals = {sv['name']: sv['value'] for sv in sys_slot_vals}
-            user_slot_vals = {sv['name']: sv['value'] for sv in user['goal_labels']}
-            missing_slots = set(sys_slot_vals.keys()) - set(user_slot_vals.keys())
-            sys_slot_vals = {slot: sys_slot_vals[slot] for slot in missing_slots}
+            sys_slot_vals = [s_v['slots'] for s_v in system['dialog-acts'] if s_v['slots']]
+            user_slot_vals = [s_v['slots'] for s_v in user['dialog-acts'] if s_v['slots']]
+            if sys_slot_vals:
+                sys_slot_vals = sys_slot_vals[0] if isinstance(sys_slot_vals[0], list) and len(sys_slot_vals) == 1 else sys_slot_vals
+                sys_slot_vals = {sv['name']: sv['value'] for sv in sys_slot_vals if isinstance(sv, dict)}
+            if user_slot_vals:
+                user_slot_vals = user_slot_vals[0] if isinstance(user_slot_vals[0], list) and len(user_slot_vals) == 1 else user_slot_vals
+                user_slot_vals = {sv['name']: sv['value'] for sv in user_slot_vals if isinstance(sv, dict)}
+                #except TypeError:
+                #    print("TITO")
+                #    print()
+                #    print(user_slot_vals)
+                #    print("JIJI")
+                #    raise SystemExit
+
+
+            if user_slot_vals and sys_slot_vals:
+                missing_slots = set(sys_slot_vals.keys()) - set(user_slot_vals.keys())
+                sys_slot_vals = {slot: sys_slot_vals[slot] for slot in missing_slots}
+            
+            elif not isinstance(user_slot_vals, dict):
+                user_slot_vals = {}
+
+            elif not isinstance(sys_slot_vals, dict):
+                sys_slot_vals = {}
 
             slot_values = {**sys_slot_vals, **user_slot_vals}
             slot_values = [f'{clean_slot_val(slot)}={clean_slot_val(value)}' for slot, value in slot_values.items()]
@@ -89,11 +121,8 @@ class BaselinePreDataCollator:
                 txt_input = default_input
 
             model_input.append(txt_input.strip().lower())
-        if self.exp_setup in [1, 4]:
-            first_turn = model_input[0]
-            #txt_input = [txt + states[i] for i, txt in enumerate(txt_input[1:])]
-            model_input = [txt + ' STATE ' + states[i] for i, txt in enumerate(model_input[1:])]
-            model_input.insert(0, first_turn)
+
+        model_input = self.model_input_processing(model_input, states)
 
         return model_input, states, turn_ids
 
@@ -174,11 +203,8 @@ class BaselinePreDataCollator:
 
             model_input.append(txt_input.strip().lower())
 
-        if self.exp_setup in [1, 4]:
-            first_turn = model_input[0]
-            #txt_input = [txt + states[i] for i, txt in enumerate(txt_input[1:])]
-            model_input = [txt + ' STATE ' + states[i] for i, txt in enumerate(model_input[1:])]
-            model_input.insert(0, first_turn)
+        model_input = self.model_input_processing(model_input, states)
+
 
         return model_input, states, turn_ids
 
@@ -257,24 +283,9 @@ class BaselinePreDataCollator:
                 txt_input = curr_user
 
             model_input.append(txt_input.strip().lower())
-        if self.exp_setup in [1, 3, 4]:
-            first_turn = model_input[0]
-            #txt_input = [txt + states[i] for i, txt in enumerate(txt_input[1:])]
-            model_input = [txt + ' STATE ' + states[i] for i, txt in enumerate(model_input[1:])]
-            model_input.insert(0, first_turn)
-        elif self.exp_setup == 6:
-            model_input = ['STATE ' + state for state in states[1:]]
-            model_input.insert(0, ' ')
-        print()
-        print("TITO")
-        count = 0
-        for i in model_input:
-            print(i)
-            print()
-            count += 1
-            if count == 8:
-                raise SystemExit
 
+        model_input = self.model_input_processing(model_input, states)
+        
 
         return model_input, states, turn_ids
 
