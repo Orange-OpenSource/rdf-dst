@@ -153,7 +153,7 @@ def main():
 
 
     cut_context = True if experimental_setup == 1 else False
-    collator = PreDataCollator(tokenizer, source_len, target_len, experimental_setup,
+    collator = PreDataCollator(tokenizer, source_len, target_len, experimental_setup, dataset_type=dataset,
                                ignore_inter=ignore_inter, cut_context=cut_context)
     dataloaders = preprocessing(collator, dataset, num_workers, batch_size, method)
 

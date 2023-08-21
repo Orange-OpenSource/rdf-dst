@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from utils.postprocessing import clean_slot_val
 import random
+import re
 
 
 @dataclass
@@ -29,12 +30,154 @@ class BaselinePreDataCollator:
         return self.data_collation(batch)
     
     def dstc2_loop(self, batch):
-        pass
+        # system greets first
+        input_ids = []
+        attention_mask = []
+        labels = []
+        dialogue_ids = []
+        turn_number = []
+
+        for diag_id, dialogue_data in zip(batch['session-id'], batch['turns']):  # dict, history is a str that is the key
+            txt_input, slot_value, turn_ids = self.create_inputs_outputs_dstc2(dialogue_data)
+
+            turn_number.extend(turn_ids)
+            dialogue_ids.extend([diag_id] * len(turn_ids))
+            for txt, s_v in zip(txt_input, slot_value):
+                tokenized = self.tokenize(txt, s_v)
+
+                input_ids.append(tokenized['input_ids'])
+                attention_mask.append(tokenized['attention_mask'])
+                labels.append(tokenized['labels'])
+
+        return {'input_ids': input_ids, 'attention_mask': attention_mask,
+                'labels': labels, 'dialogue_id': dialogue_ids, 'turn_number': turn_number}
+
+    def create_inputs_outputs_dstc2(self, dialogue_data):
+
+        # sys slot vals before user input, so it's fine here because the system greets first
+        states = []
+        model_input = []
+        turn_ids = []
+        context = ''
+        for i, t in enumerate(dialogue_data):
+            system = t['output']
+            user = t['label']
+
+            sys_slot_vals = [s_v['slots'] for s_v in system['dialog-acts']]
+            sys_slot_vals = {sv['name']: sv['value'] for sv in sys_slot_vals}
+            user_slot_vals = {sv['name']: sv['value'] for sv in user['goal_labels']}
+            missing_slots = set(sys_slot_vals.keys()) - set(user_slot_vals.keys())
+            sys_slot_vals = {slot: sys_slot_vals[slot] for slot in missing_slots}
+
+            slot_values = {**sys_slot_vals, **user_slot_vals}
+            slot_values = [f'{clean_slot_val(slot)}={clean_slot_val(value)}' for slot, value in slot_values.items()]
+
+            states.append(slot_values)
+            turn_ids.append(i)
+            sys_utterance = 'SYSTEM ' + system['transcript'] + ' '
+            user_utterance = 'USER ' + user['transcription'] + ' '
+
+            default_input = sys_utterance + user_utterance
+
+            context += default_input
+
+            if self.exp_setup in [1, 2]:
+                txt_input = context + default_input
+            elif self.exp_setup in [4, 5]:
+                txt_input = default_input
+
+            model_input.append(txt_input.strip().lower())
+        if self.exp_setup in [1, 4]:
+            first_turn = model_input[0]
+            #txt_input = [txt + states[i] for i, txt in enumerate(txt_input[1:])]
+            model_input = [txt + ' STATE ' + states[i] for i, txt in enumerate(model_input[1:])]
+            model_input.insert(0, first_turn)
+
+        return model_input, states, turn_ids
 
     def sfx_loop(self, batch):
-        pass
+        # system greets first
+        input_ids = []
+        attention_mask = []
+        labels = []
+        dialogue_ids = []
+        turn_number = []
+
+        for diag_id, dialogue_data in zip(batch['id'], batch['dial']):  # dict, history is a str that is the key
+            txt_input, slot_value, turn_ids = self.create_inputs_outputs_sfx(dialogue_data)
+
+            turn_number.extend(turn_ids)
+            dialogue_ids.extend([diag_id] * len(turn_ids))
+            for txt, s_v in zip(txt_input, slot_value):
+                tokenized = self.tokenize(txt, s_v)
+
+                input_ids.append(tokenized['input_ids'])
+                attention_mask.append(tokenized['attention_mask'])
+                labels.append(tokenized['labels'])
+
+        return {'input_ids': input_ids, 'attention_mask': attention_mask,
+                'labels': labels, 'dialogue_id': dialogue_ids, 'turn_number': turn_number}
+    
+    def helper_sfx_func(self, raw_slot_values):
+        pattern = re.compile(r'\((.*?)\)')
+        slot_vals = []
+        for raw_sys in raw_slot_values:
+            mo = pattern.search(raw_sys)
+            if mo:
+                new_sv = mo.group(1)
+
+                new_sv = new_sv.split(';')
+                new_sv = {s_v.split('=')[0] if '=' in s_v else s_v: s_v.split('=')[1] if '=' in s_v else '?' for s_v in new_sv} 
+                new_sv = {s.strip("'") if s.startswith("'") and s.endswith("'") else s: v.strip("'") if v.startswith("'") and v.endswith("'") else v for s, v in new_sv.items()}
+                slot_vals.append(new_sv)
+        return {slot: value for dictionary in slot_vals for slot, value in dictionary.items() if slot}
+
+    def create_inputs_outputs_sfx(self, dialogue_data):
+
+        # sys slot vals before user input, so it's fine here because the system greets first
+        states = []
+        model_input = []
+        turn_ids = []
+        context = ''
+
+        for i, d in enumerate(dialogue_data):
+            raw_sys_vals = d['S']['dact']
+            raw_user_vals = d['U']['dact']
+            sys_slot_vals = self.helper_sfx_func(raw_sys_vals)
+            user_slot_vals = self.helper_sfx_func(raw_user_vals)
+
+            missing_slots = set(sys_slot_vals.keys()) - set(user_slot_vals.keys())
+            sys_slot_vals = {slot: sys_slot_vals[slot] for slot in missing_slots}
+
+            slot_values = {**sys_slot_vals, **user_slot_vals}
+            slot_values = [f'{clean_slot_val(slot)}={clean_slot_val(value)}' for slot, value in slot_values.items()]
+
+            states.append(slot_values)
+            turn_ids.append(i)
+
+            sys_utterance = 'SYSTEM ' + d['S']['base'] + ' '
+            user_utterance = 'USER ' +  d['U']['hyp'] + ' '
+
+            default_input = sys_utterance + user_utterance
+
+            context += default_input
+
+            if self.exp_setup in [1, 2]:
+                txt_input = context + default_input
+            elif self.exp_setup in [4, 5]:
+                txt_input = default_input
+
+            model_input.append(txt_input.strip().lower())
+        if self.exp_setup in [1, 4]:
+            first_turn = model_input[0]
+            #txt_input = [txt + states[i] for i, txt in enumerate(txt_input[1:])]
+            model_input = [txt + ' STATE ' + states[i] for i, txt in enumerate(model_input[1:])]
+            model_input.insert(0, first_turn)
+
+        return model_input, states, turn_ids
 
     def multiwoz_loop(self, batch):
+        # user greets first
         input_ids = []
         attention_mask = []
         labels = []

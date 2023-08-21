@@ -11,8 +11,13 @@ import re
 @dataclass
 class PreDataCollator:
     
-    def __init__(self, tokenizer, source_len, target_len, exp_setup, ignore_inter, cut_context):
+    def __init__(self, tokenizer, source_len, target_len, exp_setup, dataset_type, ignore_inter, cut_context):
 
+        data_collation = {"multiwoz": self.create_inputs_outputs_multiwoz,
+                          "dstc2": self.create_inputs_outputs_dstc2_sfx, "sfx": self.create_inputs_outputs_dstc2_sfx}
+        self.data_collation = data_collation[dataset_type]
+
+        self.dataset_type = dataset_type
         self.cut_context = cut_context
         self.ignore_inter_states = ignore_inter
         self.exp_setup = exp_setup
@@ -37,7 +42,7 @@ class PreDataCollator:
 
 
         for diag_id, dialogue, states in zip(batch['dialogue_id'], batch['turns'], batch['states']):  # dict, history is a str that is the key
-            txt_input, label_rdf = self.create_inputs_outputs(dialogue, states)
+            txt_input, label_rdf = self.data_collation(dialogue, states)
 
             for turn, (txt, rdf) in enumerate(zip(txt_input, label_rdf), 0):
                 tokenized = self.tokenize(txt, rdf)
@@ -70,6 +75,7 @@ class PreDataCollator:
         Current implementation has triples from the curr sys utterance, they have to be moved.
         The DST Task is user intent, not system and user intent
         # what are the intents then? https://gitlab.tech.orange/NEPAL/task-oriented-dialogue/poc-rdf/-/blob/master/poc_rdf/dst.py
+        ONLY FOR MULTIWOZ, OTHER STATES ARE FINE
         """
         user_raw_states = []
         sys_raw_states = []
@@ -110,23 +116,14 @@ class PreDataCollator:
         states = list(states)
         return [[node for rdf in state for node in rdf] for state in states]
     
-    def create_inputs_outputs(self, dialogue, states):
-        """
-        This is where we choose the inputs and the rdf we will predict.
-        Since we are using the whole state history and the first state cannot be predicted
-        with a previous state, we initialize with an empty state and try to predict current state
-        # pretokenizing: https://huggingface.co/learn/nlp-course/chapter6/4
-        """
 
-        # we can flatten all of the rdf-states and treat them as strings. But maybe the only last one matters?
-        toks = {"user": 'USER ', "system": "SYSTEM "}
-
-
-        # removing system triples, user and states that pollute generation
+    def states_processing(self, states):
         if self.ignore_inter_states:
             states = map(lambda state: list(filter(self.filter_triples, state['triples'])), states)
             states = list(states)
-            states = self.rearrange_sys_triples(states)
+            if self.dataset_type == "multiwoz":
+                states = self.rearrange_sys_triples(states)
+
         else:
             states = [state['triples'] for state in states]
         
@@ -134,48 +131,11 @@ class PreDataCollator:
 
         linearized_states = map(lambda state: ','.join([';'.join(state[i:i+3]) for i in range(0, len(state), 3)]), states)
         labels = list(linearized_states)
-
-        context = ''
-        if self.exp_setup == 6:
-            #model_input = list(map(lambda state: ['STATE '] + state, states[:-1]))
-            model_input = ['STATE ' + state for state in labels[:-1]]
-            model_input.insert(0, 'STATE ')
-
-        else:
-
-            model_input = []
-            for i in range(0, len(dialogue), 2):
-
-                # USER UTTERANCE
-                usr_speaker = dialogue[i]['speaker']
-                curr_turn_usr = toks[usr_speaker] + dialogue[i]['text']
-                prev_turn_sys = ''
-                if i > 0:
-                    # prev sys utterance
-                    sys_speaker = dialogue[i+1]['speaker']
-                    prev_turn_sys = toks[sys_speaker] + dialogue[i-1]['text']
-
-                    if self.exp_setup in [1, 2]:
-                        # prev user utterance
-                        prev_turn_user = toks[usr_speaker] + dialogue[i-2]['text']
-                        context += (prev_turn_user + ' ' + prev_turn_sys + ' ')
-                
-                
-
-                if self.exp_setup == 3:
-                    curr_turn_input = (prev_turn_sys + curr_turn_usr).strip()
-                if self.exp_setup in [4, 5]:
-                    curr_turn_input = curr_turn_usr.strip()
-                elif self.exp_setup in [1, 2]:
-                    curr_turn_input = (context + curr_turn_usr).strip()
-                    if self.exp_setup == 1:
-                        curr_turn_input = curr_turn_input.split()
+        return {"states": states, "labels": labels}
 
 
-                model_input.append(curr_turn_input)
+    def model_input_processing(self, model_input, states, labels):
 
-
-        
         if self.exp_setup == 1:
             # non linearized, they are in a list so tokenizer can work with these
             prev_states = list(map(lambda state: ['STATE '] + state, states[:-1]))
@@ -191,6 +151,100 @@ class PreDataCollator:
         if self.cut_context and self.exp_setup == 1:
             model_input = list(map(self.reduce_context, model_input))
 
+        return model_input
+
+
+    def create_inputs_outputs_dstc2_sfx(self, dialogue, states):
+        """
+        This is where we choose the inputs and the rdf we will predict.
+        Since we are using the whole state history and the first state cannot be predicted
+        with a previous state, we initialize with an empty state and try to predict current state
+        # pretokenizing: https://huggingface.co/learn/nlp-course/chapter6/4
+        """
+
+        toks = {"user": 'USER ', "system": "SYSTEM "}
+
+        context = ''
+
+        model_input = []
+        # removing system triples, user and states that pollute generation
+        processed_states = self.states_processing
+        states = processed_states['states']
+        labels = processed_states['labels']
+        for i in range(0, len(dialogue), 2):
+
+            # SYS UTTERANCE
+            sys_speaker = dialogue[i]['speaker']
+            sys_utterance = toks[sys_speaker] + dialogue[i]['text']
+
+            usr_speaker = dialogue[i+1]['speaker']
+            usr_utterance = toks[usr_speaker] + dialogue[i-1]['text']
+
+            curr_turn_input = sys_utterance + ' ' + usr_utterance
+
+            if self.exp_setup in [1, 2]:
+                context += (curr_turn_input + ' ')
+            
+            
+            if self.exp_setup in [4, 5]:
+                curr_turn_input = curr_turn_input.strip()
+            elif self.exp_setup in [1, 2]:
+                curr_turn_input = (context + curr_turn_input).strip()
+                if self.exp_setup == 1:
+                    curr_turn_input = curr_turn_input.split()
+
+            model_input.append(curr_turn_input)
+
+        model_input = self.model_input_processing(model_input, states, labels)
+        
+        return model_input, labels
+
+    def create_inputs_outputs_multiwoz(self, dialogue, states):
+        """
+        This is where we choose the inputs and the rdf we will predict.
+        Since we are using the whole state history and the first state cannot be predicted
+        with a previous state, we initialize with an empty state and try to predict current state
+        # pretokenizing: https://huggingface.co/learn/nlp-course/chapter6/4
+        """
+
+        toks = {"user": 'USER ', "system": "SYSTEM "}
+
+        context = ''
+
+        model_input = []
+        # removing system triples, user and states that pollute generation
+        processed_states = self.states_processing
+        states = processed_states['states']
+        labels = processed_states['labels']
+        for i in range(0, len(dialogue), 2):
+
+            # USER UTTERANCE
+            usr_speaker = dialogue[i]['speaker']
+            curr_turn_usr = toks[usr_speaker] + dialogue[i]['text']
+            prev_turn_sys = ''
+            if i > 0:
+                # prev sys utterance
+                sys_speaker = dialogue[i+1]['speaker']
+                prev_turn_sys = toks[sys_speaker] + dialogue[i-1]['text']
+
+                if self.exp_setup in [1, 2]:
+                    # prev user utterance
+                    prev_turn_user = toks[usr_speaker] + dialogue[i-2]['text']
+                    context += (prev_turn_user + ' ' + prev_turn_sys + ' ')
+            
+            
+            if self.exp_setup in [4, 5]:
+                curr_turn_input = curr_turn_usr.strip()
+            elif self.exp_setup in [1, 2]:
+                curr_turn_input = (context + curr_turn_usr).strip()
+                if self.exp_setup == 1:
+                    curr_turn_input = curr_turn_input.split()
+
+
+            model_input.append(curr_turn_input)
+
+        model_input = self.model_input_processing(model_input, states, labels)
+        
         return model_input, labels
 
 

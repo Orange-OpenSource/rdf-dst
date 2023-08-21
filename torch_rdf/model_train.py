@@ -215,7 +215,8 @@ def main():
     cut_context = True if experimental_setup == 1 else False
     #cut_context = True if ((model_name[:2] == 't5') and (experimental_setup == 1)) else False
 
-    collator = PreDataCollator(tokenizer, source_len, target_len, experimental_setup,
+
+    collator = PreDataCollator(tokenizer, source_len, target_len, experimental_setup, dataset_type=dataset,
                                ignore_inter=ignore_inter, cut_context=cut_context)
     logging.info("Size of the tokenizer changed in the data collator. Special tokens added, resizing token embeddings")
     model.resize_token_embeddings(len(tokenizer))
