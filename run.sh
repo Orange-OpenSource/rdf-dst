@@ -32,7 +32,7 @@ function usage {
     echo "                             (example and default val: 1)"
     echo "  --batch integer             select batch size 16, 8, or 4" 
     echo "                              (example : 4)" 
-    echo "  --ig  string               select yes or no. Ignore inter states for rdf but yes for baseline" 
+    echo "  --ig  string               select yes or no. Ignore inter states for rdf so yes. In baseline should be yes" 
     echo "                              (example : no)" 
     echo ""
 }
@@ -102,13 +102,13 @@ if [[ $debug == "yes" ]]; then
     -workers "$workers" -model "$model" -model_size "$size" -subset yes -device cuda -method online -peft lora
 elif [[ $debug == "no" ]]; then
     if [[ $framework == "baseline" ]]; then
-        python "$script" -epochs 5 --batch "$batch" -d "$dataset" -workers "$workers" -store yes \
+        CUDA_VISIBLE_DEVICES=1 python "$script" -epochs 5 --batch "$batch" -d "$dataset" -workers "$workers" -store yes \
         -experiment "$experiment" -model "$model" -incl "$ig" -model_size "$size" \
-        -logger yes -subset no -method offline -beam 5
+        -logger no -subset no -method offline -beam 5
     else
         python "$script" -epochs 5 --batch "$batch" -d "$dataset" -workers "$workers" \
         -store yes -experiment "$experiment" -model "$model" -ig "$ig" \
-        -model_size "$size" -logger yes -subset no -method offline -beam 5
+        -model_size "$size" -logger no -subset no -method offline -beam 5
         #CUDA_VISIBLE_DEVICES=0 python model_evaluate.py -epochs 5 --batch "$eval_batch" -d multiwoz -workers "$workers" -store yes -experiment "$experiment" -model "$model" -model_size "$size" -logger no -subset no -method offline -beam 5
     fi
 else
