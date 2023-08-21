@@ -11,7 +11,7 @@ class BaselinePreDataCollator:
 
         self.exp_setup = exp_setup
         self.include_prev_sys = include_prev_sys
-        data_collation = {"multiwoz": self.multiwoz_loop, "dstc2": self.dstc2_loop, "sfx": self.sfx_loop}
+        data_collation = {"multiwoz": self.multiwoz_loop, "dstc2": self.dstc2_loop, "sfxdial": self.sfx_loop}
         self.data_collation = data_collation[dataset_type]
         self.source_len = source_len
         self.target_len = target_len
@@ -71,11 +71,13 @@ class BaselinePreDataCollator:
 
             slot_values = {**sys_slot_vals, **user_slot_vals}
             slot_values = [f'{clean_slot_val(slot)}={clean_slot_val(value)}' for slot, value in slot_values.items()]
+            slot_values = random.sample(slot_values, len(slot_values))
 
-            states.append(slot_values)
+            states.append(';'.join(slot_values))
+
             turn_ids.append(i)
-            sys_utterance = 'SYSTEM ' + system['transcript'] + ' '
-            user_utterance = 'USER ' + user['transcription'] + ' '
+            sys_utterance = 'SYSTEM ' + system['transcript'] + ' ' if system['transcript'] else ''
+            user_utterance = 'USER ' + user['transcription'] + ' ' if user['transcription'] else ''
 
             default_input = sys_utterance + user_utterance
 
@@ -92,6 +94,16 @@ class BaselinePreDataCollator:
             #txt_input = [txt + states[i] for i, txt in enumerate(txt_input[1:])]
             model_input = [txt + ' STATE ' + states[i] for i, txt in enumerate(model_input[1:])]
             model_input.insert(0, first_turn)
+
+        print()
+        print("TITO")
+        count = 0
+        for i in model_input:
+            print(i)
+            print()
+            count += 1
+            if count == 8:
+                raise SystemExit
 
         return model_input, states, turn_ids
 
@@ -151,12 +163,15 @@ class BaselinePreDataCollator:
 
             slot_values = {**sys_slot_vals, **user_slot_vals}
             slot_values = [f'{clean_slot_val(slot)}={clean_slot_val(value)}' for slot, value in slot_values.items()]
+            slot_values = random.sample(slot_values, len(slot_values))
 
-            states.append(slot_values)
+            states.append(';'.join(slot_values))
             turn_ids.append(i)
 
-            sys_utterance = 'SYSTEM ' + d['S']['base'] + ' '
-            user_utterance = 'USER ' +  d['U']['hyp'] + ' '
+            raw_sys_utter = d['S']['base']
+            raw_user_utter = d['U']['hyp']
+            sys_utterance = 'SYSTEM ' + raw_sys_utter + ' ' if raw_sys_utter else ''
+            user_utterance = 'USER ' +  raw_user_utter + ' ' if raw_user_utter else ''
 
             default_input = sys_utterance + user_utterance
 
@@ -168,6 +183,7 @@ class BaselinePreDataCollator:
                 txt_input = default_input
 
             model_input.append(txt_input.strip().lower())
+
         if self.exp_setup in [1, 4]:
             first_turn = model_input[0]
             #txt_input = [txt + states[i] for i, txt in enumerate(txt_input[1:])]
@@ -259,6 +275,16 @@ class BaselinePreDataCollator:
         elif self.exp_setup == 6:
             model_input = ['STATE ' + state for state in states[1:]]
             model_input.insert(0, ' ')
+        print()
+        print("TITO")
+        count = 0
+        for i in model_input:
+            print(i)
+            print()
+            count += 1
+            if count == 8:
+                raise SystemExit
+
 
         return model_input, states, turn_ids
 

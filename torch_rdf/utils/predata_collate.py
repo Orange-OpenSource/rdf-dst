@@ -14,7 +14,7 @@ class PreDataCollator:
     def __init__(self, tokenizer, source_len, target_len, exp_setup, dataset_type, ignore_inter, cut_context):
 
         data_collation = {"multiwoz": self.create_inputs_outputs_multiwoz,
-                          "dstc2": self.create_inputs_outputs_dstc2_sfx, "sfx": self.create_inputs_outputs_dstc2_sfx}
+                          "dstc2": self.create_inputs_outputs_dstc2_sfx, "sfxdial": self.create_inputs_outputs_dstc2_sfx}
         self.data_collation = data_collation[dataset_type]
 
         self.dataset_type = dataset_type
@@ -140,7 +140,7 @@ class PreDataCollator:
             # non linearized, they are in a list so tokenizer can work with these
             prev_states = list(map(lambda state: ['STATE '] + state, states[:-1]))
             model_input = model_input[:1] + list(map(list.__add__, model_input[1:], prev_states))
-        elif self.exp_setup in [3, 4]:
+        elif self.exp_setup == 4:
             first_turn = model_input[0]
             prev_states = ['STATE ' + state for state in labels[:-1]]
             model_input = [txt + ' ' + s for txt, s in zip(model_input[1:], prev_states)]
@@ -150,7 +150,7 @@ class PreDataCollator:
 
         if self.cut_context and self.exp_setup == 1:
             model_input = list(map(self.reduce_context, model_input))
-
+        
         return model_input
 
 
@@ -168,17 +168,17 @@ class PreDataCollator:
 
         model_input = []
         # removing system triples, user and states that pollute generation
-        processed_states = self.states_processing
+        processed_states = self.states_processing(states)
         states = processed_states['states']
         labels = processed_states['labels']
         for i in range(0, len(dialogue), 2):
 
             # SYS UTTERANCE
             sys_speaker = dialogue[i]['speaker']
-            sys_utterance = toks[sys_speaker] + dialogue[i]['text']
+            sys_utterance = toks[sys_speaker] + dialogue[i]['text'] if dialogue[i]['text'] else ''
 
             usr_speaker = dialogue[i+1]['speaker']
-            usr_utterance = toks[usr_speaker] + dialogue[i-1]['text']
+            usr_utterance = toks[usr_speaker] + dialogue[i+1]['text'] if dialogue[i+1]['text'] else ''
 
             curr_turn_input = sys_utterance + ' ' + usr_utterance
 
@@ -189,7 +189,7 @@ class PreDataCollator:
             if self.exp_setup in [4, 5]:
                 curr_turn_input = curr_turn_input.strip()
             elif self.exp_setup in [1, 2]:
-                curr_turn_input = (context + curr_turn_input).strip()
+                curr_turn_input = context.strip()
                 if self.exp_setup == 1:
                     curr_turn_input = curr_turn_input.split()
 
@@ -210,10 +210,9 @@ class PreDataCollator:
         toks = {"user": 'USER ', "system": "SYSTEM "}
 
         context = ''
-
         model_input = []
         # removing system triples, user and states that pollute generation
-        processed_states = self.states_processing
+        processed_states = self.states_processing(states)
         states = processed_states['states']
         labels = processed_states['labels']
         for i in range(0, len(dialogue), 2):
