@@ -1,0 +1,20 @@
+
+https://paperswithcode.com/paper/incorporating-graph-information-in
+https://github.com/sapienzanlp/leakdistill
+
+https://github.com/emrecanacikgoz/adapter-transformers/blob/ec2484fd5248d39a94280f0efee54d9b847a2121/examples/pytorch/text-generation/run_generation.py
+
+https://github.com/emrecanacikgoz/adapter-transformers/tree/ec2484fd5248d39a94280f0efee54d9b847a2121
+
+https://github.com/Adapter-Hub/adapter-transformers/tree/master/notebooks
+
+
+https://github.com/AlibabaResearch/DAMO-ConvAI/blob/45ac3158281c5e5e86837b701a299b39974fe5f5/graphix/data_all_in/run/run_preprocessing_training.sh
+
+https://github.com/UKPLab/StructAdapt/blob/master/preprocess/preproc_amr_graph.py
+
+https://github.com/UKPLab/StructAdapt/blob/master/convert_graph_tokenizer.py
+
+https://github.com/search?q=T5AdapterModel&type=code
+
+graph layers in large language models github

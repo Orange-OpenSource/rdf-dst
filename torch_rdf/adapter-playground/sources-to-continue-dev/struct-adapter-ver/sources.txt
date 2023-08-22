@@ -1,0 +1,15 @@
+https://github.com/SapienzaNLP/spring/blob/main/spring_amr/modeling_bart.py
+
+https://github.com/UKPLab/StructAdapt/blob/master/transformers/modeling_t5.py
+
+https://github.com/sapienzanlp/leakdistill
+
+https://github.com/UKPLab/StructAdapt/blob/master/transformers/rgcn_custom.py
+
+https://github.com/UKPLab/StructAdapt/blob/master/transformers/gat_utils.py
+
+https://gitlab.tech.orange/nlp/nlg/relative_positional_embeddings/-/blob/master/transformers/modeling_t5.py
+
+# do in eed these?
+
+https://gitlab.tech.orange/nlp/nlg/relative_positional_embeddings/-/blob/master/transformers/configuration_t5.py
