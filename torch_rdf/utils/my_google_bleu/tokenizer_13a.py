@@ -1,5 +1,4 @@
-# Source: https://github.com/mjpost/sacrebleu/blob/master/sacrebleu/tokenizers/tokenizer_13a.py
-# Copyright 2020 SacreBLEU Authors.
+# Copyright 2023 Orange
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,6 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+# Software Name : knowledge-graph-dst
+# Version: 1.0.0
+# SPDX-FileCopyrightText: Copyright (c) 2023 Orange
+# SPDX-License-Identifier: MIT
+# This software is distributed under the MIT,
+# the text of which is available at https://opensource.org/licenses/MIT
+# or see the "LICENSE" file for more details.
+# Author: H. Andres Gonzalez
 
 import re
 from functools import lru_cache

@@ -1,6 +1,5 @@
 # Instructions
 
-THIS IS THE MANUAL VERSION OF THE SYSTEM TO AVOID AWS ISSUES ON NADIA
 
 ## Getting started
 
