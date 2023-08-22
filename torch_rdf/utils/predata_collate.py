@@ -118,39 +118,27 @@ class PreDataCollator:
     
 
     def states_processing(self, states):
-        if self.ignore_inter_states:
-            states = map(lambda state: list(filter(self.filter_triples, state['triples'])), states)
-            states = list(states)
-            if self.dataset_type == "multiwoz":
-                states = self.rearrange_sys_triples(states)
+        states = map(lambda state: list(filter(self.filter_triples, state['triples'])), states)
+        states = list(states)
+        if self.dataset_type == "multiwoz":
+            states = self.rearrange_sys_triples(states)
 
-        else:
-            states = [state['triples'] for state in states]
         
         states  = self.clean_states(states)
 
         linearized_states = map(lambda state: ','.join([';'.join(state[i:i+3]) for i in range(0, len(state), 3)]), states)
         labels = list(linearized_states)
-        return {"states": states, "labels": labels}
+        return labels
 
 
-    def model_input_processing(self, model_input, states, labels):
+    def model_input_processing(self, model_input, labels):
 
-        if self.exp_setup == 1:
-            # non linearized, they are in a list so tokenizer can work with these
-            prev_states = list(map(lambda state: ['STATE '] + state, states[:-1]))
-            model_input = model_input[:1] + list(map(list.__add__, model_input[1:], prev_states))
-        elif self.exp_setup == 4:
+        if self.exp_setup in [1, 4]:
             first_turn = model_input[0]
             prev_states = ['STATE ' + state for state in labels[:-1]]
             model_input = [txt + ' ' + s for txt, s in zip(model_input[1:], prev_states)]
             model_input.insert(0, first_turn)
 
-        # cutting context in T5 left to right because the sequence is too long.
-
-        if self.cut_context and self.exp_setup == 1:
-            model_input = list(map(self.reduce_context, model_input))
-        
         return model_input
 
 
@@ -168,9 +156,7 @@ class PreDataCollator:
 
         model_input = []
         # removing system triples, user and states that pollute generation
-        processed_states = self.states_processing(states)
-        states = processed_states['states']
-        labels = processed_states['labels']
+        labels = self.states_processing(states)
         for i in range(0, len(dialogue), 2):
 
             # SYS UTTERANCE
@@ -190,12 +176,10 @@ class PreDataCollator:
                 curr_turn_input = curr_turn_input.strip()
             elif self.exp_setup in [1, 2]:
                 curr_turn_input = context.strip()
-                if self.exp_setup == 1:
-                    curr_turn_input = curr_turn_input.split()
 
             model_input.append(curr_turn_input)
 
-        model_input = self.model_input_processing(model_input, states, labels)
+        model_input = self.model_input_processing(model_input, labels)
         
         return model_input, labels
 
@@ -212,9 +196,7 @@ class PreDataCollator:
         context = ''
         model_input = []
         # removing system triples, user and states that pollute generation
-        processed_states = self.states_processing(states)
-        states = processed_states['states']
-        labels = processed_states['labels']
+        labels = self.states_processing(states)
         for i in range(0, len(dialogue), 2):
 
             # USER UTTERANCE
@@ -236,42 +218,22 @@ class PreDataCollator:
                 curr_turn_input = curr_turn_usr.strip()
             elif self.exp_setup in [1, 2]:
                 curr_turn_input = (context + curr_turn_usr).strip()
-                if self.exp_setup == 1:
-                    curr_turn_input = curr_turn_input.split()
 
 
             model_input.append(curr_turn_input)
 
-        model_input = self.model_input_processing(model_input, states, labels)
+        model_input = self.model_input_processing(model_input, labels)
         
         return model_input, labels
 
 
-    def reduce_context(self, txt):
-        """
-        cut context for T5 because context is too long for standard T5
-        This has been hardcoded as 525, where we have observed that a list with more than these tokens, breaks the model
-        """
-        threshold = self.tokenizer.model_max_length // 2  # 512 usually
-        if len(txt) > threshold:
-            slice_val = len(txt) - threshold
-            txt = txt[slice_val:]
-        return txt
-
     def tokenize(self, dialogue : Iterable, rdf : str):
         
-        if self.exp_setup == 1:
-            encoding = self.tokenizer(dialogue,
-                           is_split_into_words=True,
-                           padding='max_length',
-                           truncation=True,
-                           max_length=self.source_len)
-        else:
-            encoding = self.tokenizer(dialogue,
-                           is_split_into_words=False,
-                           padding='max_length',
-                           truncation=True,
-                           max_length=self.source_len)
+        encoding = self.tokenizer(dialogue,
+                       is_split_into_words=False,
+                       padding='max_length',
+                       truncation=True,
+                       max_length=self.source_len)
         
         target_encoding = self.tokenizer(rdf, padding='max_length',
                                          is_split_into_words=False,

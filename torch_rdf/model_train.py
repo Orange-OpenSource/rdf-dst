@@ -166,7 +166,8 @@ def main():
         model = LongT5ForConditionalGeneration.from_pretrained(model_path)
         target_modules = ['q', 'v']
 
-    tokenizer = AutoTokenizer.from_pretrained(model_path, extra_ids=0, truncation=True, model_max_length=max([target_len, source_len])) 
+    tokenizer = AutoTokenizer.from_pretrained(model_path, extra_ids=0, truncation=True, truncation_side='left',
+                                              model_max_length=max([target_len, source_len])) 
     #tokenizer = AutoTokenizer.from_pretrained(model_path) 
     #tokenizer = AutoTokenizer.from_pretrained(config.base_model_name_or_path)
 

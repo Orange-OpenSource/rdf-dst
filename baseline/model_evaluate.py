@@ -31,7 +31,7 @@ def preprocessing(collator, dataset, num_workers, batch_size, method):
     return {'test': dataloaders["test"]}
 
 
-def load_model(model_path, file_path, peft):
+def load_model(tok_max_len, model_path, file_path, peft):
 
     ckpt_path = find_version_num(file_path, peft)
     #ckpt_path = '../results/models/tb_logs/flan-t5_experiment_1/version_0/checkpoints/best_dst_ckpt/'
@@ -43,7 +43,8 @@ def load_model(model_path, file_path, peft):
         config = PeftConfig.from_pretrained(peft_model_id)
         model = T5ForConditionalGeneration.from_pretrained(config.base_model_name_or_path)
         model = PeftModel.from_pretrained(model, peft_model_id)
-        tokenizer = AutoTokenizer.from_pretrained(config.base_model_name_or_path)
+        tokenizer = AutoTokenizer.from_pretrained(config.base_model_name_or_path, extra_ids=0, truncation_side='left',
+                                                  truncation=True, model_max_length=tok_max_len) 
         # TEMPORARY SOLUTION...
         #model = T5ForConditionalGeneration.from_pretrained(model_path)
         #model = PeftModel.from_pretrained(model, peft_model_id)
@@ -53,7 +54,8 @@ def load_model(model_path, file_path, peft):
 
     else:
         model = T5ForConditionalGeneration.from_pretrained(ckpt_path)
-        tokenizer = AutoTokenizer.from_pretrained(ckpt_path) 
+        tokenizer = AutoTokenizer.from_pretrained(ckpt_path, extra_ids=0, truncation_side='left',
+                                                  truncation=True, model_max_length=tok_max_len) 
 
     store_path = os.path.dirname(ckpt_path)
     return {"model": model, "tokenizer": tokenizer, "store_path": store_path}
@@ -125,7 +127,7 @@ def main():
     source_len = length_exp_setup[experimental_setup]["source_len"]
 
     target_len = length_exp_setup[experimental_setup]["target_len"]
-
+    tok_max_len = max([target_len, source_len])
     if not peft_type:
         peft_type = ''
     model_checkpoint_name = f"{model_name}_{args.model_size}_experiment_{experimental_setup}"
@@ -137,7 +139,7 @@ def main():
 
     file_path = os.path.join(path, 'tb_logs', model_checkpoint_name)
 
-    loaded_config = load_model(model_path, file_path, peft_type)
+    loaded_config = load_model(tok_max_len, model_path, file_path, peft_type)
     tokenizer = loaded_config["tokenizer"]
     model = loaded_config["model"]
 

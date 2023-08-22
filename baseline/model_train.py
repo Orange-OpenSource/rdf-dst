@@ -154,7 +154,7 @@ def main():
     method = args.method
 
     model = T5ForConditionalGeneration.from_pretrained(model_path)
-    tokenizer = AutoTokenizer.from_pretrained(model_path, extra_ids=0, #truncation_side='left',
+    tokenizer = AutoTokenizer.from_pretrained(model_path, extra_ids=0, truncation_side='left',
                                               truncation=True, model_max_length=max([target_len, source_len])) 
     target_modules = None  # depends on model... check their config
 

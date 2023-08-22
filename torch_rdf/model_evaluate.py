@@ -40,7 +40,7 @@ def evaluating(model, tokenizer, test_dataloader, device,
     my_evaluation(test_dataloader, validation=False, verbose=True)
     print(my_evaluation.results)
 
-def load_model(model_path, file_path, peft):
+def load_model(model_max_len, model_path, file_path, peft):
 
     ckpt_path = find_version_num(file_path, peft)
     #ckpt_path = '../results/models/tb_logs/flan-t5_experiment_1/version_0/checkpoints/best_dst_ckpt/'
@@ -57,14 +57,16 @@ def load_model(model_path, file_path, peft):
         model = PeftModel.from_pretrained(model, peft_model_id)
         if peft != 'prefix':
             model = model.merge_and_unload()
-        tokenizer = AutoTokenizer.from_pretrained(model_path) 
+        tokenizer = AutoTokenizer.from_pretrained(model_path, extra_ids=0, truncation=True, truncation_side='left',
+                                                  model_max_length=model_max_len) 
     else:
         if 'long' not in file_path:
             model = T5ForConditionalGeneration.from_pretrained(ckpt_path)
         else:
             model = LongT5ForConditionalGeneration.from_pretrained(ckpt_path)
 
-        tokenizer = AutoTokenizer.from_pretrained(ckpt_path) 
+        tokenizer = AutoTokenizer.from_pretrained(ckpt_path, extra_ids=0, truncation=True, truncation_side='left',
+                                                  model_max_length=model_max_len) 
 
     store_path = os.path.dirname(ckpt_path)
     return {"model": model, "tokenizer": tokenizer, "store_path": store_path}
@@ -119,7 +121,6 @@ def main():
                         5: {"source_len": 256,  "target_len": 1024, "setup": "user input"},
                         6: {"source_len": 1024, "target_len": 1024, "setup": "only states"}
                         }
-
     if args.experimental_setup in [4, 5, 6]:
         logging.warning(f"YOU ARE RUNNING ABLATION NUMBER {args.experimental_setup - 3}")
 
@@ -127,6 +128,7 @@ def main():
 
     source_len = length_exp_setup[experimental_setup]["source_len"]
     target_len = length_exp_setup[experimental_setup]["target_len"]
+    tokenizer_max_length = max([target_len, source_len])
     #source_len = source_len * 2 if ((model_name[:2] != 't5') and (experimental_setup == 1)) else source_len
     if not peft_type:
         peft_type = ''
@@ -140,7 +142,7 @@ def main():
     model_checkpoint_name = model_checkpoint_name.replace('google/', '')
     file_path = os.path.join(path, 'tb_logs', model_checkpoint_name)
 
-    loaded_config = load_model(model_path, file_path, peft_type)
+    loaded_config = load_model(tokenizer_max_length, model_path, file_path, peft_type)
     tokenizer = loaded_config["tokenizer"]
     model = loaded_config["model"]
     store_path = loaded_config["store_path"]
