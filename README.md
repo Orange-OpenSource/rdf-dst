@@ -1,3 +1,10 @@
+
+This repository contains the code to train, evaluate and analyse generative
+models (T5 family) for Dialogue State Tracking using graph-based semantic
+representation.
+
+Results from our experiments are described in [results/description.md](results/description.md).
+
 # Instructions
 
 
@@ -37,12 +44,8 @@ Line to visualize results:
 tensorboard --logdir tb_logs --bind_all
 ```
 
-## Results
-
-Results from our experiments are in the `results/` directory.
-
 # License
 
 Copyright (c) 2023 Orange
 
-This code is released under the MIT license and Apache 2.0 license. See the LICENSE file for more information.
+This code is released under the MIT license. See the LICENSE file for more information.
