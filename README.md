@@ -3,30 +3,13 @@
 
 ## Getting started
 
-The scripts to download the datasets are in this repo
+The scripts to download the datasets are in this repo in the `rdfdial/` directory.
 
-USING KISSINGCAT NOW, must install requests then run orange\_certs.py while making sure AWS credentials for kissingcat are in your env as well as your profile.
+Run setup to create a python virtual environment and install required dependencies.
 
-INSTRUCTIONS WILL BE UPDATED ACCORDINGLY. Running run.sh is enough
-
-```bash
-git@gitlab.tech.orange:kissingcat/hf-datasets.git
-```
-
-The datasets variable ```HF_DATASETS_DIR``` points to this path and this is needed to run from VMs at Orange.
-
-Run setup to install packages, download data, and convert it to RDF
 ```bash
 ./setup.sh
 ```
-
-The installation should include this [repo](https://gitlab.tech.orange/morgan.veyret/deeper/-/tree/master/), which in the setup file is installed by the following command
-
-```bash
-pip install git+ssh://git@gitlab.tech.orange/morgan.veyret/deeper.git
-```
-
-This is not mandatory, but it allows us to run this project as a job using docker.
 
 ## Data Preprocessing, Training and Inference
 
@@ -36,26 +19,28 @@ This is not mandatory, but it allows us to run this project as a job using docke
 
 Preprocessing of the converted RDF data, training, and inference is performed by the run script.
 
-
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+The code will look for the dataset loading script in `${HF_DATASETS_DIR}/rdfdial`.
+When `HF_DATASETS_DIR` variable is not set, it'll default to the project's root directory.
 
 ## Evaluation
 
-Based on this 
-
-[evaluation](https://github.com/Tomiinek/MultiWOZ_Evaluation/blob/master/mwzeval/metrics.py)
+Based on this [evaluation](https://github.com/Tomiinek/MultiWOZ_Evaluation/blob/master/mwzeval/metrics.py)
 
 Why is the most recent slot value that matters? See this:
 
 [2015 paper](https://static.googleusercontent.com/media/research.google.com/fr//pubs/archive/44018.pdf)
+
 ## Tensorboard
 
 Line to visualize results:
 ```bash
 tensorboard --logdir tb_logs --bind_all
 ```
+
+## Results
+
+Results from our experiments are in the `results/` directory.
+
 # License
 
 Copyright (c) 2023 Orange

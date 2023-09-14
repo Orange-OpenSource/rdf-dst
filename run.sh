@@ -21,7 +21,14 @@
 # or see the "LICENSE" file for more details.
 # Author: H. Andres Gonzalez
 
+#!/bin/bash -e
+# https://keestalkstech.com/2022/03/named-arguments-in-a-bash-script/
+
 DIR=./dst-snake
+
+export HF_DATASETS_DIR=${HF_DATASETS_DIR:-$(realpath $(dirname $0))}
+
+echo "Using dataset root: ${HF_DATASETS_DIR}"
 
 # default values, workers must be 1 with marcel... 6 with nadia?
 #experiment="${experiment:-1}"

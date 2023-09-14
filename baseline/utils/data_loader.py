@@ -62,7 +62,7 @@ class DialogueData:
 
             dialogue_data.cleanup_cache_files()
         else:
-            dialogue_rdf = load_dataset("rdfdial", self.dataset, download_mode='force_redownload').with_format("torch")
+            dialogue_rdf = load_dataset(os.path.join(os.getenv("HF_DATASETS_DIR"),"rdfdial"), self.dataset, download_mode='force_redownload').with_format("torch")
 
             #dialogue_rdf.cleanup_cache_files()
 

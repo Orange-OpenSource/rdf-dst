@@ -23,6 +23,7 @@
 
 
 # pip install python-gitlab
+import os
 from datasets import load_dataset, concatenate_datasets
 from transformers import AutoTokenizer
 from graph_collator import GraphCollator
@@ -31,7 +32,7 @@ from graph_collator import GraphCollator
 tokenizer = AutoTokenizer.from_pretrained("t5-small")
 collator = GraphCollator(tokenizer, "multiwoz")
 
-data = load_dataset("rdfdial", "multiwoz")
+data = load_dataset(os.getenv("HF_DATASETS_DIR","rdfdial"), "multiwoz")
 data = concatenate_datasets([data['train'], data['validation'], data['test']])
 
 data = data.map(collator, batched=True, remove_columns=['states'], load_from_cache_file=False)
